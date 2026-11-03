@@ -45,7 +45,7 @@ test('pruneState: keeps followed sources only', () => {
 test('folders trimmed of slashes; remotesFolder and gitPath never empty', () => {
 	const d = normalizeData({ forkFolder: '/Forks/', remotesFolder: '/', gitPath: ' /usr/bin/git ' });
 	assert.equal(d.forkFolder, 'Forks');
-	assert.equal(d.remotesFolder, 'remotes');
+	assert.equal(d.remotesFolder, '.remotes');
 	assert.equal(d.gitPath, '/usr/bin/git');
 	assert.equal(normalizeData({ remotesFolder: 'x/clones/' }).remotesFolder, 'x/clones');
 });

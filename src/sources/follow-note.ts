@@ -1,10 +1,10 @@
-// Follow notes: one per source in settings/remotes/ (docs/spec.md → Source; publictext spec §3.2).
+// Follow notes: one per source in follows/ (docs/spec.md → Source; publictext spec §3.2).
 // Pure: front matter in, sources out, and back.
 
 import { normalizeSource, type Source } from './schema.ts';
 
 /** Where follow notes live. Fixed by the spec, not a setting. */
-export const FOLLOWS_FOLDER = 'settings/remotes';
+export const FOLLOWS_FOLDER = 'follows';
 
 /** A source and the note it came from. */
 export interface Follow extends Source {
@@ -52,7 +52,7 @@ export function writeFollow(frontmatter: Record<string, unknown>, s: Source): vo
 	}
 }
 
-/** Notes in `settings/remotes/` → follows, duplicates and invalid notes. */
+/** Notes in `follows/` → follows, duplicates and invalid notes. */
 export function collectFollows(notes: { path: string; frontmatter: unknown }[]): FollowScan {
 	const sorted = notes.filter((n) => isFollowPath(n.path)).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 	const out: FollowScan = { follows: [], duplicates: [], invalid: [] };
@@ -69,7 +69,7 @@ export function collectFollows(notes: { path: string; frontmatter: unknown }[]):
 	return out;
 }
 
-/** `settings/remotes/<owner>-<repo>.md` for a canonical URL. */
+/** `follows/<owner>-<repo>.md` for a canonical URL. */
 export function followNotePath(url: string): string {
 	const [owner = '', repo = ''] = new URL(url).pathname.split('/').filter(Boolean);
 	return `${FOLLOWS_FOLDER}/${owner}-${repo}.md`;
