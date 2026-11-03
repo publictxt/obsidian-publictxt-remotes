@@ -1,4 +1,4 @@
-// What the plugin stores in data.json (docs/spec.md → Source, State).
+// Sources and what the plugin stores in data.json (docs/spec.md → Data, Source, State).
 // Pure: no Obsidian runtime imports, so tests run under plain Node.
 
 import { canonicalRepoUrl } from './repo-url.ts';
@@ -6,7 +6,7 @@ import { isRecord, isSha, repoPath, str } from '../util/validate.ts';
 
 export const DATA_VERSION = 1;
 
-/** A remote repo the user follows. Config. */
+/** A remote repo the user follows, read from its follow note (follow-note.ts). */
 export interface Source {
 	/** Canonical repo URL; the source's key. */
 	url: string;
@@ -36,8 +36,7 @@ export interface PublicTxtData {
 	remotesFolder: string;
 	/** The git executable; `git`: whatever is on PATH. */
 	gitPath: string;
-	sources: Source[];
-	/** Keyed by `Source.url`. */
+	/** Keyed by `Source.url`. Sources themselves are notes, not data. */
 	state: Record<string, SourceState>;
 }
 
@@ -46,7 +45,6 @@ export const DEFAULT_DATA: PublicTxtData = {
 	forkFolder: '',
 	remotesFolder: 'remotes',
 	gitPath: 'git',
-	sources: [],
 	state: {},
 };
 
@@ -59,9 +57,11 @@ function uniq(xs: string[]): string[] {
 	return [...new Set(xs)];
 }
 
+/** A list of repo paths; one string is a one-item list (front matter allows either). */
 function paths(v: unknown, folder: boolean): string[] {
-	if (!Array.isArray(v)) return [];
-	const out = v
+	const list = typeof v === 'string' ? [v] : v;
+	if (!Array.isArray(list)) return [];
+	const out = list
 		.map(repoPath)
 		.filter((p): p is string => p !== null)
 		.map((p) => (folder && !p.endsWith('/') ? `${p}/` : p));
@@ -99,30 +99,28 @@ function normalizeState(v: unknown): SourceState {
 	};
 }
 
-/** Anything loaded from data.json → valid data. Never throws. */
+/** Anything loaded from data.json → valid data. Never throws. Old `sources` are dropped. */
 export function normalizeData(v: unknown): PublicTxtData {
 	const r = isRecord(v) ? v : {};
-	const sources: Source[] = [];
-	const seen = new Set<string>();
-	for (const s of Array.isArray(r.sources) ? r.sources : []) {
-		const src = normalizeSource(s);
-		if (src && !seen.has(src.url)) {
-			seen.add(src.url);
-			sources.push(src);
-		}
-	}
 
-	// State for sources no longer followed is dropped; keys re-canonicalised.
+	// Keys re-canonicalised; pruning to followed sources waits for the vault scan (pruneState).
 	const state: Record<string, SourceState> = {};
 	if (isRecord(r.state)) {
 		for (const [k, st] of Object.entries(r.state)) {
 			const url = canonicalRepoUrl(k);
-			if (url && seen.has(url) && !state[url]) state[url] = normalizeState(st);
+			if (url && !state[url]) state[url] = normalizeState(st);
 		}
 	}
 
 	const forkFolder = vaultFolder(r.forkFolder) ?? DEFAULT_DATA.forkFolder;
 	const remotesFolder = vaultFolder(r.remotesFolder) || DEFAULT_DATA.remotesFolder;
 	const gitPath = str(r.gitPath) ?? DEFAULT_DATA.gitPath;
-	return { version: DATA_VERSION, forkFolder, remotesFolder, gitPath, sources, state };
+	return { version: DATA_VERSION, forkFolder, remotesFolder, gitPath, state };
+}
+
+/** State for sources no longer followed dropped. */
+export function pruneState(data: PublicTxtData, urls: Iterable<string>): PublicTxtData {
+	const keep = new Set(urls);
+	const state = Object.fromEntries(Object.entries(data.state).filter(([url]) => keep.has(url)));
+	return { ...data, state };
 }
