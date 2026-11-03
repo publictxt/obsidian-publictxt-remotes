@@ -14,7 +14,10 @@ pages you want into your vault. Each fork records where it came from in its fron
 
 ## How it works
 
-- **Sources** are remote repos you follow, optionally narrowed to some folders.
+- **Sources** are remote repos you follow, optionally narrowed to some folders. Each is a note
+  in `settings/remotes/`: the repo's `url`, `branch` and `include` in front matter, and why you
+  follow it in the body. Add and edit them in settings or by hand. They are public text, like the
+  rest of your vault.
 - Each source is kept as a bare partial clone in your vault's `remotes/` folder. File contents
   are fetched only when needed. Consider adding `remotes/` to your vault's `.gitignore` and
   excluding it from Obsidian Sync.
