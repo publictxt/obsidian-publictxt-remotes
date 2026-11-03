@@ -2,7 +2,7 @@
 	"id": "publictxt",
 	"name": "PublicTxt",
 	"version": "1.0.0",
-	"minAppVersion": "1.6.6",
+	"minAppVersion": "1.7.2",
 	"description": "Follow PublicTxt repos, see what changed, and fork pages into your vault with their provenance.",
 	"author": "Jaysen Naidoo",
 	"isDesktopOnly": true
