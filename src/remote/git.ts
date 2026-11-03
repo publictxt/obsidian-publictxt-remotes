@@ -16,7 +16,7 @@ export type RunGit = (args: string[], cwd: string | null) => Promise<GitResult>;
 
 export interface GitHostOptions {
 	run: RunGit;
-	/** Absolute folder holding the clones: the vault's `remotes/` by default (docs/spec.md). */
+	/** Absolute folder holding the clones: the vault's `.remotes/` by default (docs/spec.md). */
 	cacheDir: string;
 	/** Joins path segments; `path.join` in the plugin. */
 	join: (...parts: string[]) => string;

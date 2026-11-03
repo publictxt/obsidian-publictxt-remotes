@@ -43,7 +43,7 @@ export interface PublicTxtData {
 export const DEFAULT_DATA: PublicTxtData = {
 	version: DATA_VERSION,
 	forkFolder: '',
-	remotesFolder: 'remotes',
+	remotesFolder: '.remotes',
 	gitPath: 'git',
 	state: {},
 };
