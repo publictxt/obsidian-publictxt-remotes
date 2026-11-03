@@ -1,3 +1,7 @@
 .publictxt-error {
 	color: var(--text-error);
 }
+
+.publictxt-problem .setting-item-description {
+	color: var(--text-warning);
+}
