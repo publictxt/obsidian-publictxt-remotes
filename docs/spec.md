@@ -44,7 +44,7 @@ keep their case (hosts differ on case sensitivity). Anything else is invalid.
 
 The settings tab lists the sources found in `settings/remotes/` (URL, branch, include, watch
 count, fork folder, note path), any duplicate or invalid notes, and **Add source**. Lists are one
-path per line in the form. It redraws when a note in `settings/remotes/` changes. Pure logic in
+path per line in the form. It redraws when a note in `settings/remotes/` changes. Needs Obsidian 1.6.6 (`trashFile`). Pure logic in
 `src/sources/edit.ts` and `src/sources/follow-note.ts`; vault access in `src/sources/follows.ts`.
 
 - Add: the URL must be valid and not followed already. Creates
@@ -52,7 +52,7 @@ path per line in the form. It redraws when a note in `settings/remotes/` changes
   an error, never an overwrite.
 - Edit: rewrites the keys above in the note's front matter (`processFrontMatter`); other keys and
   the body are kept. The URL is the key, so it is read-only (a different repo: remove, add).
-- Open: opens the note, to write about the repo.
+- No "open note" button yet: a note opened from settings opens behind the settings window.
 - Remove: after confirming, moves the note to the trash (`trashFile`, the user's trash setting).
   The clone stays under `remotesFolder` (open question).
 
