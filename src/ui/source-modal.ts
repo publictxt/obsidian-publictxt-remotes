@@ -21,14 +21,14 @@ export class SourceModal extends Modal {
 
 	onOpen(): void {
 		const { contentEl } = this;
-		this.titleEl.setText(this.editing ? 'Edit source' : 'Add source');
+		this.setTitle(this.editing ? 'Edit source' : 'Add source');
 
 		new Setting(contentEl)
 			.setName('Repo URL')
 			.setDesc(this.editing ? 'To follow a different repo, remove this source and add that one.' : 'https://host/owner/repo or git@host:owner/repo.git')
 			.addText((t) => {
 				t.setValue(this.form.url).onChange((v) => (this.form.url = v));
-				t.inputEl.disabled = this.editing; // setDisabled needs 1.2.3
+				t.setDisabled(this.editing);
 			});
 		new Setting(contentEl)
 			.setName('Branch')

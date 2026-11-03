@@ -4,7 +4,7 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 
 ## Data
 
-`data.json` holds `{ version, forkFolder, remotesFolder, gitPath, sources, state }`.
+`data.json` holds `{ version, forkFolder, remotesFolder, gitPath, state }`. Sources are notes (below).
 
 | Field | Default | Meaning |
 |---|---|---|
@@ -14,19 +14,25 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 
 ## Source
 
-A remote repo the user follows. Stored in plugin data under `sources`.
+A remote repo the user follows: a note in `settings/remotes/` (any depth), one per repo
+(publictext ADR-0014, spec §3.2). The list of sources is derived by scanning that folder, never
+stored. The note's body is the user's own prose; the plugin only touches its front matter.
 
-| Field | Type | Rule |
+| Key | Type | Rule |
 |---|---|---|
-| `url` | string | Canonical repo URL (below). Unique; the source's key |
-| `branch` | string \| null | Branch to track. `null`: the remote's default branch |
-| `include` | string[] | Folder prefixes ending in `/`, repo-relative. Empty: the whole repo. Narrows "what's new" only |
-| `watch` | string[] | Repo-relative file paths to report on whenever they change, even outside `include` |
-| `folder` | string \| null | Default vault folder for forks from this source. `null`: the plugin's default |
+| `url` | string | Required. Canonical repo URL (below); the source's key |
+| `branch` | string | Branch to track. Absent or blank: the remote's default branch |
+| `include` | string or list | Folder prefixes ending in `/`, repo-relative. Empty: the whole repo. Narrows "what's new" only |
+| `watch` | string or list | Plugin only. Repo-relative file paths to report on whenever they change, even outside `include` |
+| `folder` | string | Plugin only. Default vault folder for forks from this source. Absent: `forkFolder` |
 
-Normalising (`normalizeData`): unknown keys dropped, invalid sources dropped, `url` made
-canonical, duplicates by `url` dropped (first wins), `include` given a trailing `/`, leading `/`
-stripped from paths, paths with `.` or `..` segments dropped, lists deduped.
+`url`, `branch` and `include` are the spec's; `watch` and `folder` are this plugin's, which other
+readers ignore. They are public with the note.
+
+Reading (`readFollow`): no valid `url`, not a source. `url` made canonical, `include` given a
+trailing `/`, leading `/` stripped from paths, paths with `.` or `..` segments dropped, lists
+deduped, a single string read as a one-item list. Two notes with one URL: the first by path
+(byte order) wins; the others are shown as duplicates.
 
 ### Canonical repo URL (v0)
 
@@ -36,18 +42,23 @@ keep their case (hosts differ on case sensitivity). Anything else is invalid.
 
 ## Sources settings
 
-The settings tab lists sources (URL, branch, include, watch count, fork folder) with edit and
-remove; **Add source** opens a form. Lists are one path per line. Logic is in
-`src/sources/edit.ts`, pure and tested; the form is `src/ui/source-modal.ts`.
+The settings tab lists the sources found in `settings/remotes/` (URL, branch, include, watch
+count, fork folder, note path), any duplicate or invalid notes, and **Add source**. Lists are one
+path per line in the form. It redraws when a note in `settings/remotes/` changes. Needs Obsidian 1.6.6 (`trashFile`). Pure logic in
+`src/sources/edit.ts` and `src/sources/follow-note.ts`; vault access in `src/sources/follows.ts`.
 
-- Add: the URL must be canonical-able and not followed already.
-- Edit: in place; the URL is the key, so it is read-only (a different repo: remove, add).
-  State is kept.
-- Remove: drops the source and its state. Its clone stays under `remotesFolder` (open question).
+- Add: the URL must be valid and not followed already. Creates
+  `settings/remotes/<owner>-<repo>.md` with the front matter and an empty body; a name clash is
+  an error, never an overwrite.
+- Edit: rewrites the keys above in the note's front matter (`processFrontMatter`); other keys and
+  the body are kept. The URL is the key, so it is read-only (a different repo: remove, add).
+- No "open note" button yet: a note opened from settings opens behind the settings window.
+- Remove: after confirming, moves the note to the trash (`trashFile`, the user's trash setting).
+  The clone stays under `remotesFolder` (open question).
 
 ## State
 
-A cache, per source `url`. Safe to delete. State for a source no longer followed is dropped.
+A cache, per source `url`. Safe to delete. State for a source no longer followed is dropped at the next check.
 
 | Field | Meaning |
 |---|---|
