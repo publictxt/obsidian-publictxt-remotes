@@ -35,6 +35,9 @@ and command ids freeze at the first release.
 | `canonicalRepoUrl()` | v0 canonical repo URL, or `null` |
 | `normalizeData()` | Anything loaded → valid `PublicTxtData` |
 | `readForkMeta()` / `forkMetaProps()` | Front matter ↔ `ForkMeta` |
+| `SourceForm` | The source form's raw text; lists one path per line |
+| `addSource()` / `updateSource()` / `removeSource()` | Edits to `PublicTxtData.sources`, pure |
+| `SourceModal` | The add/edit source form |
 | `RemoteHost` | What the plugin needs from a remote: `head`, `tree`, `changes`, `blob` |
 | `GitHost` | `RemoteHost` over the git CLI |
 | `RunGit` / `gitRunner()` | Runs one git command; the real one is in `git-process.ts`, the only Node module |

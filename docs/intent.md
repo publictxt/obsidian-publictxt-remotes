@@ -62,6 +62,10 @@ writes into the vault, only when the user asks.
 5. **Local edits to a fork.** Detecting them needs a hash of the body without the `fork_*` keys.
    Deferred until "update my fork" is built.
 
+6. **Removing a source leaves its clone.** Delete `<remotesFolder>/<host>/<owner>/<repo>.git`
+   on remove (asking first), offer a "clean up clones" command, or leave it. Left for now:
+   re-adding is then cheap.
+
 ## Phases
 
 1. **Desktop** (now): git CLI, as above.
