@@ -3,8 +3,9 @@
 
 import { execFile } from 'child_process';
 import { access } from 'fs/promises';
+import { join } from 'path';
 import { RemoteError } from './host.ts';
-import type { GitResult, RunGit } from './git.ts';
+import { GitHost, type GitResult, type RunGit } from './git.ts';
 
 /** A runner for the git at `gitPath` (`git`: whatever is on PATH). */
 export function gitRunner(gitPath = 'git'): RunGit {
@@ -39,4 +40,9 @@ export async function pathExists(path: string): Promise<boolean> {
 	} catch {
 		return false;
 	}
+}
+
+/** The plugin's git host: clones in `<vaultBase>/<remotesFolder>`, the git at `gitPath`. */
+export function gitHost(gitPath: string, vaultBase: string, remotesFolder: string): GitHost {
+	return new GitHost({ run: gitRunner(gitPath), cacheDir: join(vaultBase, remotesFolder), join, exists: pathExists });
 }

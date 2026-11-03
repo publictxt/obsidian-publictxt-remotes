@@ -5,3 +5,40 @@
 .publictxt-problem .setting-item-description {
 	color: var(--text-warning);
 }
+
+.publictxt-check .publictxt-check-bar {
+	display: flex;
+	align-items: center;
+	gap: var(--size-4-2);
+	margin-bottom: var(--size-4-3);
+}
+
+.publictxt-check .publictxt-status,
+.publictxt-check .publictxt-quiet,
+.publictxt-check .publictxt-branch {
+	color: var(--text-muted);
+}
+
+.publictxt-check .publictxt-source {
+	border-top: 1px solid var(--background-modifier-border);
+	padding-top: var(--size-4-2);
+	margin-bottom: var(--size-4-3);
+}
+
+.publictxt-check .publictxt-source h4 a {
+	cursor: pointer;
+}
+
+.publictxt-check .publictxt-warning {
+	color: var(--text-warning);
+}
+
+.publictxt-check [class^='publictxt-status-'] {
+	font-size: var(--font-ui-smaller);
+	color: var(--text-muted);
+	text-transform: uppercase;
+}
+
+.publictxt-check .publictxt-status-removed {
+	color: var(--text-error);
+}
