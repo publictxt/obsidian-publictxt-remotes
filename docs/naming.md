@@ -15,7 +15,7 @@ and command ids freeze at the first release.
 
 | Word | Means |
 |---|---|
-| source | A remote repo the user follows: a follow note in `settings/remotes/` (publictext spec §3.2) |
+| source | A remote repo the user follows: a follow note in `follows/` (publictext spec §3.2) |
 | follow note | The note that is a source; front matter holds its fields, the body the user's prose |
 | include | Folder prefixes narrowing a source's "what's new" |
 | watch | Remote files reported on whenever they change |
@@ -31,7 +31,7 @@ and command ids freeze at the first release.
 |---|---|
 | `PublicTxtData` | Everything in `data.json`: `{ version, forkFolder, remotesFolder, gitPath, state }` |
 | `Source` | One followed repo, read from its follow note |
-| `FOLLOWS_FOLDER` | `settings/remotes` |
+| `FOLLOWS_FOLDER` | `follows` |
 | `readFollow()` / `followProps()` | Front matter ↔ `Source` |
 | `collectFollows()` | Follow notes → sources, duplicates and invalid notes |
 | `SourceState` | Per-source cache |

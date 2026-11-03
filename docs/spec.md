@@ -9,12 +9,12 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 | Field | Default | Meaning |
 |---|---|---|
 | `forkFolder` | `''` | Default vault folder for forks (`''`: the vault root) |
-| `remotesFolder` | `remotes` | Vault folder holding the clones; never empty |
+| `remotesFolder` | `.remotes` | Vault folder holding the clones; never empty. Hidden, so Obsidian doesn't index it and Sync skips it |
 | `gitPath` | `git` | The git executable. Set it when Obsidian doesn't see the shell's PATH (macOS apps started from Finder) |
 
 ## Source
 
-A remote repo the user follows: a note in `settings/remotes/` (any depth), one per repo
+A remote repo the user follows: a note in the top-level `follows/` (any depth), one per repo
 (publictext ADR-0014, spec §3.2). The list of sources is derived by scanning that folder, never
 stored. The note's body is the user's own prose; the plugin only touches its front matter.
 
@@ -42,13 +42,13 @@ keep their case (hosts differ on case sensitivity). Anything else is invalid.
 
 ## Sources settings
 
-The settings tab lists the sources found in `settings/remotes/` (URL, branch, include, watch
+The settings tab lists the sources found in `follows/` (URL, branch, include, watch
 count, fork folder, note path), any duplicate or invalid notes, and **Add source**. Lists are one
-path per line in the form. It redraws when a note in `settings/remotes/` changes. Needs Obsidian 1.6.6 (`trashFile`). Pure logic in
+path per line in the form. It redraws when a note in `follows/` changes. Needs Obsidian 1.6.6 (`trashFile`). Pure logic in
 `src/sources/edit.ts` and `src/sources/follow-note.ts`; vault access in `src/sources/follows.ts`.
 
 - Add: the URL must be valid and not followed already. Creates
-  `settings/remotes/<owner>-<repo>.md` with the front matter and an empty body; a name clash is
+  `follows/<owner>-<repo>.md` with the front matter and an empty body; a name clash is
   an error, never an overwrite.
 - Edit: rewrites the keys above in the note's front matter (`processFrontMatter`); other keys and
   the body are kept. The URL is the key, so it is read-only (a different repo: remove, add).

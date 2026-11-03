@@ -15,12 +15,12 @@ pages you want into your vault. Each fork records where it came from in its fron
 ## How it works
 
 - **Sources** are remote repos you follow, optionally narrowed to some folders. Each is a note
-  in `settings/remotes/`: the repo's `url`, `branch` and `include` in front matter, and why you
+  in `follows/`: the repo's `url`, `branch` and `include` in front matter, and why you
   follow it in the body. Add and edit them in settings or by hand. They are public text, like the
   rest of your vault.
-- Each source is kept as a bare partial clone in your vault's `remotes/` folder. File contents
-  are fetched only when needed. Consider adding `remotes/` to your vault's `.gitignore` and
-  excluding it from Obsidian Sync.
+- Each source is kept as a bare partial clone in your vault's hidden `.remotes/` folder. File
+  contents are fetched only when needed. Obsidian doesn't show it and Sync skips it; if your
+  vault is a git repo, add `.remotes/` to its `.gitignore`.
 - A **fork** is a note copied from a source, with `fork_repo`, `fork_path`, `fork_blob` and
   related keys in its front matter. Those keys are how the plugin tells when the original
   has changed.
@@ -30,7 +30,7 @@ pages you want into your vault. Each fork records where it came from in its fron
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | **Fork folder** | vault root | Where forked notes go |
-| **Remotes folder** | `remotes` | Where the git clones live |
+| **Remotes folder** | `.remotes` | Where the git clones live |
 | **Git executable** | `git` | Path to git |
 
 ## Privacy

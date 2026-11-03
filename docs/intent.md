@@ -36,11 +36,11 @@ writes into the vault, only when the user asks.
   users keep their notes in git, so desktop users have it. `isDesktopOnly` can go from `true`
   to `false` later without taking anything from anyone; the reverse can't. Node imports stay in
   `src/remote/git-process.ts` so the rest of `src/` ports.
-- **Clones live in the vault's `remotes/` folder** (setting), one bare partial clone per source
+- **Clones live in the vault's hidden `.remotes/` folder** (setting), one bare partial clone per source
   (`--filter=blob:none`): history and trees up front, file contents fetched on demand. Bare
   clones have no working files, so no remote `.md` shows up as a note.
 - **Sources are notes** (decided 2026-11-03; publictext ADR-0014). One note per followed repo in
-  `settings/remotes/`, its fields in front matter, the user's reasons in the body. Found by
+  `follows/`, its fields in front matter, the user's reasons in the body. Found by
   scanning, like forks. The folder makes a note a source, so moving it out unfollows. The
   plugin's own keys (`watch`, `folder`) sit beside the spec's and are public with the note.
 - **Follow whole repos, narrow locally** (publictext ADR-0005). A source fetches the whole repo's
@@ -51,20 +51,19 @@ writes into the vault, only when the user asks.
 
 ## Open questions
 
-1. **Where sources live.** Decided 2026-11-03: one note per repo in `settings/remotes/`
+1. **Where sources live.** Decided 2026-11-03: one note per repo in `follows/`
    (publictext ADR-0014), read and written by the plugin. Public text, readable, one source of
    truth, the same shape as forks. State stays in `data.json`.
 2. **Front matter prefix.** `fork_*` (see `spec.md`). `upstream_*` is the git word, `source_*`
    collides with the spec's open `source_repo` (§5), which means "repo this doc lives in".
 3. **Canonical repo URL** (publictext spec §13 q2). We need one now, as the key for sources and
    forks. v0 rule in `spec.md`; propose it upstream.
-4. **`remotes/` and sync.** Clones are git objects, not notes, but they are in the vault: they
-   show in the file explorer and Obsidian Sync or the vault's own git repo would carry them.
-   Add `remotes/` to the vault's `.gitignore` and exclude it from Sync; or rename it `.remotes/`,
-   which Obsidian neither shows nor syncs. The setting allows either; the default is `remotes`.
+4. **`.remotes/` and sync.** Decided 2026-11-03: the clones default to the hidden `.remotes/`,
+   which Obsidian neither shows nor indexes and Sync skips. A vault git repo still needs
+   `.remotes/` in its `.gitignore`: git doesn't skip dot folders. Public follow notes live
+   apart, in `follows/`, so the ignore rule stays one line.
 5. **Local edits to a fork.** Detecting them needs a hash of the body without the `fork_*` keys.
    Deferred until "update my fork" is built.
-
 6. **Removing a source leaves its clone.** Delete `<remotesFolder>/<host>/<owner>/<repo>.git`
    on remove (asking first), offer a "clean up clones" command, or leave it. Left for now:
    re-adding is then cheap.
