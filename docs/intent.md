@@ -66,6 +66,23 @@ writes into the vault, only when the user asks.
    on remove (asking first), offer a "clean up clones" command, or leave it. Left for now:
    re-adding is then cheap.
 
+## Feature ideas
+
+Not planned yet; each needs a decision before it is built.
+
+- **`following.md`: a readable follow list** (noted 2026-11-03). A wiki note that lists the
+  repos I follow, repo info in front matter (the `follows` fields: `url`, `branch`, `include`)
+  and readable notes on each in the body: why I follow it, what to look at. The plugin reads it
+  into `publictxt.yaml` `follows`. Bears on open question 1. To settle first:
+  - **One note or a folder.** One note needs a front matter list, which Obsidian Properties
+    edits poorly, and ties each repo to its body section by convention only. A note per repo
+    (`following/<repo>.md`) puts each repo's fields and its notes in one place, flat.
+  - **Source of truth.** If `following.md` is authored and `follows` is written from it,
+    `follows` is derived data on disk (publictext ADR-0003) and the two can drift. Either the
+    note is the truth and readers derive `follows` at build time, or `follows` stays the
+    truth and the note only adds prose (matched by `url`).
+  - **Where `watch` goes.** It is private; it stays in `data.json` either way.
+
 ## Phases
 
 1. **Desktop** (now): git CLI, as above.
