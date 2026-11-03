@@ -34,6 +34,17 @@ stripped from paths, paths with `.` or `..` segments dropped, lists deduped.
 query and fragment dropped. `git@host:owner/repo.git` becomes the HTTPS form. Owner and repo
 keep their case (hosts differ on case sensitivity). Anything else is invalid.
 
+## Sources settings
+
+The settings tab lists sources (URL, branch, include, watch count, fork folder) with edit and
+remove; **Add source** opens a form. Lists are one path per line. Logic is in
+`src/sources/edit.ts`, pure and tested; the form is `src/ui/source-modal.ts`.
+
+- Add: the URL must be canonical-able and not followed already.
+- Edit: in place; the URL is the key, so it is read-only (a different repo: remove, add).
+  State is kept.
+- Remove: drops the source and its state. Its clone stays under `remotesFolder` (open question).
+
 ## State
 
 A cache, per source `url`. Safe to delete. State for a source no longer followed is dropped.
@@ -102,10 +113,10 @@ provenance keys. A name clash asks; it never overwrites.
 
 ## Build order
 
-1. Schema: data types, `normalizeData`, canonical URL, fork provenance read/write. Pure, tested.
-2. Git host: head, tree, changes, blob over the git CLI. Tested against real git and
+1. Done. Schema: data types, `normalizeData`, canonical URL, fork provenance read/write. Pure, tested.
+2. Done. Git host: head, tree, changes, blob over the git CLI. Tested against real git and
    temporary repos.
-3. Sources settings: add, edit, remove.
+3. Sources settings: add, edit, remove. Done.
 4. Check view: what's new, watched, forks.
 5. Fork command.
 6. Later: update a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.
