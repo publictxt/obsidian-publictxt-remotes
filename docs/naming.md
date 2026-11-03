@@ -10,6 +10,8 @@ and command ids freeze at the first release.
 | Repo | `publictxt/obsidian-publictxt` | |
 | Plugin `id` | `publictxt` | Freezes at the first release |
 | Display `name` | PublicTxt | |
+| View type | `publictxt-check` | Freezes at the first release |
+| Command ids | `check-sources`, `open-check-view` | Freeze at the first release |
 
 ## Vocabulary
 
@@ -42,6 +44,11 @@ and command ids freeze at the first release.
 | `SourceForm` | The source form's raw text; lists one path per line |
 | `checkAdd()` / `checkUpdate()` | Form → the source to write, or why not. Pure |
 | `SourceModal` | The add/edit source form |
+| `checkSource()` | One source's check against a `RemoteHost`. Pure |
+| `SourceCheck` | Its result: `changes` (with `reason`), `watched`, `forks` |
+| `checked()` / `acknowledged()` | State after a check / after "mark as seen" |
+| `runCheck()` | Every source, from the vault; returns results and state to save |
+| `CheckView` | The check view |
 | `RemoteHost` | What the plugin needs from a remote: `head`, `tree`, `changes`, `blob` |
 | `GitHost` | `RemoteHost` over the git CLI |
 | `RunGit` / `gitRunner()` | Runs one git command; the real one is in `git-process.ts`, the only Node module |

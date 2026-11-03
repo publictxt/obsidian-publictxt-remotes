@@ -98,6 +98,28 @@ Per source, against the tracked branch's head:
 Acknowledging moves `seenCommit` and `watched` forward. Forks are acknowledged only by updating
 them (later slice), since their state is their front matter.
 
+Details: a rename counts as in `include` if either path is. A watched path never acknowledged is
+`new`; a watched path not at head is reported every check until it leaves `watch`. A fork whose
+blob matches head is not listed. A fork is compared with the tracked branch, whatever its
+`fork_branch`. Pure logic in `src/check/check.ts`; the vault side in `src/check/run.ts`.
+
+### Check view
+
+**Check sources** (command and ribbon) opens the view in the right sidebar and checks every
+source, one at a time. **Open check view** opens it without checking. The last run is kept in
+memory only; `checkedAt` is saved for each source checked, and state for sources no longer
+followed is dropped.
+
+Per source: its URL (opens the follow note) and branch, then an error, or "nothing new", or:
+
+- **What's new**: status and path, at most 50 then "and n more"; with the reason when every file
+  is listed.
+- **Watched**: status and path.
+- **Forks changed upstream**: the fork note (opens it) and its `fork_path`.
+- **Mark as seen**: acknowledges this source. Forks stay listed.
+
+Needs Obsidian 1.7.2 (`revealLeaf` returning a promise).
+
 ## Remote host
 
 `RemoteHost` (`src/remote/host.ts`) is all the check and fork steps use. `GitHost`
@@ -128,7 +150,7 @@ provenance keys. A name clash asks; it never overwrites.
 2. Done. Git host: head, tree, changes, blob over the git CLI. Tested against real git and
    temporary repos.
 3. Sources settings: add, edit, remove. Done.
-4. Check view: what's new, watched, forks.
+4. Check view: what's new, watched, forks. Done.
 5. Fork command.
 6. Later: update a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.
 7. Mobile phase (`intent.md` → Phases).
