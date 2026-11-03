@@ -39,6 +39,10 @@ writes into the vault, only when the user asks.
 - **Clones live in the vault's `remotes/` folder** (setting), one bare partial clone per source
   (`--filter=blob:none`): history and trees up front, file contents fetched on demand. Bare
   clones have no working files, so no remote `.md` shows up as a note.
+- **Sources are notes** (decided 2026-11-03; publictext ADR-0014). One note per followed repo in
+  `settings/remotes/`, its fields in front matter, the user's reasons in the body. Found by
+  scanning, like forks. The folder makes a note a source, so moving it out unfollows. The
+  plugin's own keys (`watch`, `folder`) sit beside the spec's and are public with the note.
 - **Follow whole repos, narrow locally** (publictext ADR-0005). A source fetches the whole repo's
   tree; `include` prefixes and `watch` paths filter it on this side.
 - **Folder selection reuses the manifest's convention**: repo-relative folder prefixes ending in
@@ -47,10 +51,9 @@ writes into the vault, only when the user asks.
 
 ## Open questions
 
-1. **Where sources live.** v1: plugin data (`data.json`). Alternative: the vault's
-   `publictxt.yaml` `follows`, which makes the follow list public text (ADR-0005 wants that) and
-   syncs with the repo. Field names match `follows` so a move is mechanical. `watch` and state
-   stay private either way.
+1. **Where sources live.** Decided 2026-11-03: one note per repo in `settings/remotes/`
+   (publictext ADR-0014), read and written by the plugin. Public text, readable, one source of
+   truth, the same shape as forks. State stays in `data.json`.
 2. **Front matter prefix.** `fork_*` (see `spec.md`). `upstream_*` is the git word, `source_*`
    collides with the spec's open `source_repo` (§5), which means "repo this doc lives in".
 3. **Canonical repo URL** (publictext spec §13 q2). We need one now, as the key for sources and
@@ -65,23 +68,6 @@ writes into the vault, only when the user asks.
 6. **Removing a source leaves its clone.** Delete `<remotesFolder>/<host>/<owner>/<repo>.git`
    on remove (asking first), offer a "clean up clones" command, or leave it. Left for now:
    re-adding is then cheap.
-
-## Feature ideas
-
-Not planned yet; each needs a decision before it is built.
-
-- **`following.md`: a readable follow list** (noted 2026-11-03). A wiki note that lists the
-  repos I follow, repo info in front matter (the `follows` fields: `url`, `branch`, `include`)
-  and readable notes on each in the body: why I follow it, what to look at. The plugin reads it
-  into `publictxt.yaml` `follows`. Bears on open question 1. To settle first:
-  - **One note or a folder.** One note needs a front matter list, which Obsidian Properties
-    edits poorly, and ties each repo to its body section by convention only. A note per repo
-    (`following/<repo>.md`) puts each repo's fields and its notes in one place, flat.
-  - **Source of truth.** If `following.md` is authored and `follows` is written from it,
-    `follows` is derived data on disk (publictext ADR-0003) and the two can drift. Either the
-    note is the truth and readers derive `follows` at build time, or `follows` stays the
-    truth and the note only adds prose (matched by `url`).
-  - **Where `watch` goes.** It is private; it stays in `data.json` either way.
 
 ## Phases
 

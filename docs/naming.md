@@ -15,7 +15,8 @@ and command ids freeze at the first release.
 
 | Word | Means |
 |---|---|
-| source | A remote repo the user follows. Matches an entry of `follows` in `publictxt.yaml` |
+| source | A remote repo the user follows: a follow note in `settings/remotes/` (publictext spec §3.2) |
+| follow note | The note that is a source; front matter holds its fields, the body the user's prose |
 | include | Folder prefixes narrowing a source's "what's new" |
 | watch | Remote files reported on whenever they change |
 | fork | A vault note copied from a source file, carrying `fork_*` provenance |
@@ -28,15 +29,18 @@ and command ids freeze at the first release.
 
 | Name | What |
 |---|---|
-| `PublicTxtData` | Everything in `data.json`: `{ version, forkFolder, remotesFolder, gitPath, sources, state }` |
-| `Source` | One followed repo (config) |
+| `PublicTxtData` | Everything in `data.json`: `{ version, forkFolder, remotesFolder, gitPath, state }` |
+| `Source` | One followed repo, read from its follow note |
+| `FOLLOWS_FOLDER` | `settings/remotes` |
+| `readFollow()` / `followProps()` | Front matter ↔ `Source` |
+| `collectFollows()` | Follow notes → sources, duplicates and invalid notes |
 | `SourceState` | Per-source cache |
 | `ForkMeta` | A fork's provenance, read from or written to front matter |
 | `canonicalRepoUrl()` | v0 canonical repo URL, or `null` |
 | `normalizeData()` | Anything loaded → valid `PublicTxtData` |
 | `readForkMeta()` / `forkMetaProps()` | Front matter ↔ `ForkMeta` |
 | `SourceForm` | The source form's raw text; lists one path per line |
-| `addSource()` / `updateSource()` / `removeSource()` | Edits to `PublicTxtData.sources`, pure |
+| `checkAdd()` / `checkUpdate()` | Form → the source to write, or why not. Pure |
 | `SourceModal` | The add/edit source form |
 | `RemoteHost` | What the plugin needs from a remote: `head`, `tree`, `changes`, `blob` |
 | `GitHost` | `RemoteHost` over the git CLI |
