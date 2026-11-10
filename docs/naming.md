@@ -11,7 +11,7 @@ and command ids freeze at the first release.
 | Plugin `id` | `publictxt` | Freezes at the first release |
 | Display `name` | PublicTxt | |
 | View type | `publictxt-check` | Freezes at the first release |
-| Command ids | `check-sources`, `open-check-view`, `fork-file`, `update-fork-lists` | Freeze at the first release |
+| Command ids | `check-sources`, `open-check-view`, `fork-file`, `snapshot-local-sources`, `update-fork-lists` | Freeze at the first release |
 
 ## Vocabulary
 
@@ -27,8 +27,9 @@ and command ids freeze at the first release.
 | head | The tracked branch's latest commit |
 | blob | A file's git blob SHA |
 | clone | A source's bare partial clone under `remotesFolder` |
-| local repo | A source on this computer, by a `file:///` URL (`isLocalRepo()`, `localRepoName()`) |
+| local source | A source on this computer, followed by its `file:///` URL; "local repo" in code |
 | snapshot | A commit of everything changed in a local source's folder, made only if something changed |
+| make a repo | `git init` a local source's folder, with a `.gitignore`, then snapshot it |
 
 ## Code identifiers
 
@@ -56,12 +57,6 @@ and command ids freeze at the first release.
 | `GitHost` | `RemoteHost` over the git CLI |
 | `RunGit` / `gitRunner()` | Runs one git command; the real one is in `git-process.ts`, the only Node module |
 | `RemoteError` | Remote failure, by `kind`: `no-git`, `git`, `not-found`, `bad-input` |
-| `snapshot()` / `SnapshotResult` | Commits a working folder's changes, if any. Pure |
-| `snapshotAndTell()` / `localFollows()` | Snapshots sources and shows the outcome (one non-repo: offers to make it a repo) / every local source |
-| `localRepoPath()` | A local repo's folder from its URL |
-| `inspectLocal()` / `LocalRepo` | What a local source's folder is: `missing`, `unusable`, `not-repo`, `bare`, `work`. Pure |
-| `initLocal()` / `newRepoGitignore()` | Makes a folder a repo, with a `.gitignore`, and snapshots it. Pure |
-| `prepareLocalAdd()` | Before adding a local source: refuse, offer to make a repo, or warn |
 | `choose()` | A question with a few answers (`ChoiceModal`) |
 | `vaultHost()` | The `RemoteHost` for this vault's settings. Desktop only |
 | `forkFolder()` | The folder a fork goes to, and which rule chose it (`FolderReason`). Pure |
@@ -72,3 +67,9 @@ and command ids freeze at the first release.
 | `renderForkList()` / `withForkList()` | A follow note's fork list section / the note with it replaced. Pure |
 | `wantsForkList()` | Whether a follow note keeps a fork list: its `list_forks`, else the setting |
 | `syncForkLists()` / `ForkLists` | Rewrites changed fork lists / keeps them current after vault changes |
+| `isLocalRepo()` / `localRepoName()` / `localRepoPath()` | Whether a URL is local / its folder's name / its folder's path. Pure |
+| `inspectLocal()` / `LocalRepo` | What a local source's folder is: `missing`, `unusable`, `not-repo`, `bare`, `work`. Pure |
+| `initLocal()` / `newRepoGitignore()` | Makes a folder a repo, with a `.gitignore`, and snapshots it. Pure |
+| `snapshot()` / `SnapshotResult` | Commits a working folder's changes, if any. Pure |
+| `prepareLocalAdd()` | Before adding a local source: refuse, offer to make a repo, or warn |
+| `snapshotAndTell()` / `localFollows()` | Snapshots sources and reports each; offers to make a repo for a single non-repo / every local source |
