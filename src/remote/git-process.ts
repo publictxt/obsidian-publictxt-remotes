@@ -2,10 +2,11 @@
 // Node: the plugin is desktop-only (docs/intent.md).
 
 import { execFile } from 'child_process';
-import { access } from 'fs/promises';
+import { access, stat, writeFile } from 'fs/promises';
 import { join } from 'path';
 import { RemoteError } from './host.ts';
 import { GitHost, type GitResult, type RunGit } from './git.ts';
+import type { LocalFs } from './local-repo.ts';
 
 /** A runner for the git at `gitPath` (`git`: whatever is on PATH). */
 export function gitRunner(gitPath = 'git'): RunGit {
@@ -46,3 +47,24 @@ export async function pathExists(path: string): Promise<boolean> {
 export function gitHost(gitPath: string, vaultBase: string, remotesFolder: string): GitHost {
 	return new GitHost({ run: gitRunner(gitPath), cacheDir: join(vaultBase, remotesFolder), join, exists: pathExists });
 }
+
+/** The real file system for local sources. */
+export const localFs: LocalFs = {
+	join,
+	isFolder: async (path) => {
+		try {
+			return (await stat(path)).isDirectory();
+		} catch {
+			return false;
+		}
+	},
+	writeNew: async (path, text) => {
+		try {
+			await writeFile(path, text, { encoding: 'utf8', flag: 'wx' });
+			return true;
+		} catch (e) {
+			if ((e as { code?: unknown }).code === 'EEXIST') return false;
+			throw e;
+		}
+	},
+};
