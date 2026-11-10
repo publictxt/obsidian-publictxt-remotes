@@ -25,7 +25,7 @@ export class SourceModal extends Modal {
 
 		new Setting(contentEl)
 			.setName('Repo URL')
-			.setDesc(this.editing ? 'To follow a different repo, remove this source and add that one.' : 'https://host/owner/repo or git@host:owner/repo.git')
+			.setDesc(this.editing ? 'To follow a different repo, remove this source and add that one.' : 'https://host/owner/repo, git@host:owner/repo.git, or the path to a repo on this computer')
 			.addText((t) => {
 				t.setValue(this.form.url).onChange((v) => (this.form.url = v));
 				t.setDisabled(this.editing);

@@ -2,6 +2,7 @@
 // Pure: front matter in, sources out, and back.
 
 import { normalizeSource, type Source } from './schema.ts';
+import { isLocalRepo, localRepoName } from './repo-url.ts';
 
 /** Where follow notes live. Fixed by the spec, not a setting. */
 export const FOLLOWS_FOLDER = 'follows';
@@ -70,8 +71,9 @@ export function collectFollows(notes: { path: string; frontmatter: unknown }[]):
 	return out;
 }
 
-/** `follows/<owner>-<repo>.md` for a canonical URL. */
+/** `follows/<owner>-<repo>.md` for a canonical URL; `follows/local-<name>.md` for a local repo. */
 export function followNotePath(url: string): string {
+	if (isLocalRepo(url)) return `${FOLLOWS_FOLDER}/local-${localRepoName(url).replace(/[\\/:*?"<>|#^[\]]+/g, '-')}.md`;
 	const [owner = '', repo = ''] = new URL(url).pathname.split('/').filter(Boolean);
 	return `${FOLLOWS_FOLDER}/${owner}-${repo}.md`;
 }

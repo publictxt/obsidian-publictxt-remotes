@@ -14,10 +14,14 @@ pages you want into your vault. Each fork records where it came from in its fron
 
 ## How it works
 
-- **Sources** are remote repos you follow, optionally narrowed to some folders. Each is a note
+- **Sources** are repos you follow, optionally narrowed to some folders. Each is a note
   in `follows/`: the repo's `url`, `branch` and `include` in front matter, and why you
   follow it in the body. Add and edit them in settings or by hand. They are public text, like the
   rest of your vault.
+- A source can also be a git repo on your computer: enter its path (`/home/me/notes`) or a
+  `file:///` URL as the repo URL. The plugin sees what's committed, not uncommitted edits. A
+  local path means nothing on another computer, so forks from it record a provenance only you can
+  follow.
 - Each source is kept as a bare partial clone in your vault's hidden `.remotes/` folder. File
   contents are fetched only when needed. Obsidian doesn't show it and Sync skips it; if your
   vault is a git repo, add `.remotes/` to its `.gitignore`.

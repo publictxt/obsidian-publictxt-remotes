@@ -42,7 +42,15 @@ deduped, a single string read as a one-item list. Two notes with one URL: the fi
 
 `https://<host>/<owner>/<repo>`: scheme and host lower-cased, `.git` suffix, trailing `/`,
 query and fragment dropped. `git@host:owner/repo.git` becomes the HTTPS form. Owner and repo
-keep their case (hosts differ on case sensitivity). Anything else is invalid.
+keep their case (hosts differ on case sensitivity).
+
+A repo on this computer is `file:///<absolute path>`, percent-encoded as `URL` does: trailing `/`,
+query and fragment dropped, `.git` kept (it is part of the path), host empty (`localhost` becomes
+empty; any other host is invalid). An absolute path (`/home/me/notes`, `C:\notes`) becomes this
+form, its `%`, `?` and `#` escaped. Its follow note is `follows/local-<folder name>.md`. Local
+URLs are this plugin's: they mean nothing on another computer.
+
+Anything else is invalid.
 
 ## Sources settings
 
@@ -129,7 +137,9 @@ Needs Obsidian 1.7.2 (`revealLeaf` returning a promise).
 
 `RemoteHost` (`src/remote/host.ts`) is all the check and fork steps use. `GitHost`
 (`src/remote/git.ts`) implements it with the git CLI, one bare partial clone per source at
-`<remotesFolder>/<host>/<owner>/<repo>.git`. Commands run without a shell, with
+`<remotesFolder>/<host>/<owner>/<repo>.git`, or `<remotesFolder>/file/<name>-<hash>.git` for a
+local repo (`<hash>`: 32-bit FNV-1a of the URL, so two local repos with one name don't share a
+clone). git clones a local repo from its `file:` URL. Commands run without a shell, with
 `GIT_TERMINAL_PROMPT=0`, one at a time per clone.
 
 | Method | git |

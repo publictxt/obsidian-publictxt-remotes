@@ -44,3 +44,8 @@ test('collectFollows: byte-order path, first wins, duplicates and invalid report
 test('followNotePath: owner-repo', () => {
 	assert.equal(followNotePath('https://github.com/Ann/notes'), 'follows/Ann-notes.md');
 });
+
+test('followNotePath: local-name for a local repo', () => {
+	assert.equal(followNotePath('file:///home/me/my%20notes.git'), 'follows/local-my notes.md');
+	assert.equal(followNotePath('file:///home/me/a%23b%3Fc'), 'follows/local-a-b-c.md');
+});

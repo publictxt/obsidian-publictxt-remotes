@@ -2,6 +2,7 @@
 // (docs/spec.md → Remote host). Pure: the process runner is injected, so
 // this module has no Node imports; src/remote/git-process.ts is the real one.
 
+import { isLocalRepo, localRepoName } from '../sources/repo-url.ts';
 import { isSha } from '../util/validate.ts';
 import { RemoteError, type Change, type ChangeStatus, type Head, type RemoteHost, type Tree } from './host.ts';
 
@@ -35,11 +36,26 @@ const STATUS: Record<string, ChangeStatus> = {
 	R: 'renamed',
 };
 
-/** `https://host/owner/repo` → [host, owner, repo.git] under the cache folder. */
+/**
+ * Where a repo's clone goes under the cache folder: `https://host/owner/repo` →
+ * [host, owner, repo.git]; `file:///…/name` → [file, name-<hash>.git], the hash telling apart
+ * local repos with one name. Never a folder another repo's clone could be in.
+ */
 export function cachePath(repo: string): string[] {
+	if (isLocalRepo(repo)) {
+		const name = localRepoName(repo).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '') || 'repo';
+		return ['file', `${name}-${fnv1a(repo)}.git`];
+	}
 	const m = /^https:\/\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(repo);
 	if (!m) throw new RemoteError('bad-input', `Not a canonical repo URL: ${repo}`);
 	return [m[1] ?? '', m[2] ?? '', `${m[3] ?? ''}.git`];
+}
+
+/** 32-bit FNV-1a of `s`'s UTF-16 code units, as 8 hex digits. */
+function fnv1a(s: string): string {
+	let h = 0x811c9dc5;
+	for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 0x01000193);
+	return (h >>> 0).toString(16).padStart(8, '0');
 }
 
 function sha(v: string, what: string): string {
