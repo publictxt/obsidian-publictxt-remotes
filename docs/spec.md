@@ -16,7 +16,8 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 
 ## Source
 
-A remote repo the user follows: a note in the top-level `follows/` (any depth), one per repo
+A repo the user follows, hosted or on this computer (Local sources, below): a note in the
+top-level `follows/` (any depth), one per repo
 (publictext ADR-0014, spec §3.2). The list of sources is derived by scanning that folder, never
 stored. The note's body is the user's own prose; the plugin only touches its front matter, and
 its fork list when it keeps one (Fork list, below).
@@ -47,8 +48,8 @@ keep their case (hosts differ on case sensitivity).
 A repo on this computer is `file:///<absolute path>`, percent-encoded as `URL` does: trailing `/`,
 query and fragment dropped, `.git` kept (it is part of the path), host empty (`localhost` becomes
 empty; any other host is invalid). An absolute path (`/home/me/notes`, `C:\notes`) becomes this
-form, its `%`, `?` and `#` escaped. Its follow note is `follows/local-<folder name>.md`. Local
-URLs are this plugin's: they mean nothing on another computer.
+form, its `%`, `?` and `#` escaped. Local URLs are this plugin's: they mean nothing on another
+computer.
 
 Anything else is invalid.
 
@@ -60,10 +61,11 @@ source**. Lists are one path per line in the form; **Fork list** is Default, On 
 (`list_forks` absent, `true`, `false`). It redraws when a note in `follows/` changes. Needs Obsidian 1.6.6 (`trashFile`). Pure logic in
 `src/sources/edit.ts` and `src/sources/follow-note.ts`; vault access in `src/sources/follows.ts`.
 
-- Add: the URL must be valid and not followed already. A local source's folder is looked at
-  first (Local source checks, below). Creates `follows/<owner>-<repo>.md` with the front
-  matter and an empty body; a name clash is an error, never an overwrite. A hosted repo is not
-  contacted: a wrong URL or branch shows at the first check.
+- Add: the URL must be valid and not followed already. Creates `follows/<owner>-<repo>.md`
+  (`follows/local-<folder name>.md` for a local repo) with the front matter and an empty body;
+  a name clash is an error, never an overwrite. A hosted repo is not contacted: a wrong URL or
+  branch shows at the first check. A local repo's folder is looked at first (Local sources →
+  Folder kinds).
 - Edit: rewrites the keys above in the note's front matter (`processFrontMatter`); other keys and
   the body are kept. The URL is the key, so it is read-only (a different repo: remove, add).
 - No "open note" button yet: a note opened from settings opens behind the settings window.
@@ -131,7 +133,7 @@ Per source: its URL (opens the follow note) and branch, then an error, or "nothi
 - **Watched**: status and path.
 - **Forks changed upstream**: the fork note (opens it) and its `fork_path`.
 - **Mark as seen**: acknowledges this source. Forks stay listed.
-- **Snapshot**: local sources only, below the URL whatever the result (Snapshot, below).
+- **Snapshot**: local sources only, shown whatever the result (Local sources → Snapshot).
 
 Needs Obsidian 1.7.2 (`revealLeaf` returning a promise).
 
@@ -155,50 +157,59 @@ clone). git clones a local repo from its `file:` URL. Commands run without a she
 Errors are a `RemoteError` by `kind`: `no-git` (git can't start), `git` (a command failed),
 `not-found` (branch or default branch missing), `bad-input` (not a canonical URL or SHA).
 
-## Snapshot
+## Local sources
 
-A local source shows only what is committed. A snapshot commits everything changed in its
-folder, so the next check sees it. **Snapshot local sources** (command) snapshots each local
-source in turn; **Snapshot** in the check view snapshots one, then checks again if it committed.
-The command checks again too when the view shows a check. One notice lists each folder's
-outcome.
+A local source is a git repo on this computer, followed by its `file:///` URL. It is checked
+like any other: cloned into `remotesFolder` and read from its commits, so the check sees only
+what is committed. Two actions write to its folder, outside the vault, and only when the user
+asks: **making a repo** of a folder that isn't one, and a **snapshot**, which commits what
+changed. Both run the user's git with their identity and hooks, one at a time per folder. Pure
+logic in `src/remote/local-repo.ts` and `src/remote/snapshot.ts`; the vault side in
+`src/snapshot/run.ts`.
 
-The folder is looked at first (Local source checks): missing or unusable is an error. Not a
-repo: from the check view's **Snapshot**, it asks to make it one (as on add, below); the command
-never does, and says to use the view. Then, in the folder (`localRepoPath()` of the URL),
+### Folder kinds
+
+`inspectLocal()` says what the folder (`localRepoPath()` of the URL) is, from
+`rev-parse --is-bare-repository --is-inside-git-dir --show-prefix --git-dir`:
+
+| Kind | When | On add | On Snapshot |
+|---|---|---|---|
+| `missing` | No such folder | Error, not added | Error |
+| `unusable` | Inside a `.git` folder, or below a bare repo's top | Error, not added | Error |
+| `not-repo` | No repo, or a subfolder of another repo (`within`) | Asks: **Make repo and add**, **Add without**, or close (not added) | View: asks to make a repo. Command: says to use the view |
+| `bare` | A bare repo's top | Added; warns if it has no commits | Error: nothing to commit from |
+| `work` | A working repo's top | Added; warns if nothing is committed, or `branch` doesn't exist | Snapshots |
+
+Warnings are notices; the source is still added.
+
+### Making a repo
+
+`initLocal()`: `init --initial-branch <branch>` (git's default when the source has none), a
+`.gitignore` unless the folder has one, then a snapshot. The `.gitignore` leaves out a vault's
+app data: this vault's `configDir` (taken as the other vault's too), `.trash/`, `.remotes/` and
+`.DS_Store`. Within another repo, it makes a separate, nested one. If it fails partway (a
+commit hook, no git identity), the error shows and, on add, the source is not added; adding
+again finds a repo with nothing committed and warns.
+
+### Snapshot
+
+Commits everything changed in the folder, so the next check sees it. **Snapshot** in the check
+view does one source, then checks again if it committed. **Snapshot local sources** (command)
+does each local source in turn, and checks again if anything was committed and the view shows a
+check. One notice lists each folder's outcome.
+
 `snapshot()` stops with a `bad-input` error when:
 
-1. It is not the top of a git working folder (`rev-parse --is-inside-work-tree --show-prefix`;
-   a bare repo isn't one, and in a subfolder `add -A` would stage the enclosing repo).
+1. The folder is not the top of a working repo (`rev-parse --is-inside-work-tree
+   --show-prefix`): in a subfolder, `add -A` would stage the whole enclosing repo.
 2. HEAD is not on a branch (`symbolic-ref --short HEAD`), or the source has a `branch` and HEAD
-   is on another: the source wouldn't see the commit.
+   is on another: the source wouldn't see the commit. It never commits to a branch that isn't
+   checked out.
 
 Then `status --porcelain -z --untracked-files=all`: empty, nothing to do. Otherwise `add -A`
 (`.gitignore` respected) and, if the index then differs from HEAD (`diff --cached --name-only`),
-`commit -m "Snapshot <local ISO time>"`. The user's git identity and hooks apply; a failing
-commit is a `git` error and leaves the changes staged. One snapshot (or making a repo) per
-folder at a time. Pure logic in `src/remote/snapshot.ts`; the vault side in `src/snapshot/run.ts`.
-
-### Local source checks
-
-`inspectLocal()` (`src/remote/local-repo.ts`) says what a local source's folder is, from
-`rev-parse --is-bare-repository --is-inside-git-dir --show-prefix --git-dir`:
-
-| Kind | When | On add |
-|---|---|---|
-| `missing` | No such folder | Error, not added |
-| `unusable` | Inside a `.git` folder, or below a bare repo's top | Error, not added |
-| `not-repo` | No repo, or a subfolder of another repo's working tree (`within`) | Asks: **Make repo and add**, **Add without**, or close (not added) |
-| `bare` | A bare repo's top | Added; warns if it has no commits |
-| `work` | A working repo's top | Added; warns if nothing is committed, or the source's `branch` doesn't exist |
-
-Warnings are notices; the source is added. Making a repo (`initLocal()`): `init
---initial-branch <branch>` (git's default when the source has none), then a `.gitignore` unless
-the folder has one, then a snapshot. The `.gitignore` leaves out a vault's app data: this vault's
-`configDir` (taken as the other vault's too), `.trash/`, `.remotes/` and `.DS_Store`. Within
-another repo, it makes a separate, nested repo. If making the repo fails partway (a commit hook,
-no git identity), the error shows in the form and the source is not added; adding again finds a
-repo with nothing committed and warns.
+`commit -m "Snapshot <local ISO time>"`. A failing commit is a `git` error and leaves the
+changes staged.
 
 ## Fork
 
@@ -253,5 +264,6 @@ now except those with `list_forks: false`, whatever the setting. Pure logic in
 3. Sources settings: add, edit, remove. Done.
 4. Check view: what's new, watched, forks. Done.
 5. Fork: check view and command, folder matching, fork list. Done.
-6. Later: update a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.
-7. Mobile phase (`intent.md` → Phases).
+6. Local sources: `file:///` URLs, snapshot, making a repo, folder checks on add. Done.
+7. Later: update a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.
+8. Mobile phase (`intent.md` → Phases).
