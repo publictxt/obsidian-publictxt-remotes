@@ -6,15 +6,15 @@ import { localIso } from '../fork/fork.ts';
 import { gitRunner, localFs } from '../remote/git-process.ts';
 import { initLocal, initQuestion, newRepoGitignore, inspectLocal, localProblem, localWarnings } from '../remote/local-repo.ts';
 import { snapshot, type SnapshotResult } from '../remote/snapshot.ts';
-import { errorText } from '../remote/vault-host.ts';
+import { errorText, localFolder } from '../remote/vault-host.ts';
 import type { Follow } from '../sources/follow-note.ts';
 import { scanFollows } from '../sources/follows.ts';
-import { isLocalRepo, localRepoPath } from '../sources/repo-url.ts';
+import { isLocalRepo } from '../sources/repo-url.ts';
 import type { PublicTxtData, Source } from '../sources/schema.ts';
 import { choose } from '../ui/choice-modal.ts';
 import { ConfirmModal } from '../ui/confirm-modal.ts';
 
-type Outcome = { kind: 'done'; result: SnapshotResult } | { kind: 'not-repo'; within: boolean } | { kind: 'busy' };
+type Outcome = { kind: 'done'; result: SnapshotResult } | { kind: 'not-repo'; within: boolean; dir: string } | { kind: 'busy' };
 
 /** Folders being snapshotted or made repos: git locks the index, so one job at a time per folder. */
 const busy = new Set<string>();
@@ -33,22 +33,22 @@ function message(): string {
 	return `Snapshot ${localIso(new Date())}`;
 }
 
-/** One line for the user about a snapshot of the folder `dir`. */
-export function snapshotText(dir: string, r: SnapshotResult): string {
-	if (!r.committed) return `${dir}: nothing to snapshot.`;
+/** One line for the user about a snapshot of `label` (a remote name, or a folder). */
+export function snapshotText(label: string, r: SnapshotResult): string {
+	if (!r.committed) return `${label}: nothing to snapshot.`;
 	const files = r.files === 1 ? '1 file' : `${r.files} files`;
-	return `${dir}: committed ${files} to ${r.branch} (${r.commit.slice(0, 7)}).`;
+	return `${label}: committed ${files} to ${r.branch} (${r.commit.slice(0, 7)}).`;
 }
 
 /** Commits everything changed in a local source's folder, if anything. Never makes a repo. */
 async function snapshotFollow(data: PublicTxtData, follow: Follow): Promise<Outcome> {
-	const dir = localRepoPath(follow.url);
+	const dir = localFolder(data, follow.url);
 	const run = gitRunner(data.gitPath);
 	const out = await exclusive(dir, async (): Promise<Outcome> => {
 		const local = await inspectLocal(run, localFs, dir, follow.branch);
 		const problem = localProblem(local, dir);
 		if (problem) throw new Error(problem);
-		if (local.kind === 'not-repo') return { kind: 'not-repo', within: local.within };
+		if (local.kind === 'not-repo') return { kind: 'not-repo', within: local.within, dir };
 		return { kind: 'done', result: await snapshot(run, dir, follow.branch, message()) };
 	});
 	return out ?? { kind: 'busy' };
@@ -77,45 +77,44 @@ export async function snapshotAndTell(app: App, data: PublicTxtData, follows: Fo
 	const lines: string[] = [];
 	let committed = false;
 	for (const follow of follows) {
-		const dir = localRepoPath(follow.url);
+		const name = follow.name;
 		try {
 			const o = await snapshotFollow(data, follow);
-			if (o.kind === 'busy') lines.push(`${dir}: a snapshot is already running.`);
+			if (o.kind === 'busy') lines.push(`${name}: a snapshot is already running.`);
 			else if (o.kind === 'done') {
 				committed ||= o.result.committed;
-				lines.push(snapshotText(dir, o.result));
+				lines.push(snapshotText(name, o.result));
 			} else if (follows.length === 1) {
-				offerInit(app, data, dir, follow.branch, o.within, onCommitted);
+				offerInit(app, data, name, o.dir, follow.branch, o.within, onCommitted);
 				return;
-			} else lines.push(`${dir}: not a git repo. Snapshot it from the check view to make it one.`);
+			} else lines.push(`${name}: its folder is not a git repo. Snapshot it from the check view to make it one.`);
 		} catch (e) {
-			lines.push(`${dir}: ${errorText(e)}`);
+			lines.push(`${name}: ${errorText(e)}`);
 		}
 	}
 	new Notice(lines.join('\n'), 10_000);
 	if (committed) await onCommitted();
 }
 
-/** Asks, then makes `dir` a repo and snapshots it. */
-function offerInit(app: App, data: PublicTxtData, dir: string, branch: string | null, within: boolean, onCommitted: () => Promise<void>): void {
+/** Asks, then makes `dir`, the folder of the remote `name`, a repo and snapshots it. */
+function offerInit(app: App, data: PublicTxtData, name: string, dir: string, branch: string | null, within: boolean, onCommitted: () => Promise<void>): void {
 	new ConfirmModal(app, 'Make a git repo', initQuestion(dir, within), 'Make repo', async () => {
 		try {
 			const r = await initFolder(app, data, dir, branch);
-			new Notice(r ? snapshotText(dir, r) : `${dir}: a snapshot is already running.`, 10_000);
+			new Notice(r ? snapshotText(name, r) : `${name}: a snapshot is already running.`, 10_000);
 			if (r?.committed) await onCommitted();
 		} catch (e) {
-			new Notice(`${dir}: ${errorText(e)}`, 10_000);
+			new Notice(`${name}: ${errorText(e)}`, 10_000);
 		}
 	}).open();
 }
 
 /**
- * Before adding the local source `s`: refuses a folder that can't be one, offers to make a
- * non-repo a repo, and warns when the source won't check yet. Returns the error to show in the
- * form, or `null` to add it.
+ * Before adding the local source `s` with the folder `dir`, or setting a new folder for it:
+ * refuses a folder that can't be one, offers to make a non-repo a repo, and warns when the
+ * source won't check yet. Returns the error to show in the form, or `null` to go on.
  */
-export async function prepareLocalAdd(app: App, data: PublicTxtData, s: Source): Promise<string | null> {
-	const dir = localRepoPath(s.url);
+export async function prepareLocalFolder(app: App, data: PublicTxtData, s: Source, dir: string): Promise<string | null> {
 	const run = gitRunner(data.gitPath);
 	try {
 		const local = await inspectLocal(run, localFs, dir, s.branch);
