@@ -6,6 +6,7 @@ import { readForkMeta, forkMetaProps } from '../src/sources/fork-meta.ts';
 
 const sha = (c: string) => c.repeat(40);
 const REPO = 'https://github.com/a/b';
+const REMOTE = { url: REPO, name: 'a-b' };
 
 test('isForkable: Markdown only', () => {
 	assert.ok(isForkable('wiki/a.md'));
@@ -37,10 +38,16 @@ test('checkForkPath: trimmed, .md added, no clash, no .. segments', () => {
 	assert.equal(checkForkPath('../a.md', taken).ok, false);
 });
 
-test('forksOf: same repo and path only', () => {
-	const fork = (path: string, repo: string, from: string): Fork => ({ path, meta: { repo, path: from, blob: sha('1'), branch: null, commit: null, date: null } });
-	const forks = [fork('a.md', REPO, 'wiki/a.md'), fork('b.md', REPO, 'wiki/b.md'), fork('c.md', 'https://github.com/x/y', 'wiki/a.md')];
-	assert.deepEqual(forksOf(forks, REPO, 'wiki/a.md').map((f) => f.path), ['a.md']);
+test('forksOf: same remote (or repo, for forks without one) and path only', () => {
+	const fork = (path: string, remote: string | null, repo: string, from: string): Fork => ({ path, meta: { remote, repo, path: from, blob: sha('1'), branch: null, commit: null, date: null } });
+	const forks = [
+		fork('a.md', 'a-b', REPO, 'wiki/a.md'),
+		fork('old.md', null, REPO, 'wiki/a.md'),
+		fork('b.md', 'a-b', REPO, 'wiki/b.md'),
+		fork('c.md', 'x-y', REPO, 'wiki/a.md'),
+		fork('d.md', null, 'https://github.com/x/y', 'wiki/a.md'),
+	];
+	assert.deepEqual(forksOf(forks, REMOTE, 'wiki/a.md').map((f) => f.path), ['a.md', 'old.md']);
 });
 
 test('localIso: local time with offset, to the second', () => {
@@ -54,11 +61,22 @@ test('localIso: local time with offset, to the second', () => {
 
 test('newForkMeta: head and blob recorded; reads back as a fork', () => {
 	const head = { branch: 'main', commit: sha('c'), tree: sha('t') };
-	const m = newForkMeta(REPO, 'wiki/a.md', head, sha('b'), new Date('2026-11-10T11:42:05Z'));
+	const m = newForkMeta(REMOTE, 'wiki/a.md', head, sha('b'), new Date('2026-11-10T11:42:05Z'));
+	assert.equal(m.remote, 'a-b');
+	assert.equal(m.repo, REPO);
 	assert.equal(m.branch, 'main');
 	assert.equal(m.commit, sha('c'));
 	assert.equal(m.blob, sha('b'));
 	assert.deepEqual(readForkMeta(forkMetaProps(m)), m);
+});
+
+test('newForkMeta: a local source records its name, no repo', () => {
+	const head = { branch: 'main', commit: sha('c'), tree: sha('t') };
+	const m = newForkMeta({ url: 'local:notes', name: 'notes' }, 'a.md', head, sha('b'), new Date());
+	assert.equal(m.remote, 'notes');
+	assert.equal(m.repo, null);
+	assert.deepEqual(readForkMeta(forkMetaProps(m)), m);
+	assert.equal('fork_repo' in forkMetaProps(m), false);
 });
 
 test('forkFolder: source folder, else a matching vault folder, else the default', () => {

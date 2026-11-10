@@ -1,10 +1,13 @@
 // A fork's provenance in front matter (docs/spec.md → Fork provenance). Pure.
 
-import { canonicalRepoUrl } from './repo-url.ts';
+import { canonicalRepoUrl, remoteNameProblem } from './repo-url.ts';
 import { isSha, repoPath, str } from '../util/validate.ts';
 
 export interface ForkMeta {
-	repo: string;
+	/** The follow note's remote name (`fork_remote`); `null` in forks made before names. */
+	remote: string | null;
+	/** Canonical repo URL (`fork_repo`); `null` for a local source, which has no public URL. */
+	repo: string | null;
 	path: string;
 	blob: string;
 	branch: string | null;
@@ -15,6 +18,7 @@ export interface ForkMeta {
 
 /** Front matter keys, in the order they're written. */
 export const FORK_KEYS = [
+	'fork_remote',
 	'fork_repo',
 	'fork_path',
 	'fork_branch',
@@ -25,13 +29,15 @@ export const FORK_KEYS = [
 
 export type ForkKey = (typeof FORK_KEYS)[number];
 
-/** A note's provenance, or `null` if it isn't a valid fork. */
+/** A note's provenance, or `null` if it isn't a valid fork: a remote or a repo, a path and a blob. */
 export function readForkMeta(fm: Record<string, unknown> | null | undefined): ForkMeta | null {
 	if (!fm) return null;
+	const remote = typeof fm.fork_remote === 'string' && !remoteNameProblem(fm.fork_remote) ? fm.fork_remote : null;
 	const repo = typeof fm.fork_repo === 'string' ? canonicalRepoUrl(fm.fork_repo) : null;
 	const path = repoPath(fm.fork_path);
-	if (!repo || !path || !isSha(fm.fork_blob)) return null;
+	if ((!remote && !repo) || !path || !isSha(fm.fork_blob)) return null;
 	return {
+		remote,
 		repo,
 		path,
 		blob: fm.fork_blob,
@@ -42,9 +48,13 @@ export function readForkMeta(fm: Record<string, unknown> | null | undefined): Fo
 	};
 }
 
-/** The keys to merge into a note's front matter, in `FORK_KEYS` order. `null` fields are omitted. */
+/**
+ * The keys to write into a note's front matter, in `FORK_KEYS` order. `null` fields are omitted;
+ * write them with `writeForkMeta`, which also removes them.
+ */
 export function forkMetaProps(m: ForkMeta): Record<string, string> {
 	const values: Record<ForkKey, string | null> = {
+		fork_remote: m.remote,
 		fork_repo: m.repo,
 		fork_path: m.path,
 		fork_branch: m.branch,
@@ -58,4 +68,13 @@ export function forkMetaProps(m: ForkMeta): Record<string, string> {
 		if (v) out[key] = v;
 	}
 	return out;
+}
+
+/**
+ * Writes `m` into `front` in place: its keys set, every other `fork_*` key removed, so a fork of a
+ * fork never keeps the upstream's provenance (a local fork has no `fork_repo`).
+ */
+export function writeForkMeta(front: Record<string, unknown>, m: ForkMeta): void {
+	for (const key of FORK_KEYS) delete front[key];
+	Object.assign(front, forkMetaProps(m));
 }

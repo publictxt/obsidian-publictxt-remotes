@@ -4,6 +4,7 @@
 import type { ForkMeta } from '../sources/fork-meta.ts';
 import type { Source, SourceState } from '../sources/schema.ts';
 import type { Change, Head, RemoteHost } from '../remote/host.ts';
+import { isForkOf, type Remote } from '../fork/fork.ts';
 
 /** A fork note and its provenance. */
 export interface Fork {
@@ -47,7 +48,7 @@ export function inInclude(path: string, include: readonly string[]): boolean {
 	return include.length === 0 || include.some((p) => path.startsWith(p));
 }
 
-export async function checkSource(host: RemoteHost, source: Source, state: SourceState | undefined, forks: readonly Fork[]): Promise<SourceCheck> {
+export async function checkSource(host: RemoteHost, source: Source & Remote, state: SourceState | undefined, forks: readonly Fork[]): Promise<SourceCheck> {
 	const head = await host.head(source.url, source.branch);
 	const { files } = await host.tree(source.url, head.tree);
 	const seen = state?.seenCommit ?? null;
@@ -75,7 +76,7 @@ export async function checkSource(host: RemoteHost, source: Source, state: Sourc
 
 	const forkChanges: ForkChange[] = [];
 	for (const fork of forks) {
-		if (fork.meta.repo !== source.url) continue;
+		if (!isForkOf(fork.meta, source)) continue;
 		const blob = files.get(fork.meta.path) ?? null;
 		if (!blob) forkChanges.push({ fork, status: 'removed', blob });
 		else if (blob !== fork.meta.blob) forkChanges.push({ fork, status: 'modified', blob });

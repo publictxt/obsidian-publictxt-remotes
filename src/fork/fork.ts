@@ -3,6 +3,7 @@
 import type { Fork } from '../check/check.ts';
 import type { Head } from '../remote/host.ts';
 import type { ForkMeta } from '../sources/fork-meta.ts';
+import { isLocalRepo } from '../sources/repo-url.ts';
 import { repoPath } from '../util/validate.ts';
 
 /** Only Markdown has front matter to record where a fork came from. */
@@ -63,14 +64,30 @@ export function checkForkPath(input: string, taken: (p: string) => boolean): Che
 	return { ok: true, path };
 }
 
-/** Notes already forked from `path` in `repo`. */
-export function forksOf(forks: readonly Fork[], repo: string, path: string): Fork[] {
-	return forks.filter((f) => f.meta.repo === repo && f.meta.path === path);
+/** A followed remote: its key (`Source.url`) and its name. */
+export interface Remote {
+	url: string;
+	name: string;
 }
 
-/** Provenance for `path` forked from `head` at `now`. */
-export function newForkMeta(repo: string, path: string, head: Head, blob: string, now: Date): ForkMeta {
-	return { repo, path, blob, branch: head.branch, commit: head.commit, date: localIso(now) };
+/**
+ * Whether `meta` is a fork from `remote`: by `fork_remote` when the fork has one (names compared
+ * without case, as file names are), else by `fork_repo`.
+ */
+export function isForkOf(meta: ForkMeta, remote: Remote): boolean {
+	if (meta.remote !== null) return meta.remote.toLowerCase() === remote.name.toLowerCase();
+	return meta.repo === remote.url;
+}
+
+/** Notes already forked from `path` in `remote`. */
+export function forksOf(forks: readonly Fork[], remote: Remote, path: string): Fork[] {
+	return forks.filter((f) => isForkOf(f.meta, remote) && f.meta.path === path);
+}
+
+/** Provenance for `path` forked from `remote` at `head`, at `now`. A local source has no `fork_repo`. */
+export function newForkMeta(remote: Remote, path: string, head: Head, blob: string, now: Date): ForkMeta {
+	const repo = isLocalRepo(remote.url) ? null : remote.url;
+	return { remote: remote.name, repo, path, blob, branch: head.branch, commit: head.commit, date: localIso(now) };
 }
 
 /** ISO 8601 in local time with its offset, to the second: `2026-11-10T13:42:05+02:00`. */
