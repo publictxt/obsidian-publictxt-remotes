@@ -1,14 +1,14 @@
 // Sources and what the plugin stores in data.json (docs/spec.md → Data, Source, State).
 // Pure: no Obsidian runtime imports, so tests run under plain Node.
 
-import { canonicalRepoUrl } from './repo-url.ts';
+import { canonicalRepoUrl, localKey, localPathInput, remoteNameProblem, sourceKey } from './repo-url.ts';
 import { isRecord, isSha, repoPath, str } from '../util/validate.ts';
 
 export const DATA_VERSION = 1;
 
-/** A remote repo the user follows, read from its follow note (follow-note.ts). */
+/** A repo the user follows, read from its follow note (follow-note.ts). */
 export interface Source {
-	/** Canonical repo URL; the source's key. */
+	/** The source's key: its canonical repo URL, or `local:<name>` for a local source. */
 	url: string;
 	/** Branch to track; `null`: the remote's default branch. */
 	branch: string | null;
@@ -44,6 +44,8 @@ export interface PublicTxtData {
 	gitPath: string;
 	/** Keyed by `Source.url`. Sources themselves are notes, not data. */
 	state: Record<string, SourceState>;
+	/** Remote name → absolute folder of a local source, on this computer only. Never in a note. */
+	localPaths: Record<string, string>;
 }
 
 export const DEFAULT_DATA: PublicTxtData = {
@@ -54,6 +56,7 @@ export const DEFAULT_DATA: PublicTxtData = {
 	remotesFolder: '.remotes',
 	gitPath: 'git',
 	state: {},
+	localPaths: {},
 };
 
 /** Vault-relative folder without surrounding slashes, or `null`. */
@@ -76,10 +79,15 @@ function paths(v: unknown, folder: boolean): string[] {
 	return uniq(out);
 }
 
-/** One source, or `null` if its URL isn't a repo. */
-export function normalizeSource(v: unknown): Source | null {
+/**
+ * One source, or `null` if it is neither a repo URL nor a local source. `local: true` makes it the
+ * local source named `name` (its follow note's name), whatever its `url`.
+ */
+export function normalizeSource(v: unknown, name: string | null = null): Source | null {
 	if (!isRecord(v)) return null;
-	const url = typeof v.url === 'string' ? canonicalRepoUrl(v.url) : null;
+	let url: string | null;
+	if (v.local === true) url = name !== null && !remoteNameProblem(name) ? localKey(name) : null;
+	else url = typeof v.url === 'string' ? canonicalRepoUrl(v.url) : null;
 	if (!url) return null;
 	const folder = vaultFolder(v.folder);
 	return {
@@ -116,8 +124,15 @@ export function normalizeData(v: unknown): PublicTxtData {
 	const state: Record<string, SourceState> = {};
 	if (isRecord(r.state)) {
 		for (const [k, st] of Object.entries(r.state)) {
-			const url = canonicalRepoUrl(k);
+			const url = sourceKey(k);
 			if (url && !state[url]) state[url] = normalizeState(st);
+		}
+	}
+	const localPaths: Record<string, string> = {};
+	if (isRecord(r.localPaths)) {
+		for (const [name, path] of Object.entries(r.localPaths)) {
+			const p = typeof path === 'string' ? localPathInput(path) : null;
+			if (!remoteNameProblem(name) && p) localPaths[name] = p;
 		}
 	}
 
@@ -126,7 +141,7 @@ export function normalizeData(v: unknown): PublicTxtData {
 	const gitPath = str(r.gitPath) ?? DEFAULT_DATA.gitPath;
 	const matchFolders = typeof r.matchFolders === 'boolean' ? r.matchFolders : DEFAULT_DATA.matchFolders;
 	const listForks = typeof r.listForks === 'boolean' ? r.listForks : DEFAULT_DATA.listForks;
-	return { version: DATA_VERSION, forkFolder, matchFolders, listForks, remotesFolder, gitPath, state };
+	return { version: DATA_VERSION, forkFolder, matchFolders, listForks, remotesFolder, gitPath, state, localPaths };
 }
 
 /** State for sources no longer followed dropped. */

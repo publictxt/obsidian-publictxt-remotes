@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { collectFollows, followNotePath, isFollowPath, readFollow, writeFollow } from '../src/sources/follow-note.ts';
+import { collectFollows, followNotePath, isFollowPath, readFollow, remoteName, writeFollow } from '../src/sources/follow-note.ts';
 
 test('isFollowPath: markdown under follows/, any depth', () => {
 	assert.ok(isFollowPath('follows/a-b.md'));
@@ -36,16 +36,32 @@ test('collectFollows: byte-order path, first wins, duplicates and invalid report
 		{ path: 'follows/bad.md', frontmatter: { url: 'nope' } },
 		{ path: 'notes/elsewhere.md', frontmatter: { url: 'https://github.com/c/d' } },
 	]);
-	assert.deepEqual(scan.follows.map((f) => f.path), ['follows/B.md']);
-	assert.deepEqual(scan.duplicates.map((f) => f.path), ['follows/z.md']);
+	assert.deepEqual(scan.follows.map((f) => [f.path, f.name]), [['follows/B.md', 'B']]);
+	assert.deepEqual(scan.duplicates.map((f) => [f.path, f.of]), [['follows/z.md', 'url']]);
 	assert.deepEqual(scan.invalid, ['follows/bad.md']);
 });
 
-test('followNotePath: owner-repo', () => {
-	assert.equal(followNotePath('https://github.com/Ann/notes'), 'follows/Ann-notes.md');
+test('remoteName and followNotePath: the note\'s file name', () => {
+	assert.equal(remoteName('follows/x/My Vault.md'), 'My Vault');
+	assert.equal(followNotePath('My Vault'), 'follows/My Vault.md');
 });
 
-test('followNotePath: local-name for a local repo', () => {
-	assert.equal(followNotePath('file:///home/me/my%20notes.git'), 'follows/local-my notes.md');
-	assert.equal(followNotePath('file:///home/me/a%23b%3Fc'), 'follows/local-a-b-c.md');
+test('local follows: local: true and the note\'s name; no url written', () => {
+	const s = readFollow({ local: true, url: 'file:///ignored', branch: 'main' }, 'notes');
+	assert.equal(s?.url, 'local:notes');
+	assert.equal(readFollow({ local: true }, null), null);
+	assert.equal(readFollow({ local: 'yes' }, 'notes'), null);
+	const fm: Record<string, unknown> = { url: 'https://github.com/a/b', tags: ['t'] };
+	if (s) writeFollow(fm, s);
+	assert.deepEqual(fm, { tags: ['t'], local: true, branch: 'main' });
+});
+
+test('collectFollows: one name per remote, compared without case', () => {
+	const scan = collectFollows([
+		{ path: 'follows/a/notes.md', frontmatter: { url: 'https://github.com/a/b' } },
+		{ path: 'follows/b/Notes.md', frontmatter: { url: 'https://github.com/c/d' } },
+		{ path: 'follows/local.md', frontmatter: { local: true } },
+	]);
+	assert.deepEqual(scan.follows.map((f) => [f.name, f.url]), [['notes', 'https://github.com/a/b'], ['local', 'local:local']]);
+	assert.deepEqual(scan.duplicates.map((f) => [f.path, f.of]), [['follows/b/Notes.md', 'name']]);
 });

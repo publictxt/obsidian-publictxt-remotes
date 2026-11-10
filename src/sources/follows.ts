@@ -15,9 +15,9 @@ export function scanFollows(app: App): FollowScan {
 	return collectFollows(notes);
 }
 
-/** Creates the follow note for `s`; never overwrites. Returns its path. */
-export async function createFollow(app: App, s: Source): Promise<string> {
-	const path = followNotePath(s.url);
+/** Creates the follow note of the remote `name` for `s`; never overwrites. Returns its path. */
+export async function createFollow(app: App, s: Source, name: string): Promise<string> {
+	const path = followNotePath(name);
 	if (app.vault.getAbstractFileByPath(path)) throw new Error(`${path} already exists.`);
 	await ensureFolder(app, FOLLOWS_FOLDER);
 	const file = await app.vault.create(path, '');
