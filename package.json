@@ -1,5 +1,5 @@
 {
-	"name": "obsidian-publictxt",
+	"name": "obsidian-publictxt-remotes",
 	"version": "1.0.0",
 	"description": "Obsidian plugin: follow PublicTxt repos and fork their pages into your vault.",
 	"main": "main.js",

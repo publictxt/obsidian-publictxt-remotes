@@ -1,4 +1,4 @@
-# PublicTxt — Naming
+# PublicTxt Remotes — Naming
 
 Names used in code, docs and UI. Nothing is released, so all of it can still change; plugin id
 and command ids freeze at the first release.
@@ -7,9 +7,9 @@ and command ids freeze at the first release.
 
 | Thing | Name | Notes |
 |---|---|---|
-| Repo | `publictxt/obsidian-publictxt` | |
-| Plugin `id` | `publictxt` | Freezes at the first release |
-| Display `name` | PublicTxt | |
+| Repo | `publictxt/obsidian-publictxt-remotes` | Renamed from `obsidian-publictxt` (2026-11-10) |
+| Plugin `id` | `publictxt-remotes` | Freezes at the first release. Remotes: repos and vaults elsewhere; a local source is the special case |
+| Display `name` | PublicTxt Remotes | |
 | View type | `publictxt-check` | Freezes at the first release |
 | Command ids | `check-sources`, `open-check-view`, `fork-file`, `snapshot-local-sources`, `update-fork-lists` | Freeze at the first release |
 
