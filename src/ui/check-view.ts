@@ -7,6 +7,7 @@ import type { SourceResult } from '../check/run.ts';
 import { FOLLOWS_FOLDER } from '../sources/follow-note.ts';
 import { isForkable } from '../fork/fork.ts';
 import { startFork } from '../fork/run.ts';
+import { isLocalRepo } from '../sources/repo-url.ts';
 
 export const VIEW_TYPE_CHECK = 'publictxt-check';
 
@@ -69,6 +70,12 @@ export class CheckView extends ItemView {
 		const h = el.createEl('h4');
 		h.createEl('a', { text: r.follow.url, attr: { 'data-open': r.follow.path } });
 		if (r.check) h.createSpan({ cls: 'publictxt-branch', text: ` · ${r.check.head.branch}` });
+		if (isLocalRepo(r.follow.url)) {
+			el.createEl('button', {
+				text: 'Snapshot',
+				attr: { 'data-action': 'snapshot', 'data-url': r.follow.url, 'aria-label': 'Commit what changed in this folder, then check again' },
+			});
+		}
 
 		if (r.error !== null) {
 			el.createEl('p', { cls: 'publictxt-error', text: r.error });
@@ -137,6 +144,7 @@ export class CheckView extends ItemView {
 		}
 		const action = t?.closest<HTMLElement>('[data-action]');
 		if (action?.dataset.action === 'check') void this.plugin.check();
+		if (action?.dataset.action === 'snapshot' && action.dataset.url) void this.plugin.snapshot(action.dataset.url);
 		if (action?.dataset.action === 'ack' && action.dataset.url) void this.plugin.acknowledge(action.dataset.url);
 		if (action?.dataset.action === 'fork' && action.dataset.url && action.dataset.path) this.fork(action.dataset.url, action.dataset.path);
 	}

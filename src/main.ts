@@ -7,6 +7,7 @@ import { PublicTxtSettingTab } from './settings.ts';
 import { CheckView, VIEW_TYPE_CHECK } from './ui/check-view.ts';
 import { forkFromSource } from './fork/command.ts';
 import { ForkLists } from './fork/fork-lists.ts';
+import { localFollows, snapshotAndTell } from './snapshot/run.ts';
 
 export default class PublicTxtPlugin extends Plugin {
 	/** Everything in data.json, always normalized (docs/spec.md → Data). */
@@ -28,6 +29,7 @@ export default class PublicTxtPlugin extends Plugin {
 		this.addCommand({ id: 'check-sources', name: 'Check sources', callback: () => void this.showAndCheck() });
 		this.addCommand({ id: 'open-check-view', name: 'Open check view', callback: () => void this.showCheckView() });
 		this.addCommand({ id: 'fork-file', name: 'Fork a file from a source', callback: () => forkFromSource(this.app, this.data) });
+		this.addCommand({ id: 'snapshot-local-sources', name: 'Snapshot local sources', callback: () => void this.snapshot() });
 		this.addCommand({ id: 'update-fork-lists', name: 'Update fork lists in follow notes', callback: () => void this.forkLists.update(true) });
 
 		this.forkLists = new ForkLists(this);
@@ -77,6 +79,16 @@ export default class PublicTxtPlugin extends Plugin {
 		// Forks stay: only updating a fork acknowledges it (docs/spec.md → Check).
 		r.check = { ...c, changes: [], reason: null, watched: [] };
 		this.renderViews();
+	}
+
+	/**
+	 * Commits what changed in one local source's folder (by URL), or in every local source's.
+	 * Checks again if anything was committed and the view shows a check.
+	 */
+	async snapshot(url?: string): Promise<void> {
+		const follows = localFollows(this.app).filter((f) => url === undefined || f.url === url);
+		const committed = await snapshotAndTell(this.data, follows);
+		if (committed && this.lastRun) await this.check();
 	}
 
 	private async showAndCheck(): Promise<void> {
