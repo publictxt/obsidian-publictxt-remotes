@@ -61,4 +61,5 @@ and command ids freeze at the first release.
 | `startFork()` / `ForkRequest` | Asks where to put a fork (`ForkModal`), then writes it (`writeFork()`) |
 | `forkFromSource()` | The fork command: pick a source, then a file |
 | `renderForkList()` / `withForkList()` | A follow note's fork list section / the note with it replaced. Pure |
-| `syncForkLists()` / `ForkLists` | Rewrites changed fork lists / keeps them current while `listForks` is on |
+| `wantsForkList()` | Whether a follow note keeps a fork list: its `list_forks`, else the setting |
+| `syncForkLists()` / `ForkLists` | Rewrites changed fork lists / keeps them current after vault changes |

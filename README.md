@@ -25,8 +25,9 @@ pages you want into your vault. Each fork records where it came from in its fron
   related keys in its front matter. Those keys are how the plugin tells when the original
   has changed. Fork a Markdown file with **Fork** next to it in the check view, or with the
   **Fork a file from a source** command. You choose where it goes; nothing is overwritten.
-  With **List forks in follow notes** on, each follow note ends with links to the pages forked
-  from it. The plugin rewrites that section only.
+  With **List forks in follow notes** on, each follow note ends with a **Forked pages** list of
+  links to the pages forked from it. A follow note's `list_forks: true` or `false` overrides the
+  setting for that note. The plugin rewrites that section only.
 
 ## Settings
 

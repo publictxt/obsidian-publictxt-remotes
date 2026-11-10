@@ -19,7 +19,7 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 A remote repo the user follows: a note in the top-level `follows/` (any depth), one per repo
 (publictext ADR-0014, spec §3.2). The list of sources is derived by scanning that folder, never
 stored. The note's body is the user's own prose; the plugin only touches its front matter, and
-its fork list when `listForks` is on.
+its fork list when it keeps one (Fork list, below).
 
 | Key | Type | Rule |
 |---|---|---|
@@ -28,8 +28,9 @@ its fork list when `listForks` is on.
 | `include` | string or list | Folder prefixes ending in `/`, repo-relative. Empty: the whole repo. Narrows "what's new" only |
 | `watch` | string or list | Plugin only. Repo-relative file paths to report on whenever they change, even outside `include` |
 | `folder` | string | Plugin only. Default vault folder for forks from this source. Absent: `forkFolder` |
+| `list_forks` | boolean | Plugin only. Keep this note's fork list (`true`) or not (`false`). Absent, or not a boolean: the `listForks` setting |
 
-`url`, `branch` and `include` are the spec's; `watch` and `folder` are this plugin's, which other
+`url`, `branch` and `include` are the spec's; `watch`, `folder` and `list_forks` are this plugin's, which other
 readers ignore. They are public with the note.
 
 Reading (`readFollow`): no valid `url`, not a source. `url` made canonical, `include` given a
@@ -46,8 +47,9 @@ keep their case (hosts differ on case sensitivity). Anything else is invalid.
 ## Sources settings
 
 The settings tab lists the sources found in `follows/` (URL, branch, include, watch
-count, fork folder, note path), any duplicate or invalid notes, and **Add source**. Lists are one
-path per line in the form. It redraws when a note in `follows/` changes. Needs Obsidian 1.6.6 (`trashFile`). Pure logic in
+count, fork folder, fork list when set, note path), any duplicate or invalid notes, and **Add
+source**. Lists are one path per line in the form; **Fork list** is Default, On or Off
+(`list_forks` absent, `true`, `false`). It redraws when a note in `follows/` changes. Needs Obsidian 1.6.6 (`trashFile`). Pure logic in
 `src/sources/edit.ts` and `src/sources/follow-note.ts`; vault access in `src/sources/follows.ts`.
 
 - Add: the URL must be valid and not followed already. Creates
@@ -161,7 +163,9 @@ Pure logic in `src/fork/fork.ts`; the vault side in `src/fork/run.ts`.
 
 ## Fork list
 
-With `listForks` on, each follow note ends with links to the notes forked from its source:
+A follow note keeps a fork list when its `list_forks` is `true`, or when it has no `list_forks`
+and the `listForks` setting is on. The list is links to the notes forked from its source, at the
+end of the note:
 
 ```markdown
 ## Forked pages
@@ -179,8 +183,9 @@ notice.
 Updated, debounced, after a fork note is created, renamed, deleted or has its `fork_*` keys
 changed, after a follow note changes, and when the setting is turned on; not before the
 workspace is ready, so a half-loaded metadata cache can't empty a list. A note is written only if
-its list changed. Turning the setting off leaves the lists as they are. **Update fork lists in
-follow notes** (`update-fork-lists`) syncs every note now, even with the setting off. Pure logic in
+its list changed. A note that stops keeping a list (the setting off, or `list_forks: false`) is
+left as it is. **Update fork lists in follow notes** (`update-fork-lists`) syncs every follow note
+now except those with `list_forks: false`, whatever the setting. Pure logic in
 `src/fork/fork-list.ts`; the vault side in `src/fork/fork-lists.ts`.
 
 ## Build order
