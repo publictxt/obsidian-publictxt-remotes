@@ -3,8 +3,8 @@
 Follow other people's PublicTxt repos, see what changed since you last looked, and fork the
 pages you want into your vault. Each fork records where it came from in its front matter.
 
-> **Status: early development.** Nothing is released. The data model and the git layer are
-> built and tested. The settings tab, check view and fork command are in progress.
+> **Status: early development.** Nothing is released. Following sources, checking them and
+> forking files work; updating a fork is next.
 
 ## Requirements
 
@@ -23,13 +23,19 @@ pages you want into your vault. Each fork records where it came from in its fron
   vault is a git repo, add `.remotes/` to its `.gitignore`.
 - A **fork** is a note copied from a source, with `fork_repo`, `fork_path`, `fork_blob` and
   related keys in its front matter. Those keys are how the plugin tells when the original
-  has changed.
+  has changed. Fork a Markdown file with **Fork** next to it in the check view, or with the
+  **Fork a file from a source** command. You choose where it goes; nothing is overwritten.
+  With **List forks in follow notes** on, each follow note ends with a **Forked pages** list of
+  links to the pages forked from it. A follow note's `list_forks: true` or `false` overrides the
+  setting for that note. The plugin rewrites that section only.
 
 ## Settings
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| **Fork folder** | vault root | Where forked notes go |
+| **Fork folder** | vault root | Where forked notes go, unless the source sets its own |
+| **Match source folders** | on | Fork into the same folder as in the source when your vault has it |
+| **List forks in follow notes** | off | Keep a **Forked pages** list of links at the end of each follow note |
 | **Remotes folder** | `.remotes` | Where the git clones live |
 | **Git executable** | `git` | Path to git |
 

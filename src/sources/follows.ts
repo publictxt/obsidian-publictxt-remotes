@@ -4,6 +4,7 @@
 import { App, TFile } from 'obsidian';
 import { collectFollows, FOLLOWS_FOLDER, followNotePath, isFollowPath, writeFollow, type FollowScan } from './follow-note.ts';
 import type { Source } from './schema.ts';
+import { ensureFolder } from '../util/vault.ts';
 
 /** Every follow note, read from the metadata cache. */
 export function scanFollows(app: App): FollowScan {
@@ -38,13 +39,4 @@ function note(app: App, path: string): TFile {
 	const f = app.vault.getAbstractFileByPath(path);
 	if (!(f instanceof TFile)) throw new Error(`${path} is gone.`);
 	return f;
-}
-
-/** Creates each missing folder along `path`. */
-async function ensureFolder(app: App, path: string): Promise<void> {
-	let at = '';
-	for (const part of path.split('/')) {
-		at = at ? `${at}/${part}` : part;
-		if (!app.vault.getAbstractFileByPath(at)) await app.vault.createFolder(at);
-	}
 }

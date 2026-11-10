@@ -11,7 +11,7 @@ and command ids freeze at the first release.
 | Plugin `id` | `publictxt` | Freezes at the first release |
 | Display `name` | PublicTxt | |
 | View type | `publictxt-check` | Freezes at the first release |
-| Command ids | `check-sources`, `open-check-view` | Freeze at the first release |
+| Command ids | `check-sources`, `open-check-view`, `fork-file`, `update-fork-lists` | Freeze at the first release |
 
 ## Vocabulary
 
@@ -22,6 +22,7 @@ and command ids freeze at the first release.
 | include | Folder prefixes narrowing a source's "what's new" |
 | watch | Remote files reported on whenever they change |
 | fork | A vault note copied from a source file, carrying `fork_*` provenance |
+| fork list | The "Forked pages" section the plugin keeps in a follow note |
 | check | One pass over the sources: what's new, watched, forks |
 | head | The tracked branch's latest commit |
 | blob | A file's git blob SHA |
@@ -31,7 +32,7 @@ and command ids freeze at the first release.
 
 | Name | What |
 |---|---|
-| `PublicTxtData` | Everything in `data.json`: `{ version, forkFolder, remotesFolder, gitPath, state }` |
+| `PublicTxtData` | Everything in `data.json`: `{ version, forkFolder, matchFolders, listForks, remotesFolder, gitPath, state }` |
 | `Source` | One followed repo, read from its follow note |
 | `FOLLOWS_FOLDER` | `follows` |
 | `readFollow()` / `followProps()` | Front matter ↔ `Source` |
@@ -53,3 +54,12 @@ and command ids freeze at the first release.
 | `GitHost` | `RemoteHost` over the git CLI |
 | `RunGit` / `gitRunner()` | Runs one git command; the real one is in `git-process.ts`, the only Node module |
 | `RemoteError` | Remote failure, by `kind`: `no-git`, `git`, `not-found`, `bad-input` |
+| `vaultHost()` | The `RemoteHost` for this vault's settings. Desktop only |
+| `forkFolder()` | The folder a fork goes to, and which rule chose it (`FolderReason`). Pure |
+| `forkPath()` / `freePath()` | Default vault path for a fork / the first free numbered one. Pure |
+| `newForkMeta()` | Provenance for a file forked now. Pure |
+| `startFork()` / `ForkRequest` | Asks where to put a fork (`ForkModal`), then writes it (`writeFork()`) |
+| `forkFromSource()` | The fork command: pick a source, then a file |
+| `renderForkList()` / `withForkList()` | A follow note's fork list section / the note with it replaced. Pure |
+| `wantsForkList()` | Whether a follow note keeps a fork list: its `list_forks`, else the setting |
+| `syncForkLists()` / `ForkLists` | Rewrites changed fork lists / keeps them current after vault changes |

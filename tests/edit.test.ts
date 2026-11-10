@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { checkAdd, checkUpdate, sourceToForm, type Checked, type SourceForm } from '../src/sources/edit.ts';
 import type { Source } from '../src/sources/schema.ts';
 
-const form = (over: Partial<SourceForm> = {}): SourceForm => ({ url: '', branch: '', include: '', watch: '', folder: '', ...over });
+const form = (over: Partial<SourceForm> = {}): SourceForm => ({ url: '', branch: '', include: '', watch: '', folder: '', listForks: '', ...over });
 
 function ok(r: Checked): Source {
 	assert.ok(r.ok, r.ok ? '' : r.error);
@@ -12,7 +12,7 @@ function ok(r: Checked): Source {
 
 test('add: canonical URL, lines split and cleaned, blanks → null', () => {
 	const s = ok(checkAdd([], form({ url: 'git@github.com:a/b.git', include: ' wiki \n\n/notes/\n', watch: 'x.md\r\nx.md', folder: '/forks/' })));
-	assert.deepEqual(s, { url: 'https://github.com/a/b', branch: null, include: ['wiki/', 'notes/'], watch: ['x.md'], folder: 'forks' });
+	assert.deepEqual(s, { url: 'https://github.com/a/b', branch: null, include: ['wiki/', 'notes/'], watch: ['x.md'], folder: 'forks', listForks: null });
 });
 
 test('add: invalid URL and already followed rejected', () => {
@@ -28,6 +28,9 @@ test('update: URL fixed to the key', () => {
 });
 
 test('form round-trip', () => {
-	const s = ok(checkAdd([], form({ url: 'https://github.com/a/b', branch: 'main', include: 'w/\nn/', watch: 'x.md', folder: 'f' })));
+	const s = ok(checkAdd([], form({ url: 'https://github.com/a/b', branch: 'main', include: 'w/\nn/', watch: 'x.md', folder: 'f', listForks: 'off' })));
+	assert.equal(s.listForks, false);
 	assert.deepEqual(ok(checkUpdate(s.url, sourceToForm(s))), s);
+	assert.equal(ok(checkAdd([], form({ url: 'https://github.com/a/b', listForks: 'on' }))).listForks, true);
+	assert.equal(ok(checkAdd([], form({ url: 'https://github.com/a/b' }))).listForks, null);
 });

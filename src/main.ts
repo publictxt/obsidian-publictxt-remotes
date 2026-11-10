@@ -5,6 +5,8 @@ import { acknowledged } from './check/check.ts';
 import { runCheck, type CheckRun } from './check/run.ts';
 import { PublicTxtSettingTab } from './settings.ts';
 import { CheckView, VIEW_TYPE_CHECK } from './ui/check-view.ts';
+import { forkFromSource } from './fork/command.ts';
+import { ForkLists } from './fork/fork-lists.ts';
 
 export default class PublicTxtPlugin extends Plugin {
 	/** Everything in data.json, always normalized (docs/spec.md → Data). */
@@ -13,6 +15,8 @@ export default class PublicTxtPlugin extends Plugin {
 	lastRun: CheckRun | null = null;
 	/** Progress text while a check runs; `null` otherwise. */
 	checking: string | null = null;
+	/** Keeps follow notes' fork lists current. */
+	forkLists!: ForkLists;
 
 	async onload() {
 		this.data = normalizeData(await this.loadData());
@@ -23,6 +27,11 @@ export default class PublicTxtPlugin extends Plugin {
 		this.addRibbonIcon('git-compare', 'Check sources', () => void this.showAndCheck());
 		this.addCommand({ id: 'check-sources', name: 'Check sources', callback: () => void this.showAndCheck() });
 		this.addCommand({ id: 'open-check-view', name: 'Open check view', callback: () => void this.showCheckView() });
+		this.addCommand({ id: 'fork-file', name: 'Fork a file from a source', callback: () => forkFromSource(this.app, this.data) });
+		this.addCommand({ id: 'update-fork-lists', name: 'Update fork lists in follow notes', callback: () => void this.forkLists.update(true) });
+
+		this.forkLists = new ForkLists(this);
+		this.forkLists.register();
 
 		// The settings tab lists follow notes; redraw it when one changes.
 		const touched = (f: TAbstractFile, oldPath?: string) => {

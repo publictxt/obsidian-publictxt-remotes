@@ -4,11 +4,13 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 
 ## Data
 
-`data.json` holds `{ version, forkFolder, remotesFolder, gitPath, state }`. Sources are notes (below).
+`data.json` holds `{ version, forkFolder, matchFolders, listForks, remotesFolder, gitPath, state }`. Sources are notes (below).
 
 | Field | Default | Meaning |
 |---|---|---|
 | `forkFolder` | `''` | Default vault folder for forks (`''`: the vault root) |
+| `matchFolders` | `true` | Fork into the remote file's folder when the vault has that exact folder |
+| `listForks` | `false` | Keep a fork list in each follow note (Fork list, below) |
 | `remotesFolder` | `.remotes` | Vault folder holding the clones; never empty. Hidden, so Obsidian doesn't index it and Sync skips it |
 | `gitPath` | `git` | The git executable. Set it when Obsidian doesn't see the shell's PATH (macOS apps started from Finder) |
 
@@ -16,7 +18,8 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 
 A remote repo the user follows: a note in the top-level `follows/` (any depth), one per repo
 (publictext ADR-0014, spec §3.2). The list of sources is derived by scanning that folder, never
-stored. The note's body is the user's own prose; the plugin only touches its front matter.
+stored. The note's body is the user's own prose; the plugin only touches its front matter, and
+its fork list when it keeps one (Fork list, below).
 
 | Key | Type | Rule |
 |---|---|---|
@@ -25,8 +28,9 @@ stored. The note's body is the user's own prose; the plugin only touches its fro
 | `include` | string or list | Folder prefixes ending in `/`, repo-relative. Empty: the whole repo. Narrows "what's new" only |
 | `watch` | string or list | Plugin only. Repo-relative file paths to report on whenever they change, even outside `include` |
 | `folder` | string | Plugin only. Default vault folder for forks from this source. Absent: `forkFolder` |
+| `list_forks` | boolean | Plugin only. Keep this note's fork list (`true`) or not (`false`). Absent, or not a boolean: the `listForks` setting |
 
-`url`, `branch` and `include` are the spec's; `watch` and `folder` are this plugin's, which other
+`url`, `branch` and `include` are the spec's; `watch`, `folder` and `list_forks` are this plugin's, which other
 readers ignore. They are public with the note.
 
 Reading (`readFollow`): no valid `url`, not a source. `url` made canonical, `include` given a
@@ -43,8 +47,9 @@ keep their case (hosts differ on case sensitivity). Anything else is invalid.
 ## Sources settings
 
 The settings tab lists the sources found in `follows/` (URL, branch, include, watch
-count, fork folder, note path), any duplicate or invalid notes, and **Add source**. Lists are one
-path per line in the form. It redraws when a note in `follows/` changes. Needs Obsidian 1.6.6 (`trashFile`). Pure logic in
+count, fork folder, fork list when set, note path), any duplicate or invalid notes, and **Add
+source**. Lists are one path per line in the form; **Fork list** is Default, On or Off
+(`list_forks` absent, `true`, `false`). It redraws when a note in `follows/` changes. Needs Obsidian 1.6.6 (`trashFile`). Pure logic in
 `src/sources/edit.ts` and `src/sources/follow-note.ts`; vault access in `src/sources/follows.ts`.
 
 - Add: the URL must be valid and not followed already. Creates
@@ -140,9 +145,48 @@ Errors are a `RemoteError` by `kind`: `no-git` (git can't start), `git` (a comma
 
 ## Fork
 
-User picks a file from a check (or the source's tree) and a target folder (source `folder`, else
-the default). The plugin fetches the blob, writes `<folder>/<file name>`, then adds the
-provenance keys. A name clash asks; it never overwrites.
+Two ways in: **Fork** after a file in the check view's What's new or Watched (at the head that
+check saw), or **Fork a file from a source** (pick a source, skipped when there is one; its head
+is fetched; pick a file). Markdown files only: front matter is where the provenance goes.
+
+A modal offers the vault path `<folder>/<file name>`. The folder is, in order: the source's
+`folder`; the remote file's folder, if `matchFolders` is on and the vault has that exact folder
+(a partial match doesn't count, and no folder is created for it); else `forkFolder`. The modal
+says which. If that path is taken, it offers `<name> 1.md`, `<name> 2.md`, … and says why; if
+the file was forked before, it names those notes. The path can be edited (`.md` is added); an
+existing note is never overwritten. On **Fork**: the blob is fetched, the note created with the
+remote text, then the provenance keys added (`processFrontMatter`: remote keys kept, `fork_*`
+added or overwritten). Remote front matter that isn't valid YAML is refused before anything is
+written. `fork_date` is local time with its offset. The new note opens.
+
+Pure logic in `src/fork/fork.ts`; the vault side in `src/fork/run.ts`.
+
+## Fork list
+
+A follow note keeps a fork list when its `list_forks` is `true`, or when it has no `list_forks`
+and the `listForks` setting is on. The list is links to the notes forked from its source, at the
+end of the note:
+
+```markdown
+## Forked pages
+
+- [human computation](../wiki/human%20computation.md)
+```
+
+The plugin owns the section: from the `## Forked pages` line to the next `#` or `##` heading, or the
+end of the note. Text in it is replaced, so `###` headings there go too; text outside it is never
+touched. Links are made by Obsidian (`generateMarkdownLink`), so they follow the vault's link
+settings, sorted. A source with no forks has no section: it is added at the end with the first
+fork and removed with the last. A note with the heading more than once is left alone, with a
+notice.
+
+Updated, debounced, after a fork note is created, renamed, deleted or has its `fork_*` keys
+changed, after a follow note changes, and when the setting is turned on; not before the
+workspace is ready, so a half-loaded metadata cache can't empty a list. A note is written only if
+its list changed. A note that stops keeping a list (the setting off, or `list_forks: false`) is
+left as it is. **Update fork lists in follow notes** (`update-fork-lists`) syncs every follow note
+now except those with `list_forks: false`, whatever the setting. Pure logic in
+`src/fork/fork-list.ts`; the vault side in `src/fork/fork-lists.ts`.
 
 ## Build order
 
@@ -151,6 +195,6 @@ provenance keys. A name clash asks; it never overwrites.
    temporary repos.
 3. Sources settings: add, edit, remove. Done.
 4. Check view: what's new, watched, forks. Done.
-5. Fork command.
+5. Fork: check view and command, folder matching, fork list. Done.
 6. Later: update a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.
 7. Mobile phase (`intent.md` → Phases).

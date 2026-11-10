@@ -11,6 +11,8 @@ export interface SourceForm {
 	include: string;
 	watch: string;
 	folder: string;
+	/** `''`: the setting decides. */
+	listForks: '' | 'on' | 'off';
 }
 
 export type Checked = { ok: true; source: Source } | { ok: false; error: string };
@@ -25,6 +27,7 @@ export function sourceToForm(s: Source): SourceForm {
 		include: s.include.join('\n'),
 		watch: s.watch.join('\n'),
 		folder: s.folder ?? '',
+		listForks: s.listForks === null ? '' : s.listForks ? 'on' : 'off',
 	};
 }
 
@@ -37,6 +40,7 @@ export function formToSource(f: SourceForm): Checked {
 		include: lines(f.include),
 		watch: lines(f.watch),
 		folder: f.folder,
+		list_forks: f.listForks === '' ? null : f.listForks === 'on',
 	});
 	return source ? { ok: true, source } : { ok: false, error: 'Not a valid source.' };
 }

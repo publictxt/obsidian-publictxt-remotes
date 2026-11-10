@@ -18,6 +18,8 @@ export interface Source {
 	watch: string[];
 	/** Vault folder for forks from this source; `null`: `forkFolder`. */
 	folder: string | null;
+	/** Keep this follow note's fork list; `null`: the `listForks` setting decides. */
+	listForks: boolean | null;
 }
 
 /** Per-source cache. Safe to delete. */
@@ -32,6 +34,10 @@ export interface PublicTxtData {
 	version: number;
 	/** Default vault folder for forks; `''`: the vault root. */
 	forkFolder: string;
+	/** Fork into the remote file's folder when the vault has it (docs/spec.md → Fork). */
+	matchFolders: boolean;
+	/** Keep a fork list in each follow note (docs/spec.md → Fork list). */
+	listForks: boolean;
 	/** Vault folder holding the bare clones (docs/spec.md → Remote host). */
 	remotesFolder: string;
 	/** The git executable; `git`: whatever is on PATH. */
@@ -43,6 +49,8 @@ export interface PublicTxtData {
 export const DEFAULT_DATA: PublicTxtData = {
 	version: DATA_VERSION,
 	forkFolder: '',
+	matchFolders: true,
+	listForks: false,
 	remotesFolder: '.remotes',
 	gitPath: 'git',
 	state: {},
@@ -80,6 +88,7 @@ export function normalizeSource(v: unknown): Source | null {
 		include: paths(v.include, true),
 		watch: paths(v.watch, false),
 		folder: folder || null,
+		listForks: typeof v.list_forks === 'boolean' ? v.list_forks : null,
 	};
 }
 
@@ -115,7 +124,9 @@ export function normalizeData(v: unknown): PublicTxtData {
 	const forkFolder = vaultFolder(r.forkFolder) ?? DEFAULT_DATA.forkFolder;
 	const remotesFolder = vaultFolder(r.remotesFolder) || DEFAULT_DATA.remotesFolder;
 	const gitPath = str(r.gitPath) ?? DEFAULT_DATA.gitPath;
-	return { version: DATA_VERSION, forkFolder, remotesFolder, gitPath, state };
+	const matchFolders = typeof r.matchFolders === 'boolean' ? r.matchFolders : DEFAULT_DATA.matchFolders;
+	const listForks = typeof r.listForks === 'boolean' ? r.listForks : DEFAULT_DATA.listForks;
+	return { version: DATA_VERSION, forkFolder, matchFolders, listForks, remotesFolder, gitPath, state };
 }
 
 /** State for sources no longer followed dropped. */
