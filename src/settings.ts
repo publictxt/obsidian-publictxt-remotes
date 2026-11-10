@@ -11,7 +11,7 @@ import { ConfirmModal } from './ui/confirm-modal.ts';
 import { SourceModal } from './ui/source-modal.ts';
 
 type TextField = 'forkFolder' | 'remotesFolder' | 'gitPath';
-type ToggleField = 'matchFolders';
+type ToggleField = 'matchFolders' | 'listForks';
 
 export class PublicTxtSettingTab extends PluginSettingTab {
 	private readonly plugin: PublicTxtPlugin;
@@ -27,6 +27,9 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 
 		this.text('forkFolder', 'Fork folder', 'Default vault folder for forked notes. Empty: the vault root.');
 		this.toggle('matchFolders', 'Match source folders', 'Fork into the same folder as in the source when your vault has that folder.');
+		this.toggle('listForks', 'List forks in follow notes', 'Keep a list of links to the pages forked from each source at the end of its follow note, under Forked pages. The plugin rewrites that section; the rest of the note is yours.', (on) => {
+			if (on) void this.plugin.forkLists.update(false);
+		});
 		this.text('remotesFolder', 'Remotes folder', 'Vault folder holding the git clones of your sources.');
 		this.text('gitPath', 'Git executable', 'Path to git. Set it if Obsidian can\'t find git on your PATH.');
 
@@ -115,13 +118,14 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 	}
 
 	/** A toggle bound to one field. */
-	private toggle(field: ToggleField, name: string, desc: string): void {
+	private toggle(field: ToggleField, name: string, desc: string, after?: (value: boolean) => void): void {
 		new Setting(this.containerEl)
 			.setName(name)
 			.setDesc(desc)
 			.addToggle((t) =>
 				t.setValue(this.plugin.data[field]).onChange(async (value) => {
 					await this.plugin.save({ ...this.plugin.data, [field]: value });
+					after?.(value);
 				}),
 			);
 	}
