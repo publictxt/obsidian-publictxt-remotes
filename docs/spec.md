@@ -140,9 +140,19 @@ Errors are a `RemoteError` by `kind`: `no-git` (git can't start), `git` (a comma
 
 ## Fork
 
-User picks a file from a check (or the source's tree) and a target folder (source `folder`, else
-the default). The plugin fetches the blob, writes `<folder>/<file name>`, then adds the
-provenance keys. A name clash asks; it never overwrites.
+Two ways in: **Fork** after a file in the check view's What's new or Watched (at the head that
+check saw), or **Fork a file from a source** (pick a source, skipped when there is one; its head
+is fetched; pick a file). Markdown files only: front matter is where the provenance goes.
+
+A modal offers the vault path `<folder>/<file name>`, with `folder` the source's, else
+`forkFolder`. If that path is taken, it offers `<name> 1.md`, `<name> 2.md`, … and says why; if
+the file was forked before, it names those notes. The path can be edited (`.md` is added); an
+existing note is never overwritten. On **Fork**: the blob is fetched, the note created with the
+remote text, then the provenance keys added (`processFrontMatter`: remote keys kept, `fork_*`
+added or overwritten). Remote front matter that isn't valid YAML is refused before anything is
+written. `fork_date` is local time with its offset. The new note opens.
+
+Pure logic in `src/fork/fork.ts`; the vault side in `src/fork/run.ts`.
 
 ## Build order
 
@@ -151,6 +161,6 @@ provenance keys. A name clash asks; it never overwrites.
    temporary repos.
 3. Sources settings: add, edit, remove. Done.
 4. Check view: what's new, watched, forks. Done.
-5. Fork command.
+5. Fork: check view and command. Done.
 6. Later: update a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.
 7. Mobile phase (`intent.md` → Phases).

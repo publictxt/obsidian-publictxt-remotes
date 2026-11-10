@@ -11,7 +11,7 @@ and command ids freeze at the first release.
 | Plugin `id` | `publictxt` | Freezes at the first release |
 | Display `name` | PublicTxt | |
 | View type | `publictxt-check` | Freezes at the first release |
-| Command ids | `check-sources`, `open-check-view` | Freeze at the first release |
+| Command ids | `check-sources`, `open-check-view`, `fork-file` | Freeze at the first release |
 
 ## Vocabulary
 
@@ -53,3 +53,8 @@ and command ids freeze at the first release.
 | `GitHost` | `RemoteHost` over the git CLI |
 | `RunGit` / `gitRunner()` | Runs one git command; the real one is in `git-process.ts`, the only Node module |
 | `RemoteError` | Remote failure, by `kind`: `no-git`, `git`, `not-found`, `bad-input` |
+| `vaultHost()` | The `RemoteHost` for this vault's settings. Desktop only |
+| `forkPath()` / `freePath()` | Default vault path for a fork / the first free numbered one. Pure |
+| `newForkMeta()` | Provenance for a file forked now. Pure |
+| `startFork()` / `ForkRequest` | Asks where to put a fork (`ForkModal`), then writes it (`writeFork()`) |
+| `forkFromSource()` | The fork command: pick a source, then a file |
