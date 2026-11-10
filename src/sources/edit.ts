@@ -33,7 +33,7 @@ export function sourceToForm(s: Source): SourceForm {
 
 /** Form text → a normalized source, or why not. */
 export function formToSource(f: SourceForm): Checked {
-	if (!canonicalRepoUrl(f.url)) return { ok: false, error: 'Not a repo URL: use https://host/owner/repo or git@host:owner/repo.git.' };
+	if (!canonicalRepoUrl(f.url)) return { ok: false, error: 'Not a repo URL: use https://host/owner/repo, git@host:owner/repo.git or a local path.' };
 	const source = normalizeSource({
 		url: f.url,
 		branch: f.branch,

@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { GitHost, cachePath, parseLsTree, parseNameStatus } from '../src/remote/git.ts';
 import { gitRunner, pathExists } from '../src/remote/git-process.ts';
 import { RemoteError } from '../src/remote/host.ts';
+import { canonicalRepoUrl } from '../src/sources/repo-url.ts';
 
 const REPO = 'https://example.com/a/b';
 let root = '';
@@ -40,6 +41,15 @@ after(() => rmSync(root, { recursive: true, force: true }));
 test('cachePath: host/owner/repo.git', () => {
 	assert.deepEqual(cachePath(REPO), ['example.com', 'a', 'b.git']);
 	assert.throws(() => cachePath('nope'), RemoteError);
+});
+
+test('cachePath: file/name-hash.git for a local repo', () => {
+	const [dir, name] = cachePath('file:///home/me/my%20notes.git');
+	assert.equal(dir, 'file');
+	assert.match(name ?? '', /^my-notes-[0-9a-f]{8}\.git$/);
+	assert.notDeepEqual(cachePath('file:///home/me/notes'), cachePath('file:///home/you/notes'));
+	assert.deepEqual(cachePath('file:///home/me/notes'), cachePath('file:///home/me/notes'));
+	assert.match(cachePath('file:///home/me/..git')[1] ?? '', /^repo-[0-9a-f]{8}\.git$/);
 });
 
 test('parsers', () => {
@@ -97,6 +107,17 @@ test('clone, head, tree, changes, blob, then a force-push', async () => {
 	assert.equal((await h.head(REPO, null)).commit, c3);
 	assert.equal(await h.changes(REPO, c2, c3), null);
 	assert.equal(await h.changes(REPO, 'f'.repeat(40), c3), null);
+});
+
+test('a local repo by its file URL, no URL mapping', async () => {
+	const url = canonicalRepoUrl(up) ?? '';
+	assert.ok(url.startsWith('file:///'));
+	const h = new GitHost({ run: gitRunner(), cacheDir: join(root, 'local-remotes'), join, exists: pathExists });
+	const head = await h.head(url, null);
+	assert.equal(head.commit, g('rev-parse', 'HEAD'));
+	assert.ok(await pathExists(join(root, 'local-remotes', ...cachePath(url))));
+	const { files } = await h.tree(url, head.tree);
+	assert.ok(files.has('wiki/a.md'));
 });
 
 test('errors: missing branch, bad SHA, no git', async () => {
