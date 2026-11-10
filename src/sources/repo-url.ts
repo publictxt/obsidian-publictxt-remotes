@@ -50,6 +50,17 @@ export function localRepoName(url: string): string {
 	return name.replace(/\.git$/i, '');
 }
 
+/** A local repo's folder on this computer: `file:///home/me/my%20notes` → `/home/me/my notes`, `file:///C:/notes` → `C:/notes`. */
+export function localRepoPath(url: string): string {
+	let path = url.slice('file://'.length);
+	try {
+		path = decodeURIComponent(path);
+	} catch {
+		// Malformed escape: keep it as written.
+	}
+	return /^\/[A-Za-z]:\//.test(path) ? path.slice(1) : path;
+}
+
 /** An absolute path as a `file:` URL. `%`, `?` and `#` are path characters here, not URL syntax. */
 function pathToFileUrl(path: string): string {
 	const p = path.replace(/\\/g, '/').replace(/%/g, '%25').replace(/\?/g, '%3F').replace(/#/g, '%23');
