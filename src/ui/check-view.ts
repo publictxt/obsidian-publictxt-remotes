@@ -5,6 +5,8 @@ import type PublicTxtPlugin from '../main.ts';
 import { hasNews, type NewReason, type SourceCheck } from '../check/check.ts';
 import type { SourceResult } from '../check/run.ts';
 import { FOLLOWS_FOLDER } from '../sources/follow-note.ts';
+import { isForkable } from '../fork/fork.ts';
+import { startFork } from '../fork/run.ts';
 
 export const VIEW_TYPE_CHECK = 'publictxt-check';
 
@@ -95,6 +97,7 @@ export class CheckView extends ItemView {
 			li.createSpan({ cls: `publictxt-status-${ch.status}`, text: ch.status });
 			li.appendText(` ${ch.path}`);
 			if (ch.from) li.appendText(` (from ${ch.from})`);
+			if (ch.status !== 'removed') forkLink(li, c.url, ch.path);
 		}
 		if (c.changes.length > LIST_LIMIT) el.createEl('p', { cls: 'publictxt-quiet', text: `And ${c.changes.length - LIST_LIMIT} more.` });
 	}
@@ -107,6 +110,7 @@ export class CheckView extends ItemView {
 			const li = ul.createEl('li');
 			li.createSpan({ cls: `publictxt-status-${w.status}`, text: w.status });
 			li.appendText(` ${w.path}`);
+			if (w.status !== 'removed') forkLink(li, c.url, w.path);
 		}
 	}
 
@@ -134,5 +138,20 @@ export class CheckView extends ItemView {
 		const action = t?.closest<HTMLElement>('[data-action]');
 		if (action?.dataset.action === 'check') void this.plugin.check();
 		if (action?.dataset.action === 'ack' && action.dataset.url) void this.plugin.acknowledge(action.dataset.url);
+		if (action?.dataset.action === 'fork' && action.dataset.url && action.dataset.path) this.fork(action.dataset.url, action.dataset.path);
 	}
+
+	/** Forks `path` at the head the last check saw: what the user is looking at. */
+	private fork(url: string, path: string): void {
+		const r = this.plugin.lastRun?.results.find((x) => x.check?.url === url);
+		if (!r?.check) return;
+		void startFork(this.app, this.plugin.data, { url, head: r.check.head, path, folder: r.follow.folder });
+	}
+}
+
+/** A "fork" action after a file's path, for Markdown files. */
+function forkLink(li: HTMLElement, url: string, path: string): void {
+	if (!isForkable(path)) return;
+	li.appendText(' ');
+	li.createEl('a', { text: 'Fork', cls: 'publictxt-fork', attr: { 'data-action': 'fork', 'data-url': url, 'data-path': path, 'aria-label': `Fork ${path} into the vault` } });
 }
