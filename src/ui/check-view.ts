@@ -68,7 +68,7 @@ export class CheckView extends ItemView {
 	private source(parent: HTMLElement, r: SourceResult): void {
 		const el = parent.createDiv({ cls: 'publictxt-source' });
 		const h = el.createEl('h4');
-		h.createEl('a', { text: r.follow.url, attr: { 'data-open': r.follow.path } });
+		h.createEl('a', { text: r.follow.name, attr: { 'data-open': r.follow.path, 'aria-label': isLocalRepo(r.follow.url) ? 'Local source' : r.follow.url } });
 		if (r.check) h.createSpan({ cls: 'publictxt-branch', text: ` · ${r.check.head.branch}` });
 		if (isLocalRepo(r.follow.url)) {
 			el.createEl('button', {
@@ -153,7 +153,7 @@ export class CheckView extends ItemView {
 	private fork(url: string, path: string): void {
 		const r = this.plugin.lastRun?.results.find((x) => x.check?.url === url);
 		if (!r?.check) return;
-		void startFork(this.app, this.plugin.data, { url, head: r.check.head, path, folder: r.follow.folder });
+		void startFork(this.app, this.plugin.data, { url, name: r.follow.name, head: r.check.head, path, folder: r.follow.folder });
 	}
 }
 
