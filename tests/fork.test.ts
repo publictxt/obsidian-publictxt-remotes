@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkForkPath, forkPath, forksOf, freePath, isForkable, localIso, newForkMeta } from '../src/fork/fork.ts';
+import { checkForkPath, forkFolder, forkPath, forksOf, freePath, isForkable, localIso, newForkMeta } from '../src/fork/fork.ts';
 import type { Fork } from '../src/check/check.ts';
 import { readForkMeta, forkMetaProps } from '../src/sources/fork-meta.ts';
 
@@ -59,4 +59,16 @@ test('newForkMeta: head and blob recorded; reads back as a fork', () => {
 	assert.equal(m.commit, sha('c'));
 	assert.equal(m.blob, sha('b'));
 	assert.deepEqual(readForkMeta(forkMetaProps(m)), m);
+});
+
+test('forkFolder: source folder, else a matching vault folder, else the default', () => {
+	const vault = new Set(['wiki', 'wiki/cs']);
+	const o = { sourceFolder: null, defaultFolder: 'forks', matchFolders: true, folderExists: (f: string) => vault.has(f) };
+	assert.deepEqual(forkFolder('wiki/cs/a.md', { ...o, sourceFolder: 'theirs' }), { folder: 'theirs', reason: 'source' });
+	assert.deepEqual(forkFolder('wiki/cs/a.md', o), { folder: 'wiki/cs', reason: 'matched' });
+	// Exact folder only: a partial match falls back to the default.
+	assert.deepEqual(forkFolder('wiki/cs/se/a.md', o), { folder: 'forks', reason: 'default' });
+	assert.deepEqual(forkFolder('wiki/cs/a.md', { ...o, matchFolders: false }), { folder: 'forks', reason: 'default' });
+	// A file at the repo root has no folder to match.
+	assert.deepEqual(forkFolder('a.md', o), { folder: 'forks', reason: 'default' });
 });

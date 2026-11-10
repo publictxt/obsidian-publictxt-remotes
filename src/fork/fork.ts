@@ -16,6 +16,31 @@ export function forkPath(folder: string, path: string): string {
 	return folder ? `${folder}/${name}` : name;
 }
 
+/** Which rule chose a fork's folder. */
+export type FolderReason = 'source' | 'matched' | 'default';
+
+export interface ForkFolderOptions {
+	/** The source's `folder`; `null`: none set. */
+	sourceFolder: string | null;
+	/** `forkFolder`; `''` is the vault root. */
+	defaultFolder: string;
+	/** Use the remote file's folder when the vault has that exact folder. */
+	matchFolders: boolean;
+	folderExists: (folder: string) => boolean;
+}
+
+/**
+ * The vault folder a fork of `path` goes to: the source's folder, else the remote file's folder
+ * if the vault has it (and matching is on), else the default. Never a folder to be created for the match.
+ */
+export function forkFolder(path: string, o: ForkFolderOptions): { folder: string; reason: FolderReason } {
+	if (o.sourceFolder) return { folder: o.sourceFolder, reason: 'source' };
+	const slash = path.lastIndexOf('/');
+	const remote = slash > 0 ? path.slice(0, slash) : '';
+	if (o.matchFolders && remote && o.folderExists(remote)) return { folder: remote, reason: 'matched' };
+	return { folder: o.defaultFolder, reason: 'default' };
+}
+
 /** `path` if free, else the first free `<name> 1.md`, `<name> 2.md`, … */
 export function freePath(path: string, taken: (p: string) => boolean): string {
 	if (!taken(path)) return path;
