@@ -31,12 +31,14 @@ source's folder, again only when asked.
 - **Change detection by git blob SHA.** The blob SHA of a file is content-addressed and the same
   on every host. Storing it at fork time also keeps the merge base, which a later
   "update my fork" (three-way merge) or "propose back upstream" needs.
-- **Desktop-only, using the git CLI** (decided 2026-11-03). Git gives any host, the user's own
-  auth (SSH keys, credential helpers), no API rate limits, full history, and `git merge-file`
-  for updating forks later. It matches publictext ADR-0004 (git CLI on the .NET side). PublicTxt
-  users keep their notes in git, so desktop users have it. `isDesktopOnly` can go from `true`
-  to `false` later without taking anything from anyone; the reverse can't. Node imports stay in
-  `src/remote/git-process.ts` so the rest of `src/` ports.
+- **Desktop only, using the git CLI** (decided 2026-11-03; for good, 2026-11-10). Git gives any
+  host, the user's own auth (SSH keys, credential helpers), no API rate limits, full history,
+  and `git merge-file` for updating forks later. It matches publictext ADR-0004 (git CLI on the
+  .NET side). PublicTxt users keep their notes in git, so desktop users have it. Local sources,
+  snapshots and making repos need a file system and git too, so there is no mobile version to
+  plan for. Node imports stay in `src/remote/git-process.ts`, which keeps the rest pure and
+  testable under plain Node. A GitHub REST adapter, built before this was decided, is parked at
+  tag `archive/github-adapter`.
 - **Clones live in the vault's hidden `.remotes/` folder** (setting), one bare partial clone per source
   (`--filter=blob:none`): history and trees up front, file contents fetched on demand. Bare
   clones have no working files, so no remote `.md` shows up as a note.
@@ -81,16 +83,6 @@ source's folder, again only when asked.
 7. **Create the remote's folders on fork.** Folder matching uses the remote file's folder only
    when the vault already has it. An option to create it instead would mirror the remote's
    layout. Parked 2026-11-10.
-
-## Phases
-
-1. **Desktop** (now): git CLI, as above.
-2. **Mobile** (later): a second `RemoteHost` over a host's HTTPS API, no git. A GitHub REST
-   adapter was built and tested, then removed when desktop-only was chosen. It is parked at tag
-   `archive/github-adapter` as the starting point:
-   `git checkout archive/github-adapter -- src/remote/github.ts tests/github.test.ts`.
-   `RemoteHost` has changed since (`changes()` returns `Change[] | null`), so expect small fixes. That phase
-   brings back the auth and rate-limit questions, and needs a merge that doesn't use git.
 
 ## Proposed changes to the publictext spec
 

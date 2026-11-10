@@ -266,4 +266,3 @@ now except those with `list_forks: false`, whatever the setting. Pure logic in
 5. Fork: check view and command, folder matching, fork list. Done.
 6. Local sources: `file:///` URLs, snapshot, making a repo, folder checks on add. Done.
 7. Later: update a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.
-8. Mobile phase (`intent.md` → Phases).
