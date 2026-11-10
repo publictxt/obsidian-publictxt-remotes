@@ -8,6 +8,8 @@ import { checkAdd, checkUpdate, sourceToForm, type Checked, type SourceForm } fr
 import { FOLLOWS_FOLDER, type Follow } from './sources/follow-note.ts';
 import { createFollow, scanFollows, trashFollow, updateFollow } from './sources/follows.ts';
 import { ConfirmModal } from './ui/confirm-modal.ts';
+import { isLocalRepo } from './sources/repo-url.ts';
+import { prepareLocalAdd } from './snapshot/run.ts';
 import { SourceModal } from './ui/source-modal.ts';
 
 type TextField = 'forkFolder' | 'remotesFolder' | 'gitPath';
@@ -46,8 +48,7 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 				.setButtonText('Add source')
 				.setCta()
 				.onClick(() => {
-					const submit = (form: SourceForm) => this.write(checkAdd(scanFollows(this.app).follows, form), (s) => createFollow(this.app, s));
-					new SourceModal(this.app, submit).open();
+					new SourceModal(this.app, (form) => this.add(form)).open();
 				}),
 		);
 	}
@@ -101,6 +102,16 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 				new Notice(errorText(e));
 			}
 		}).open();
+	}
+
+	/** Adds a source from the form; a local one is looked at first (and maybe made a repo). */
+	private async add(form: SourceForm): Promise<string | null> {
+		const r = checkAdd(scanFollows(this.app).follows, form);
+		if (r.ok && isLocalRepo(r.source.url)) {
+			const problem = await prepareLocalAdd(this.app, this.plugin.data, r.source);
+			if (problem !== null) return problem;
+		}
+		return this.write(r, (s) => createFollow(this.app, s));
 	}
 
 	/**

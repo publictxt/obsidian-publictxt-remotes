@@ -87,8 +87,9 @@ export default class PublicTxtPlugin extends Plugin {
 	 */
 	async snapshot(url?: string): Promise<void> {
 		const follows = localFollows(this.app).filter((f) => url === undefined || f.url === url);
-		const committed = await snapshotAndTell(this.data, follows);
-		if (committed && this.lastRun) await this.check();
+		await snapshotAndTell(this.app, this.data, follows, async () => {
+			if (this.lastRun) await this.check();
+		});
 	}
 
 	private async showAndCheck(): Promise<void> {
