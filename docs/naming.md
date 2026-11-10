@@ -31,7 +31,7 @@ and command ids freeze at the first release.
 
 | Name | What |
 |---|---|
-| `PublicTxtData` | Everything in `data.json`: `{ version, forkFolder, remotesFolder, gitPath, state }` |
+| `PublicTxtData` | Everything in `data.json`: `{ version, forkFolder, matchFolders, remotesFolder, gitPath, state }` |
 | `Source` | One followed repo, read from its follow note |
 | `FOLLOWS_FOLDER` | `follows` |
 | `readFollow()` / `followProps()` | Front matter ↔ `Source` |
@@ -54,6 +54,7 @@ and command ids freeze at the first release.
 | `RunGit` / `gitRunner()` | Runs one git command; the real one is in `git-process.ts`, the only Node module |
 | `RemoteError` | Remote failure, by `kind`: `no-git`, `git`, `not-found`, `bad-input` |
 | `vaultHost()` | The `RemoteHost` for this vault's settings. Desktop only |
+| `forkFolder()` | The folder a fork goes to, and which rule chose it (`FolderReason`). Pure |
 | `forkPath()` / `freePath()` | Default vault path for a fork / the first free numbered one. Pure |
 | `newForkMeta()` | Provenance for a file forked now. Pure |
 | `startFork()` / `ForkRequest` | Asks where to put a fork (`ForkModal`), then writes it (`writeFork()`) |

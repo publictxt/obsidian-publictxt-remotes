@@ -31,6 +31,7 @@ pages you want into your vault. Each fork records where it came from in its fron
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | **Fork folder** | vault root | Where forked notes go, unless the source sets its own |
+| **Match source folders** | on | Fork into the same folder as in the source when your vault has it |
 | **Remotes folder** | `.remotes` | Where the git clones live |
 | **Git executable** | `git` | Path to git |
 

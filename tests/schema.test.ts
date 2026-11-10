@@ -47,5 +47,8 @@ test('folders trimmed of slashes; remotesFolder and gitPath never empty', () => 
 	assert.equal(d.forkFolder, 'Forks');
 	assert.equal(d.remotesFolder, '.remotes');
 	assert.equal(d.gitPath, '/usr/bin/git');
+	assert.equal(d.matchFolders, true);
+	assert.equal(normalizeData({ matchFolders: false }).matchFolders, false);
+	assert.equal(normalizeData({ matchFolders: 'no' }).matchFolders, true);
 	assert.equal(normalizeData({ remotesFolder: 'x/clones/' }).remotesFolder, 'x/clones');
 });

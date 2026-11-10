@@ -8,7 +8,7 @@ import { forkMetaProps, type ForkMeta } from '../sources/fork-meta.ts';
 import type { PublicTxtData } from '../sources/schema.ts';
 import { ForkModal } from '../ui/fork-modal.ts';
 import { ensureFolder } from '../util/vault.ts';
-import { checkForkPath, forkPath, forksOf, freePath, isForkable, newForkMeta } from './fork.ts';
+import { checkForkPath, forkFolder, forkPath, forksOf, freePath, isForkable, newForkMeta, type FolderReason } from './fork.ts';
 
 export interface ForkRequest {
 	/** The source's canonical URL. */
@@ -30,7 +30,13 @@ export async function startFork(app: App, data: PublicTxtData, req: ForkRequest)
 		if (!blob) throw new Error(`${req.path} is not in ${req.head.branch} any more.`);
 
 		const taken = (p: string) => app.vault.getAbstractFileByPath(normalizePath(p)) !== null;
-		const wanted = forkPath(req.folder ?? data.forkFolder, req.path);
+		const { folder, reason } = forkFolder(req.path, {
+			sourceFolder: req.folder,
+			defaultFolder: data.forkFolder,
+			matchFolders: data.matchFolders,
+			folderExists: (f) => app.vault.getFolderByPath(normalizePath(f)) !== null,
+		});
+		const wanted = forkPath(folder, req.path);
 		const suggested = freePath(wanted, taken);
 		const earlier = forksOf(scanForks(app), req.url, req.path).map((f) => f.path);
 
@@ -47,11 +53,17 @@ export async function startFork(app: App, data: PublicTxtData, req: ForkRequest)
 				return errorText(e);
 			}
 		};
-		new ForkModal(app, { from: `${req.url} · ${req.path}`, suggested, clash: suggested !== wanted ? wanted : null, earlier }, submit).open();
+		new ForkModal(app, { from: `${req.url} · ${req.path}`, suggested, why: WHY[reason], clash: suggested !== wanted ? wanted : null, earlier }, submit).open();
 	} catch (e) {
 		new Notice(errorText(e));
 	}
 }
+
+const WHY: Record<FolderReason, string> = {
+	source: 'The fork folder set for this source.',
+	matched: 'The same folder as in the source.',
+	default: 'The default fork folder.',
+};
 
 /** Creates the note at `path` with `text` and the provenance keys added. Never overwrites. */
 export async function writeFork(app: App, path: string, text: string, meta: ForkMeta): Promise<TFile> {

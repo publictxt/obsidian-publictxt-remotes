@@ -4,11 +4,12 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 
 ## Data
 
-`data.json` holds `{ version, forkFolder, remotesFolder, gitPath, state }`. Sources are notes (below).
+`data.json` holds `{ version, forkFolder, matchFolders, remotesFolder, gitPath, state }`. Sources are notes (below).
 
 | Field | Default | Meaning |
 |---|---|---|
 | `forkFolder` | `''` | Default vault folder for forks (`''`: the vault root) |
+| `matchFolders` | `true` | Fork into the remote file's folder when the vault has that exact folder |
 | `remotesFolder` | `.remotes` | Vault folder holding the clones; never empty. Hidden, so Obsidian doesn't index it and Sync skips it |
 | `gitPath` | `git` | The git executable. Set it when Obsidian doesn't see the shell's PATH (macOS apps started from Finder) |
 
@@ -144,8 +145,10 @@ Two ways in: **Fork** after a file in the check view's What's new or Watched (at
 check saw), or **Fork a file from a source** (pick a source, skipped when there is one; its head
 is fetched; pick a file). Markdown files only: front matter is where the provenance goes.
 
-A modal offers the vault path `<folder>/<file name>`, with `folder` the source's, else
-`forkFolder`. If that path is taken, it offers `<name> 1.md`, `<name> 2.md`, … and says why; if
+A modal offers the vault path `<folder>/<file name>`. The folder is, in order: the source's
+`folder`; the remote file's folder, if `matchFolders` is on and the vault has that exact folder
+(a partial match doesn't count, and no folder is created for it); else `forkFolder`. The modal
+says which. If that path is taken, it offers `<name> 1.md`, `<name> 2.md`, … and says why; if
 the file was forked before, it names those notes. The path can be edited (`.md` is added); an
 existing note is never overwritten. On **Fork**: the blob is fetched, the note created with the
 remote text, then the provenance keys added (`processFrontMatter`: remote keys kept, `fork_*`

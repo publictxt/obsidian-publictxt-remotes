@@ -32,6 +32,8 @@ export interface PublicTxtData {
 	version: number;
 	/** Default vault folder for forks; `''`: the vault root. */
 	forkFolder: string;
+	/** Fork into the remote file's folder when the vault has it (docs/spec.md → Fork). */
+	matchFolders: boolean;
 	/** Vault folder holding the bare clones (docs/spec.md → Remote host). */
 	remotesFolder: string;
 	/** The git executable; `git`: whatever is on PATH. */
@@ -43,6 +45,7 @@ export interface PublicTxtData {
 export const DEFAULT_DATA: PublicTxtData = {
 	version: DATA_VERSION,
 	forkFolder: '',
+	matchFolders: true,
 	remotesFolder: '.remotes',
 	gitPath: 'git',
 	state: {},
@@ -115,7 +118,8 @@ export function normalizeData(v: unknown): PublicTxtData {
 	const forkFolder = vaultFolder(r.forkFolder) ?? DEFAULT_DATA.forkFolder;
 	const remotesFolder = vaultFolder(r.remotesFolder) || DEFAULT_DATA.remotesFolder;
 	const gitPath = str(r.gitPath) ?? DEFAULT_DATA.gitPath;
-	return { version: DATA_VERSION, forkFolder, remotesFolder, gitPath, state };
+	const matchFolders = typeof r.matchFolders === 'boolean' ? r.matchFolders : DEFAULT_DATA.matchFolders;
+	return { version: DATA_VERSION, forkFolder, matchFolders, remotesFolder, gitPath, state };
 }
 
 /** State for sources no longer followed dropped. */

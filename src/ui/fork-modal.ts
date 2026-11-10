@@ -7,6 +7,8 @@ export interface ForkModalInfo {
 	from: string;
 	/** The vault path offered; free when offered. */
 	suggested: string;
+	/** Which rule chose its folder, as a sentence. */
+	why: string;
 	/** The default path, when it was taken and `suggested` is another. */
 	clash: string | null;
 	/** Notes already forked from this file. */
@@ -38,7 +40,7 @@ export class ForkModal extends Modal {
 
 		new Setting(contentEl)
 			.setName('Vault path')
-			.setDesc(info.clash ? `${info.clash} already exists, so another name is suggested.` : 'Where the forked note goes. An existing note is never overwritten.')
+			.setDesc(info.clash ? `${info.why} ${info.clash} already exists, so another name is suggested.` : `${info.why} An existing note is never overwritten.`)
 			.addText((t) => {
 				t.setValue(this.path).onChange((v) => (this.path = v));
 				t.inputEl.addClass('publictxt-wide');

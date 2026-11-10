@@ -11,6 +11,7 @@ import { ConfirmModal } from './ui/confirm-modal.ts';
 import { SourceModal } from './ui/source-modal.ts';
 
 type TextField = 'forkFolder' | 'remotesFolder' | 'gitPath';
+type ToggleField = 'matchFolders';
 
 export class PublicTxtSettingTab extends PluginSettingTab {
 	private readonly plugin: PublicTxtPlugin;
@@ -25,6 +26,7 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		this.text('forkFolder', 'Fork folder', 'Default vault folder for forked notes. Empty: the vault root.');
+		this.toggle('matchFolders', 'Match source folders', 'Fork into the same folder as in the source when your vault has that folder.');
 		this.text('remotesFolder', 'Remotes folder', 'Vault folder holding the git clones of your sources.');
 		this.text('gitPath', 'Git executable', 'Path to git. Set it if Obsidian can\'t find git on your PATH.');
 
@@ -110,6 +112,18 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 		} catch (e) {
 			return errorText(e);
 		}
+	}
+
+	/** A toggle bound to one field. */
+	private toggle(field: ToggleField, name: string, desc: string): void {
+		new Setting(this.containerEl)
+			.setName(name)
+			.setDesc(desc)
+			.addToggle((t) =>
+				t.setValue(this.plugin.data[field]).onChange(async (value) => {
+					await this.plugin.save({ ...this.plugin.data, [field]: value });
+				}),
+			);
 	}
 
 	/** A text setting bound to one field. The input keeps what was typed; the saved value is normalized. */

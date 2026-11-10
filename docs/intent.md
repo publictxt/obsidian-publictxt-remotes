@@ -67,6 +67,9 @@ writes into the vault, only when the user asks.
 6. **Removing a source leaves its clone.** Delete `<remotesFolder>/<host>/<owner>/<repo>.git`
    on remove (asking first), offer a "clean up clones" command, or leave it. Left for now:
    re-adding is then cheap.
+7. **Create the remote's folders on fork.** Folder matching uses the remote file's folder only
+   when the vault already has it. An option to create it instead would mirror the remote's
+   layout. Parked 2026-11-10.
 
 ## Phases
 
