@@ -130,6 +130,7 @@ Per source: its URL (opens the follow note) and branch, then an error, or "nothi
 - **Watched**: status and path.
 - **Forks changed upstream**: the fork note (opens it) and its `fork_path`.
 - **Mark as seen**: acknowledges this source. Forks stay listed.
+- **Snapshot**: local sources only, below the URL whatever the result (Snapshot, below).
 
 Needs Obsidian 1.7.2 (`revealLeaf` returning a promise).
 
@@ -152,6 +153,26 @@ clone). git clones a local repo from its `file:` URL. Commands run without a she
 
 Errors are a `RemoteError` by `kind`: `no-git` (git can't start), `git` (a command failed),
 `not-found` (branch or default branch missing), `bad-input` (not a canonical URL or SHA).
+
+## Snapshot
+
+A local source shows only what is committed. A snapshot commits everything changed in its
+folder, so the next check sees it. **Snapshot local sources** (command) snapshots each local
+source in turn; **Snapshot** in the check view snapshots one, then checks again if it committed.
+The command checks again too when the view shows a check. One notice lists each folder's
+outcome.
+
+In the folder (`localRepoPath()` of the URL), stopping with a `bad-input` error when:
+
+1. It is not a git working folder (`rev-parse --is-inside-work-tree`; a bare repo isn't).
+2. HEAD is not on a branch (`symbolic-ref --short HEAD`), or the source has a `branch` and HEAD
+   is on another: the source wouldn't see the commit.
+
+Then `status --porcelain -z --untracked-files=all`: empty, nothing to do. Otherwise `add -A`
+(`.gitignore` respected) and, if the index then differs from HEAD (`diff --cached --name-only`),
+`commit -m "Snapshot <local ISO time>"`. The user's git identity and hooks apply; a failing
+commit is a `git` error and leaves the changes staged. One snapshot per folder at a time. Pure
+logic in `src/remote/snapshot.ts`; the vault side in `src/snapshot/run.ts`.
 
 ## Fork
 

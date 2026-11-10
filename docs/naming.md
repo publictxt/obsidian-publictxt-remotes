@@ -28,6 +28,7 @@ and command ids freeze at the first release.
 | blob | A file's git blob SHA |
 | clone | A source's bare partial clone under `remotesFolder` |
 | local repo | A source on this computer, by a `file:///` URL (`isLocalRepo()`, `localRepoName()`) |
+| snapshot | A commit of everything changed in a local source's folder, made only if something changed |
 
 ## Code identifiers
 
@@ -55,6 +56,9 @@ and command ids freeze at the first release.
 | `GitHost` | `RemoteHost` over the git CLI |
 | `RunGit` / `gitRunner()` | Runs one git command; the real one is in `git-process.ts`, the only Node module |
 | `RemoteError` | Remote failure, by `kind`: `no-git`, `git`, `not-found`, `bad-input` |
+| `snapshot()` / `SnapshotResult` | Commits a working folder's changes, if any. Pure |
+| `snapshotAndTell()` / `localFollows()` | Snapshots sources and shows the outcome / every local source |
+| `localRepoPath()` | A local repo's folder from its URL |
 | `vaultHost()` | The `RemoteHost` for this vault's settings. Desktop only |
 | `forkFolder()` | The folder a fork goes to, and which rule chose it (`FolderReason`). Pure |
 | `forkPath()` / `freePath()` | Default vault path for a fork / the first free numbered one. Pure |

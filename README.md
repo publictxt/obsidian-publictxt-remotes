@@ -19,9 +19,11 @@ pages you want into your vault. Each fork records where it came from in its fron
   follow it in the body. Add and edit them in settings or by hand. They are public text, like the
   rest of your vault.
 - A source can also be a git repo on your computer: enter its path (`/home/me/notes`) or a
-  `file:///` URL as the repo URL. The plugin sees what's committed, not uncommitted edits. A
-  local path means nothing on another computer, so forks from it record a provenance only you can
-  follow.
+  `file:///` URL as the repo URL. The plugin sees what's committed, not uncommitted edits:
+  **Snapshot** in the check view, or the **Snapshot local sources** command, commits everything
+  changed in the folder (only if something did) and checks again. It commits to the folder's
+  current branch, with your git identity. A local path means nothing on another computer, so
+  forks from it record a provenance only you can follow.
 - Each source is kept as a bare partial clone in your vault's hidden `.remotes/` folder. File
   contents are fetched only when needed. Obsidian doesn't show it and Sync skips it; if your
   vault is a git repo, add `.remotes/` to its `.gitignore`.
