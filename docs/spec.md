@@ -4,7 +4,7 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 
 ## Data
 
-`data.json` holds `{ version, forkFolder, matchFolders, listForks, remotesFolder, gitPath, state }`. Sources are notes (below).
+`data.json` holds `{ version, forkFolder, matchFolders, listForks, remotesFolder, gitPath, state, localPaths }`. Sources are notes (below).
 
 | Field | Default | Meaning |
 |---|---|---|
@@ -13,6 +13,7 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 | `listForks` | `false` | Keep a fork list in each follow note (Fork list, below) |
 | `remotesFolder` | `.remotes` | Vault folder holding the clones; never empty. Hidden, so Obsidian doesn't index it and Sync skips it |
 | `gitPath` | `git` | The git executable. Set it when Obsidian doesn't see the shell's PATH (macOS apps started from Finder) |
+| `localPaths` | `{}` | Remote name → absolute folder of each local source on this computer (Local sources, below). Never in a note |
 
 ## Source
 
@@ -22,22 +23,31 @@ top-level `follows/` (any depth), one per repo
 stored. The note's body is the user's own prose; the plugin only touches its front matter, and
 its fork list when it keeps one (Fork list, below).
 
+The note's file name, without `.md`, is the source's **remote name**: `follows/research.md` is the
+remote `research`. Forks record it (`fork_remote`). A name can't start with `.` or a space, or
+contain `\ / : * ? " < > | # ^ [ ]`; names are unique, compared without case.
+
 | Key | Type | Rule |
 |---|---|---|
-| `url` | string | Required. Canonical repo URL (below); the source's key |
+| `url` | string | A hosted source's canonical repo URL (below). Required unless `local` |
+| `local` | `true` | Plugin only. A local source: no `url`; its folder is in `localPaths`, never in the note |
 | `branch` | string | Branch to track. Absent or blank: the remote's default branch |
 | `include` | string or list | Folder prefixes ending in `/`, repo-relative. Empty: the whole repo. Narrows "what's new" only |
 | `watch` | string or list | Plugin only. Repo-relative file paths to report on whenever they change, even outside `include` |
 | `folder` | string | Plugin only. Default vault folder for forks from this source. Absent: `forkFolder` |
 | `list_forks` | boolean | Plugin only. Keep this note's fork list (`true`) or not (`false`). Absent, or not a boolean: the `listForks` setting |
 
-`url`, `branch` and `include` are the spec's; `watch`, `folder` and `list_forks` are this plugin's, which other
-readers ignore. They are public with the note.
+`url`, `branch` and `include` are the spec's; `local`, `watch`, `folder` and `list_forks` are this
+plugin's, which other readers ignore. They are public with the note.
 
-Reading (`readFollow`): no valid `url`, not a source. `url` made canonical, `include` given a
-trailing `/`, leading `/` stripped from paths, paths with `.` or `..` segments dropped, lists
-deduped, a single string read as a one-item list. Two notes with one URL: the first by path
-(byte order) wins; the others are shown as duplicates.
+A source's **key** (`Source.url`; what state, clones and checks use) is its canonical URL, or
+`local:<name>` for a local source.
+
+Reading (`readFollow`): `local: true` makes a local source, whatever its `url`; otherwise no
+valid `url`, not a source. `url` made canonical, `include` given a trailing `/`, leading `/`
+stripped from paths, paths with `.` or `..` segments dropped, lists deduped, a single string
+read as a one-item list. Two notes with one URL, or one name: the first by path (byte order)
+wins; the others are shown as duplicates.
 
 ### Canonical repo URL (v0)
 
@@ -45,31 +55,30 @@ deduped, a single string read as a one-item list. Two notes with one URL: the fi
 query and fragment dropped. `git@host:owner/repo.git` becomes the HTTPS form. Owner and repo
 keep their case (hosts differ on case sensitivity).
 
-A repo on this computer is `file:///<absolute path>`, percent-encoded as `URL` does: trailing `/`,
-query and fragment dropped, `.git` kept (it is part of the path), host empty (`localhost` becomes
-empty; any other host is invalid). An absolute path (`/home/me/notes`, `C:\notes`) becomes this
-form, its `%`, `?` and `#` escaped. Local URLs are this plugin's: they mean nothing on another
-computer.
-
-Anything else is invalid.
+Anything else is invalid, `file:` URLs included: a local source has no URL in its note.
 
 ## Sources settings
 
-The settings tab lists the sources found in `follows/` (URL, branch, include, watch
-count, fork folder, fork list when set, note path), any duplicate or invalid notes, and **Add
-source**. Lists are one path per line in the form; **Fork list** is Default, On or Off
+The settings tab lists the sources found in `follows/` (name; URL, or a local source's folder
+here, or that it has none; branch, include, watch count, fork folder, fork list when set, note
+path), any duplicate or invalid notes, and **Add source**. Lists are one path per line in the form; **Fork list** is Default, On or Off
 (`list_forks` absent, `true`, `false`). It redraws when a note in `follows/` changes. Needs Obsidian 1.6.6 (`trashFile`). Pure logic in
 `src/sources/edit.ts` and `src/sources/follow-note.ts`; vault access in `src/sources/follows.ts`.
 
-- Add: the URL must be valid and not followed already. Creates `follows/<owner>-<repo>.md`
-  (`follows/local-<folder name>.md` for a local repo) with the front matter and an empty body;
-  a name clash is an error, never an overwrite. A hosted repo is not contacted: a wrong URL or
-  branch shows at the first check. A local repo's folder is looked at first (Local sources →
-  Folder kinds).
+- Add: **Name** and **Repo URL or folder**. A repo URL makes a hosted source, an absolute path or
+  `file:///` URL a local one. The URL must be valid and not followed already; the name valid and
+  free, suggested when empty (`owner-repo`, or the folder's name). Creates `follows/<name>.md`
+  with the front matter and an empty body; a file clash is an error, never an overwrite. A local
+  source's folder is looked at first (Local sources → Folder kinds), then saved in `localPaths`.
+  A hosted repo is not contacted: a wrong URL or branch shows at the first check.
 - Edit: rewrites the keys above in the note's front matter (`processFrontMatter`); other keys and
-  the body are kept. The URL is the key, so it is read-only (a different repo: remove, add).
+  the body are kept. The name and a hosted URL are read-only (forks record the name; a
+  different repo: remove, add). A local source's **Folder** can change: it is this computer's,
+  looked at as on add, and saved in `localPaths`. A local source with no folder here is marked,
+  and Edit sets one.
 - No "open note" button yet: a note opened from settings opens behind the settings window.
-- Remove: after confirming, moves the note to the trash (`trashFile`, the user's trash setting).
+- Remove: after confirming, moves the note to the trash (`trashFile`, the user's trash setting),
+  and forgets a local source's folder.
   The clone stays under `remotesFolder` (open question).
 
 ## State
@@ -89,15 +98,19 @@ Remote front matter is kept; these keys are added or overwritten.
 
 | Key | Value |
 |---|---|
-| `fork_repo` | Canonical repo URL |
+| `fork_remote` | The source's remote name (Source, above) |
+| `fork_repo` | Canonical repo URL. Hosted sources only: a local source has none |
 | `fork_path` | Repo-relative path of the file forked |
 | `fork_branch` | Branch it was forked from |
 | `fork_commit` | Head commit SHA at fork time |
 | `fork_blob` | Git blob SHA of the file at fork time: the change marker and merge base |
 | `fork_date` | ISO datetime of the fork, with offset |
 
-A note is a fork when `fork_repo`, `fork_path` and `fork_blob` are valid; the rest are optional
-when reading. The list of forks is derived by scanning the vault (`intent.md`).
+A note is a fork when `fork_path` and `fork_blob` are valid and it has a valid `fork_remote` or
+`fork_repo`; the rest are optional when reading. Writing a fork sets these keys and removes any
+other `fork_*` key, so a fork of a fork never keeps the upstream's provenance. A fork belongs to
+a source by `fork_remote` (names compared without case) when it has one, else by `fork_repo`
+(forks made before names). The list of forks is derived by scanning the vault (`intent.md`).
 
 ## Check
 
@@ -126,7 +139,7 @@ source, one at a time. **Open check view** opens it without checking. The last r
 memory only; `checkedAt` is saved for each source checked, and state for sources no longer
 followed is dropped.
 
-Per source: its URL (opens the follow note) and branch, then an error, or "nothing new", or:
+Per source: its remote name (opens the follow note) and branch, then an error, or "nothing new", or:
 
 - **What's new**: status and path, at most 50 then "and n more"; with the reason when every file
   is listed.
@@ -141,9 +154,11 @@ Needs Obsidian 1.7.2 (`revealLeaf` returning a promise).
 
 `RemoteHost` (`src/remote/host.ts`) is all the check and fork steps use. `GitHost`
 (`src/remote/git.ts`) implements it with the git CLI, one bare partial clone per source at
-`<remotesFolder>/<host>/<owner>/<repo>.git`, or `<remotesFolder>/file/<name>-<hash>.git` for a
-local repo (`<hash>`: 32-bit FNV-1a of the URL, so two local repos with one name don't share a
-clone). git clones a local repo from its `file:` URL. Commands run without a shell, with
+`<remotesFolder>/<host>/<owner>/<repo>.git`, or `<remotesFolder>/local/<name>-<hash>.git` for a
+local source (`<hash>`: 32-bit FNV-1a of the key, so names that clean up the same don't share a
+clone). git fetches a local source from `fileUrl()` of its folder in `localPaths`, and the
+clone's origin is set to it before each fetch (`remote set-url`), so a moved folder is followed;
+no folder here is a `not-found` error. Commands run without a shell, with
 `GIT_TERMINAL_PROMPT=0`, one at a time per clone.
 
 | Method | git |
@@ -159,8 +174,9 @@ Errors are a `RemoteError` by `kind`: `no-git` (git can't start), `git` (a comma
 
 ## Local sources
 
-A local source is a git repo on this computer, followed by its `file:///` URL. It is checked
-like any other: cloned into `remotesFolder` and read from its commits, so the check sees only
+A local source is a git repo on this computer. Its follow note says `local: true` and holds no
+path: the folder is in `localPaths`, keyed by the remote name, on each computer separately, so
+the note can be published and synced without giving away a path. It is checked like any other: cloned into `remotesFolder` and read from its commits, so the check sees only
 what is committed. Two actions write to its folder, outside the vault, and only when the user
 asks: **making a repo** of a folder that isn't one, and a **snapshot**, which commits what
 changed. Both run the user's git with their identity and hooks, one at a time per folder. Pure
@@ -169,7 +185,7 @@ logic in `src/remote/local-repo.ts` and `src/remote/snapshot.ts`; the vault side
 
 ### Folder kinds
 
-`inspectLocal()` says what the folder (`localRepoPath()` of the URL) is, from
+`inspectLocal()` says what the folder (from `localPaths`) is, from
 `rev-parse --is-bare-repository --is-inside-git-dir --show-prefix --git-dir`:
 
 | Kind | When | On add | On Snapshot |
@@ -264,5 +280,6 @@ now except those with `list_forks: false`, whatever the setting. Pure logic in
 3. Sources settings: add, edit, remove. Done.
 4. Check view: what's new, watched, forks. Done.
 5. Fork: check view and command, folder matching, fork list. Done.
-6. Local sources: `file:///` URLs, snapshot, making a repo, folder checks on add. Done.
-7. Later: update a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.
+6. Local sources: snapshot, making a repo, folder checks on add. Done.
+7. Remote names: the note's name is the remote's, `fork_remote`, local folders in `localPaths`. Done.
+8. Later: update a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.

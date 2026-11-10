@@ -27,7 +27,9 @@ and command ids freeze at the first release.
 | head | The tracked branch's latest commit |
 | blob | A file's git blob SHA |
 | clone | A source's bare partial clone under `remotesFolder` |
-| local source | A source on this computer, followed by its `file:///` URL; "local repo" in code |
+| remote name | A source's name: its follow note's file name. Forks record it as `fork_remote` |
+| source key | `Source.url`: the canonical URL, or `local:<name>` for a local source |
+| local source | A source on this computer: `local: true` in its note, its folder in `localPaths`; "local repo" in code |
 | snapshot | A commit of everything changed in a local source's folder, made only if something changed |
 | make a repo | `git init` a local source's folder, with a `.gitignore`, then snapshot it |
 
@@ -35,14 +37,14 @@ and command ids freeze at the first release.
 
 | Name | What |
 |---|---|
-| `PublicTxtData` | Everything in `data.json`: `{ version, forkFolder, matchFolders, listForks, remotesFolder, gitPath, state }` |
+| `PublicTxtData` | Everything in `data.json`: `{ version, forkFolder, matchFolders, listForks, remotesFolder, gitPath, state, localPaths }` |
 | `Source` | One followed repo, read from its follow note |
 | `FOLLOWS_FOLDER` | `follows` |
 | `readFollow()` / `followProps()` | Front matter ↔ `Source` |
 | `collectFollows()` | Follow notes → sources, duplicates and invalid notes |
 | `SourceState` | Per-source cache |
 | `ForkMeta` | A fork's provenance, read from or written to front matter |
-| `canonicalRepoUrl()` | v0 canonical repo URL (`https:` or local `file:`), or `null` |
+| `canonicalRepoUrl()` | v0 canonical repo URL (`https:`), or `null` |
 | `normalizeData()` | Anything loaded → valid `PublicTxtData` |
 | `readForkMeta()` / `forkMetaProps()` | Front matter ↔ `ForkMeta` |
 | `SourceForm` | The source form's raw text; lists one path per line |
@@ -67,9 +69,14 @@ and command ids freeze at the first release.
 | `renderForkList()` / `withForkList()` | A follow note's fork list section / the note with it replaced. Pure |
 | `wantsForkList()` | Whether a follow note keeps a fork list: its `list_forks`, else the setting |
 | `syncForkLists()` / `ForkLists` | Rewrites changed fork lists / keeps them current after vault changes |
-| `isLocalRepo()` / `localRepoName()` / `localRepoPath()` | Whether a URL is local / its folder's name / its folder's path. Pure |
+| `remoteName()` / `remoteNameProblem()` / `defaultRemoteName()` | A follow note's name / why a name is invalid / the suggested name. Pure |
+| `localKey()` / `isLocalRepo()` / `localName()` / `sourceKey()` | `local:<name>` / whether a key is local / its name / a valid key from data. Pure |
+| `localPathInput()` / `fileUrl()` | A typed folder or `file:///` URL → absolute path / a path → `file:///` URL for git. Pure |
+| `localFolder()` | A local source's folder on this computer, from `localPaths`, or a `not-found` error |
+| `isForkOf()` / `Remote` | Whether a fork belongs to a source: by `fork_remote`, else `fork_repo` |
+| `writeForkMeta()` | Sets a fork's `fork_*` keys and removes stale ones |
 | `inspectLocal()` / `LocalRepo` | What a local source's folder is: `missing`, `unusable`, `not-repo`, `bare`, `work`. Pure |
 | `initLocal()` / `newRepoGitignore()` | Makes a folder a repo, with a `.gitignore`, and snapshots it. Pure |
 | `snapshot()` / `SnapshotResult` | Commits a working folder's changes, if any. Pure |
-| `prepareLocalAdd()` | Before adding a local source: refuse, offer to make a repo, or warn |
+| `prepareLocalFolder()` | Before adding a local source or setting its folder: refuse, offer to make a repo, or warn |
 | `snapshotAndTell()` / `localFollows()` | Snapshots sources and reports each; offers to make a repo for a single non-repo / every local source |

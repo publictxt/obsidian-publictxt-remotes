@@ -15,16 +15,16 @@ pages you want into your vault. Each fork records where it came from in its fron
 ## How it works
 
 - **Sources** are repos you follow, optionally narrowed to some folders. Each is a note in
-  `follows/`: the repo's `url`, `branch` and `include` in front matter, and why you follow it
-  in the body. Add and edit them in settings or by hand. They are public text, like the rest of
+  `follows/`, named for the source (its **remote name**, such as `follows/ann-notes.md`): the
+  repo's `url`, `branch` and `include` in front matter, and why you follow it in the body. Add and edit them in settings or by hand. They are public text, like the rest of
   your vault.
 - **Clones.** Each source is kept as a bare partial clone in your vault's hidden `.remotes/`
   folder. File contents are fetched only when needed. Obsidian doesn't show it and Sync skips
   it; if your vault is a git repo, add `.remotes/` to its `.gitignore`.
 - **Checking** shows, per source, what's new since you last looked, the files you watch, and
   your forks whose original has changed. **Mark as seen** starts the next check from here.
-- A **fork** is a note copied from a source, with `fork_repo`, `fork_path`, `fork_blob` and
-  related keys in its front matter. Those keys are how the plugin tells when the original has
+- A **fork** is a note copied from a source, with `fork_remote` (the source's name),
+  `fork_repo`, `fork_path`, `fork_blob` and related keys in its front matter. Those keys are how the plugin tells when the original has
   changed. Fork a Markdown file with **Fork** next to it in the check view, or with **Fork a
   file from a source**. You choose where it goes; nothing is overwritten.
 - **Fork lists.** With **List forks in follow notes** on, each follow note ends with a **Forked
@@ -33,8 +33,13 @@ pages you want into your vault. Each fork records where it came from in its fron
 
 ## Local sources
 
-A source can be a git repo on your computer, such as another vault. Enter its path
-(`/home/me/notes`) or a `file:///` URL as the repo URL.
+A source can be a git repo on your computer, such as another vault. Enter its folder
+(`/home/me/notes`) instead of a repo URL, and give it a name.
+
+- **The folder stays private.** The follow note says `local: true` and nothing about where the
+  folder is; the path is kept in the plugin's settings for this computer. Publish and sync the
+  note freely. On another computer, the source is marked until you set its folder there with
+  **Edit**.
 
 - **Only commits show.** A check sees what's committed, not edits in progress. **Snapshot** in
   the check view, or **Snapshot local sources**, commits everything changed in the folder (if
@@ -44,8 +49,8 @@ A source can be a git repo on your computer, such as another vault. Enter its pa
   `.gitignore` that leaves out a vault's app folders (its config folder, `.trash/`,
   `.remotes/`), and a first snapshot. **Snapshot** makes the same offer for a follow note
   written by hand. A missing folder is refused.
-- **Provenance stays on this computer.** A local path means nothing elsewhere, so forks from a
-  local source record where they came from only for you.
+- **Forks name their source.** A fork from a local source records `fork_remote` (the name) and no
+  `fork_repo`: there is no public URL to give, and no path is written.
 
 ## Commands
 
