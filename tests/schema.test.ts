@@ -13,11 +13,11 @@ test('garbage in, defaults out', () => {
 test('normalizeSource: canonical, defaults filled, paths cleaned, invalid dropped', () => {
 	assert.deepEqual(
 		normalizeSource({ url: 'https://github.com/a/b.git', include: ['/wiki', 'notes/', 'wiki/', '../x', 3], watch: ['/wiki/x.md', 'wiki/x.md'], extra: 1 }),
-		{ url: 'https://github.com/a/b', branch: null, include: ['wiki/', 'notes/'], watch: ['wiki/x.md'], folder: null },
+		{ url: 'https://github.com/a/b', branch: null, include: ['wiki/', 'notes/'], watch: ['wiki/x.md'], folder: null, listForks: null },
 	);
 	assert.deepEqual(
 		normalizeSource({ url: 'https://github.com/c/d', branch: ' main ', folder: '/forks/c/' }),
-		{ url: 'https://github.com/c/d', branch: 'main', include: [], watch: [], folder: 'forks/c' },
+		{ url: 'https://github.com/c/d', branch: 'main', include: [], watch: [], folder: 'forks/c', listForks: null },
 	);
 	assert.equal(normalizeSource({ url: 'not a url' }), null);
 });

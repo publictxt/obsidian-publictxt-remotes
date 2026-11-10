@@ -16,7 +16,7 @@ export class SourceModal extends Modal {
 		super(app);
 		this.submit = submit;
 		this.editing = initial !== undefined;
-		this.form = initial ? { ...initial } : { url: '', branch: '', include: '', watch: '', folder: '' };
+		this.form = initial ? { ...initial } : { url: '', branch: '', include: '', watch: '', folder: '', listForks: '' };
 	}
 
 	onOpen(): void {
@@ -46,6 +46,16 @@ export class SourceModal extends Modal {
 			.setName('Fork folder')
 			.setDesc('Vault folder for forks from this source. Empty: the default fork folder.')
 			.addText((t) => t.setValue(this.form.folder).onChange((v) => (this.form.folder = v)));
+
+		new Setting(contentEl)
+			.setName('Fork list')
+			.setDesc('Whether this follow note ends with a list of the pages forked from it. Default: the plugin setting decides.')
+			.addDropdown((d) =>
+				d
+					.addOptions({ '': 'Default', on: 'On', off: 'Off' })
+					.setValue(this.form.listForks)
+					.onChange((v) => (this.form.listForks = v === 'on' || v === 'off' ? v : '')),
+			);
 
 		const error = contentEl.createDiv({ cls: 'publictxt-error' });
 		new Setting(contentEl).addButton((b) =>

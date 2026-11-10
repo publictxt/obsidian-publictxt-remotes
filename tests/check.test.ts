@@ -18,7 +18,7 @@ function fakeHost(files: Record<string, string>, changes: Change[] | null = []):
 		blob: async () => '',
 	};
 }
-const source = (over: Partial<Source> = {}): Source => ({ url: URL_, branch: null, include: [], watch: [], folder: null, ...over });
+const source = (over: Partial<Source> = {}): Source => ({ url: URL_, branch: null, include: [], watch: [], folder: null, listForks: null, ...over });
 const state = (over: Partial<SourceState> = {}): SourceState => ({ seenCommit: sha('a'), checkedAt: null, watched: {}, ...over });
 
 test('inInclude: prefixes; empty is the whole repo', () => {

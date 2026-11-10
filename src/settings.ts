@@ -154,6 +154,7 @@ function summary(f: Follow): string {
 	];
 	if (f.watch.length) parts.push(`watch: ${f.watch.length}`);
 	if (f.folder) parts.push(`forks to: ${f.folder}`);
+	if (f.listForks !== null) parts.push(`fork list: ${f.listForks ? 'on' : 'off'}`);
 	parts.push(f.path);
 	return parts.join(' · ');
 }

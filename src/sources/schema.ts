@@ -18,6 +18,8 @@ export interface Source {
 	watch: string[];
 	/** Vault folder for forks from this source; `null`: `forkFolder`. */
 	folder: string | null;
+	/** Keep this follow note's fork list; `null`: the `listForks` setting decides. */
+	listForks: boolean | null;
 }
 
 /** Per-source cache. Safe to delete. */
@@ -86,6 +88,7 @@ export function normalizeSource(v: unknown): Source | null {
 		include: paths(v.include, true),
 		watch: paths(v.watch, false),
 		folder: folder || null,
+		listForks: typeof v.list_forks === 'boolean' ? v.list_forks : null,
 	};
 }
 

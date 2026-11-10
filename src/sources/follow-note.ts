@@ -34,13 +34,14 @@ export function readFollow(frontmatter: unknown): Source | null {
  * The front matter keys to write for `s`. `undefined` means remove the key, so a cleared field
  * leaves no empty key behind.
  */
-export function followProps(s: Source): Record<string, string | string[] | undefined> {
+export function followProps(s: Source): Record<string, string | string[] | boolean | undefined> {
 	return {
 		url: s.url,
 		branch: s.branch ?? undefined,
 		include: s.include.length ? s.include : undefined,
 		watch: s.watch.length ? s.watch : undefined,
 		folder: s.folder ?? undefined,
+		list_forks: s.listForks ?? undefined,
 	};
 }
 
