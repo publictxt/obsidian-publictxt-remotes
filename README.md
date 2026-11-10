@@ -25,6 +25,8 @@ pages you want into your vault. Each fork records where it came from in its fron
   related keys in its front matter. Those keys are how the plugin tells when the original
   has changed. Fork a Markdown file with **Fork** next to it in the check view, or with the
   **Fork a file from a source** command. You choose where it goes; nothing is overwritten.
+  With **List forks in follow notes** on, each follow note ends with links to the pages forked
+  from it. The plugin rewrites that section only.
 
 ## Settings
 
@@ -32,6 +34,7 @@ pages you want into your vault. Each fork records where it came from in its fron
 | --- | --- | --- |
 | **Fork folder** | vault root | Where forked notes go, unless the source sets its own |
 | **Match source folders** | on | Fork into the same folder as in the source when your vault has it |
+| **List forks in follow notes** | off | Keep a **Forked pages** list of links at the end of each follow note |
 | **Remotes folder** | `.remotes` | Where the git clones live |
 | **Git executable** | `git` | Path to git |
 
