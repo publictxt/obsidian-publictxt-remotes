@@ -1,4 +1,4 @@
-# PublicTxt — Intent
+# PublicTxt Remotes — Intent
 
 Why this plugin exists and the decisions behind its shape. What it does is in `spec.md`, names
 in `naming.md`.

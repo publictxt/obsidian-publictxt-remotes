@@ -1,4 +1,4 @@
-# PublicTxt — Spec
+# PublicTxt Remotes — Spec
 
 What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing released.
 

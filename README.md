@@ -1,4 +1,4 @@
-# PublicTxt for Obsidian
+# PublicTxt Remotes
 
 Follow other people's PublicTxt repos, see what changed since you last looked, and fork the
 pages you want into your vault. Each fork records where it came from in its front matter.
@@ -92,7 +92,7 @@ npm run lint
 ```
 
 To try it, copy `main.js`, `manifest.json` and `styles.css` into
-`<vault>/.obsidian/plugins/publictxt/`, then enable **PublicTxt** in
+`<vault>/.obsidian/plugins/publictxt-remotes/`, then enable **PublicTxt Remotes** in
 **Settings → Community plugins**.
 
 Design docs:

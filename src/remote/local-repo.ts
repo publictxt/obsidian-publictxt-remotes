@@ -30,7 +30,7 @@ export interface LocalFs {
 export function newRepoGitignore(configDir: string): string {
 	const config = configDir.replace(/^\/+|\/+$/g, '');
 	const dirs = [...(config ? [`${config}/`] : []), '.trash/', '.remotes/'];
-	return ['# Written by PublicTxt when it made this folder a git repo.', ...dirs, '.DS_Store', ''].join('\n');
+	return ['# Written by PublicTxt Remotes when it made this folder a git repo.', ...dirs, '.DS_Store', ''].join('\n');
 }
 
 /** What `dir` is; `branch` is the source's (`null`: the default, always there once committed). */

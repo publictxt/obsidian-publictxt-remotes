@@ -1,6 +1,6 @@
 {
-	"id": "publictxt",
-	"name": "PublicTxt",
+	"id": "publictxt-remotes",
+	"name": "PublicTxt Remotes",
 	"version": "1.0.0",
 	"minAppVersion": "1.7.2",
 	"description": "Follow PublicTxt repos, see what changed, and fork pages into your vault with their provenance.",
