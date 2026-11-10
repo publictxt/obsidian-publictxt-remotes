@@ -83,3 +83,12 @@ test('a failing commit is a git error', async () => {
 	writeFileSync(join(dir, '.git', 'hooks', 'pre-commit'), '#!/bin/sh\necho no >&2\nexit 1\n', { mode: 0o755 });
 	await assert.rejects(snapshot(run, dir, null, 'x'), (e) => e instanceof RemoteError && e.kind === 'git' && /no/.test(e.message));
 });
+
+test('refuses a subfolder of a repo: add -A would stage the whole repo', async () => {
+	const host = join(root, 'host');
+	mkdirSync(join(host, 'sub'), { recursive: true });
+	g(host, 'init', '-q', '-b', 'main');
+	writeFileSync(join(host, 'sub', 'a.md'), 'a\n');
+	await assert.rejects(snapshot(run, join(host, 'sub'), null, 'x'), (e) => e instanceof RemoteError && e.kind === 'bad-input' && /subfolder/.test(e.message));
+	assert.equal(g(host, 'status', '--porcelain'), '?? sub/');
+});

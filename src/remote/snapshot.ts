@@ -22,10 +22,13 @@ async function git(run: RunGit, dir: string, args: string[], ok: number[] = [0])
  * source's; the current branch must be it, or the source wouldn't see the commit.
  */
 export async function snapshot(run: RunGit, dir: string, branch: string | null, message: string): Promise<SnapshotResult> {
-	const inside = await git(run, dir, ['rev-parse', '--is-inside-work-tree'], [0, 128]);
-	if (inside.code !== 0 || inside.stdout.trim() !== 'true') {
+	const inside = await git(run, dir, ['rev-parse', '--is-inside-work-tree', '--show-prefix'], [0, 128]);
+	const [work, prefix] = inside.stdout.split('\n').map((l) => l.trim());
+	if (inside.code !== 0 || work !== 'true') {
 		throw new RemoteError('bad-input', `${dir} has no working folder to snapshot: not a git repo, or a bare one.`);
 	}
+	// In a subfolder, add -A would stage the whole enclosing repo.
+	if (prefix) throw new RemoteError('bad-input', `${dir} is a subfolder of another repo, not the top of one.`);
 	const head = await git(run, dir, ['symbolic-ref', '--quiet', '--short', 'HEAD'], [0, 1]);
 	const current = head.stdout.trim();
 	if (head.code !== 0 || !current) throw new RemoteError('bad-input', `${dir} is not on a branch (detached HEAD).`);
