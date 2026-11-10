@@ -17,7 +17,7 @@ and command ids freeze at the first release.
 
 | Word | Means |
 |---|---|
-| source | A remote repo the user follows: a follow note in `follows/` (publictext spec §3.2) |
+| source | A repo the user follows, hosted or local: a follow note in `follows/` (publictext spec §3.2) |
 | follow note | The note that is a source; front matter holds its fields, the body the user's prose |
 | include | Folder prefixes narrowing a source's "what's new" |
 | watch | Remote files reported on whenever they change |
@@ -27,6 +27,7 @@ and command ids freeze at the first release.
 | head | The tracked branch's latest commit |
 | blob | A file's git blob SHA |
 | clone | A source's bare partial clone under `remotesFolder` |
+| local repo | A source on this computer, by a `file:///` URL (`isLocalRepo()`, `localRepoName()`) |
 
 ## Code identifiers
 
@@ -39,7 +40,7 @@ and command ids freeze at the first release.
 | `collectFollows()` | Follow notes → sources, duplicates and invalid notes |
 | `SourceState` | Per-source cache |
 | `ForkMeta` | A fork's provenance, read from or written to front matter |
-| `canonicalRepoUrl()` | v0 canonical repo URL, or `null` |
+| `canonicalRepoUrl()` | v0 canonical repo URL (`https:` or local `file:`), or `null` |
 | `normalizeData()` | Anything loaded → valid `PublicTxtData` |
 | `readForkMeta()` / `forkMetaProps()` | Front matter ↔ `ForkMeta` |
 | `SourceForm` | The source form's raw text; lists one path per line |
