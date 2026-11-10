@@ -24,6 +24,10 @@ pages you want into your vault. Each fork records where it came from in its fron
   changed in the folder (only if something did) and checks again. It commits to the folder's
   current branch, with your git identity. A local path means nothing on another computer, so
   forks from it record a provenance only you can follow.
+- Adding a local source looks at the folder first. If it isn't a git repo (another vault, say),
+  the plugin offers to make it one: `git init`, a `.gitignore` that leaves out the vault's app
+  folders (config, `.trash/`, `.remotes/`), and a first snapshot. **Snapshot** in the check view
+  makes the same offer for a follow note written by hand.
 - Each source is kept as a bare partial clone in your vault's hidden `.remotes/` folder. File
   contents are fetched only when needed. Obsidian doesn't show it and Sync skips it; if your
   vault is a git repo, add `.remotes/` to its `.gitignore`.
@@ -49,6 +53,9 @@ pages you want into your vault. Each fork records where it came from in its fron
 
 The plugin talks to the network only through git, and only for the repos you follow. It sends
 no telemetry and uses your own git credentials (SSH keys, credential helpers).
+
+Outside your vault, it reads local sources' folders, and writes to them only when you ask:
+making a folder a repo, or a snapshot, both committing as you.
 
 ## Development
 

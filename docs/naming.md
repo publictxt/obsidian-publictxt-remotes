@@ -57,8 +57,12 @@ and command ids freeze at the first release.
 | `RunGit` / `gitRunner()` | Runs one git command; the real one is in `git-process.ts`, the only Node module |
 | `RemoteError` | Remote failure, by `kind`: `no-git`, `git`, `not-found`, `bad-input` |
 | `snapshot()` / `SnapshotResult` | Commits a working folder's changes, if any. Pure |
-| `snapshotAndTell()` / `localFollows()` | Snapshots sources and shows the outcome / every local source |
+| `snapshotAndTell()` / `localFollows()` | Snapshots sources and shows the outcome (one non-repo: offers to make it a repo) / every local source |
 | `localRepoPath()` | A local repo's folder from its URL |
+| `inspectLocal()` / `LocalRepo` | What a local source's folder is: `missing`, `unusable`, `not-repo`, `bare`, `work`. Pure |
+| `initLocal()` / `newRepoGitignore()` | Makes a folder a repo, with a `.gitignore`, and snapshots it. Pure |
+| `prepareLocalAdd()` | Before adding a local source: refuse, offer to make a repo, or warn |
+| `choose()` | A question with a few answers (`ChoiceModal`) |
 | `vaultHost()` | The `RemoteHost` for this vault's settings. Desktop only |
 | `forkFolder()` | The folder a fork goes to, and which rule chose it (`FolderReason`). Pure |
 | `forkPath()` / `freePath()` | Default vault path for a fork / the first free numbered one. Pure |

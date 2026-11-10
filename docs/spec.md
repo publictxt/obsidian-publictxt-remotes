@@ -60,9 +60,10 @@ source**. Lists are one path per line in the form; **Fork list** is Default, On 
 (`list_forks` absent, `true`, `false`). It redraws when a note in `follows/` changes. Needs Obsidian 1.6.6 (`trashFile`). Pure logic in
 `src/sources/edit.ts` and `src/sources/follow-note.ts`; vault access in `src/sources/follows.ts`.
 
-- Add: the URL must be valid and not followed already. Creates
-  `follows/<owner>-<repo>.md` with the front matter and an empty body; a name clash is
-  an error, never an overwrite.
+- Add: the URL must be valid and not followed already. A local source's folder is looked at
+  first (Local source checks, below). Creates `follows/<owner>-<repo>.md` with the front
+  matter and an empty body; a name clash is an error, never an overwrite. A hosted repo is not
+  contacted: a wrong URL or branch shows at the first check.
 - Edit: rewrites the keys above in the note's front matter (`processFrontMatter`); other keys and
   the body are kept. The URL is the key, so it is read-only (a different repo: remove, add).
 - No "open note" button yet: a note opened from settings opens behind the settings window.
@@ -162,17 +163,42 @@ source in turn; **Snapshot** in the check view snapshots one, then checks again 
 The command checks again too when the view shows a check. One notice lists each folder's
 outcome.
 
-In the folder (`localRepoPath()` of the URL), stopping with a `bad-input` error when:
+The folder is looked at first (Local source checks): missing or unusable is an error. Not a
+repo: from the check view's **Snapshot**, it asks to make it one (as on add, below); the command
+never does, and says to use the view. Then, in the folder (`localRepoPath()` of the URL),
+`snapshot()` stops with a `bad-input` error when:
 
-1. It is not a git working folder (`rev-parse --is-inside-work-tree`; a bare repo isn't).
+1. It is not the top of a git working folder (`rev-parse --is-inside-work-tree --show-prefix`;
+   a bare repo isn't one, and in a subfolder `add -A` would stage the enclosing repo).
 2. HEAD is not on a branch (`symbolic-ref --short HEAD`), or the source has a `branch` and HEAD
    is on another: the source wouldn't see the commit.
 
 Then `status --porcelain -z --untracked-files=all`: empty, nothing to do. Otherwise `add -A`
 (`.gitignore` respected) and, if the index then differs from HEAD (`diff --cached --name-only`),
 `commit -m "Snapshot <local ISO time>"`. The user's git identity and hooks apply; a failing
-commit is a `git` error and leaves the changes staged. One snapshot per folder at a time. Pure
-logic in `src/remote/snapshot.ts`; the vault side in `src/snapshot/run.ts`.
+commit is a `git` error and leaves the changes staged. One snapshot (or making a repo) per
+folder at a time. Pure logic in `src/remote/snapshot.ts`; the vault side in `src/snapshot/run.ts`.
+
+### Local source checks
+
+`inspectLocal()` (`src/remote/local-repo.ts`) says what a local source's folder is, from
+`rev-parse --is-bare-repository --is-inside-git-dir --show-prefix --git-dir`:
+
+| Kind | When | On add |
+|---|---|---|
+| `missing` | No such folder | Error, not added |
+| `unusable` | Inside a `.git` folder, or below a bare repo's top | Error, not added |
+| `not-repo` | No repo, or a subfolder of another repo's working tree (`within`) | Asks: **Make repo and add**, **Add without**, or close (not added) |
+| `bare` | A bare repo's top | Added; warns if it has no commits |
+| `work` | A working repo's top | Added; warns if nothing is committed, or the source's `branch` doesn't exist |
+
+Warnings are notices; the source is added. Making a repo (`initLocal()`): `init
+--initial-branch <branch>` (git's default when the source has none), then a `.gitignore` unless
+the folder has one, then a snapshot. The `.gitignore` leaves out a vault's app data: this vault's
+`configDir` (taken as the other vault's too), `.trash/`, `.remotes/` and `.DS_Store`. Within
+another repo, it makes a separate, nested repo. If making the repo fails partway (a commit hook,
+no git identity), the error shows in the form and the source is not added; adding again finds a
+repo with nothing committed and warns.
 
 ## Fork
 
