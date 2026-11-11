@@ -3,6 +3,12 @@
 A brief for whoever implements it. It is self-contained, but read `AGENTS.md`, `docs/spec.md`
 (→ Fork provenance, Check, Check view, Remote host) and `docs/naming.md` first.
 
+> Built on `feat/fork-update` (2026-11-11); `docs/spec.md` → Fork update is now the reference.
+> Where the build differs from this brief: the view's state also holds the head's branch and
+> commit (an overwrite records them); the command compares a version the note has only seen,
+> and says "Nothing new upstream." only when `fork_blob` is the blob at head; the check view's
+> actions are links, like **Fork**; opening a compare is in `src/fork/compare-run.ts`.
+
 ## Context
 
 PublicTxt Remotes is an Obsidian plugin (TypeScript, desktop only, git CLI). The user follows
@@ -23,7 +29,7 @@ keep a copy of it, or wave it off.
 1. **Compare in a split pane**, not a modal: the user's note in one pane, the upstream version
    read-only in a pane beside it. No merge, no line-by-line diff in this work.
 2. **Write alongside** saves upstream next to the note as `name (up-01).md`, then `(up-02)`, …
-3. **The alongside note is itself a fork** it gets `fork_*` keys. So one upstream file can
+3. **The alongside note is itself a fork**: it gets `fork_*` keys. So one upstream file can
    have several notes forked from it. They are its **copies**, and the newest is the one
    compared next time.
 4. **`fork_seen`**, a new front matter key: the upstream blob the user last dealt with. A copy

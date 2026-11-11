@@ -10,8 +10,8 @@ and command ids freeze at the first release.
 | Repo | `publictxt/obsidian-publictxt-remotes` | Renamed from `obsidian-publictxt` (2026-11-10) |
 | Plugin `id` | `publictxt-remotes` | Freezes at the first release. Remotes: repos and vaults elsewhere; a local source is the special case |
 | Display `name` | PublicTxt Remotes | |
-| View type | `publictxt-check` | Freezes at the first release |
-| Command ids | `check-sources`, `open-check-view`, `fork-file`, `snapshot-local-sources`, `update-fork-lists` | Freeze at the first release |
+| View types | `publictxt-check`, `publictxt-upstream` | Freeze at the first release |
+| Command ids | `check-sources`, `open-check-view`, `fork-file`, `compare-fork`, `snapshot-local-sources`, `update-fork-lists` | Freeze at the first release |
 
 ## Vocabulary
 
@@ -22,6 +22,10 @@ and command ids freeze at the first release.
 | include | Folder prefixes narrowing a source's "what's new" |
 | watch | Remote files reported on whenever they change |
 | fork | A vault note copied from a source file, carrying `fork_*` provenance |
+| copy | One of the notes forked from the same upstream file. A note written alongside is a copy |
+| latest | The copy with the newest `fork_date`: the one the check view compares |
+| settled | A copy that needs nothing done about an upstream version: its text came from it, or it has seen it (`fork_seen`) |
+| compare | A fork note with the Upstream view beside it |
 | fork list | The "Forked pages" section the plugin keeps in a follow note |
 | check | One pass over the sources: what's new, watched, forks |
 | head | The tracked branch's latest commit |
@@ -61,7 +65,7 @@ and command ids freeze at the first release.
 | `forkablePaths()` / `forkableUnder()` | The files a check lists that can be forked; those under a folder. Pure |
 | `planForks()` / `PlannedFork` | Where each file goes under a destination, numbered when its name is taken. Pure |
 | `treeItem()` | A row in Obsidian's tree style; collapsible when given `open` |
-| `RemoteHost` | What the plugin needs from a remote: `head`, `tree`, `changes`, `blob` |
+| `RemoteHost` | What the plugin needs from a remote: `head`, `tree`, `changes`, `blob`, `diffStat` |
 | `GitHost` | `RemoteHost` over the git CLI |
 | `RunGit` / `gitRunner()` | Runs one git command; the real one is in `git-process.ts`, the only Node module |
 | `RemoteError` | Remote failure, by `kind`: `no-git`, `git`, `not-found`, `bad-input` |
@@ -85,6 +89,18 @@ and command ids freeze at the first release.
 | `localFolder()` | A local source's folder on this computer, from `localPaths`, or a `not-found` error |
 | `isForkOf()` / `Remote` | Whether a fork belongs to a source: by `fork_remote`, else `fork_repo` |
 | `writeForkMeta()` | Sets a fork's `fork_*` keys and removes stale ones |
+| `setForkSeen()` / `clearForkMeta()` | Sets `fork_seen` alone / removes every `fork_*` key |
+| `ForkChange` | An upstream file that changed under its `copies` |
+| `isSettled()` / `latestFirst()` | Whether a fork is settled for an upstream blob / copies, latest first. Pure |
+| `Compare` / `readCompare()` | What a compare is of: source, upstream path, blob and head, and the note / the same from a view's state. Pure |
+| `isEdited()` / `NoteParts` | Whether a note differs from the version it was forked from, `fork_*` keys aside. Pure |
+| `alongsidePath()` | The `name (up-nn).md` path for a note written alongside. Pure |
+| `updatedMeta()` | A fork's provenance after an overwrite. Pure |
+| `openCompare()` / `compareChange()` / `compareActiveFork()` | Opens a compare / for a check's `ForkChange` / for the active note (the command) |
+| `UpstreamView` | The Upstream view: the upstream file, and its actions |
+| `loadCompare()` / `CompareInfo` | What the Upstream view shows |
+| `overwrite()` / `writeAlongside()` / `keepMine()` | The compare's actions; each settles every copy |
+| `detach()` / `keepGone()` | For a file gone upstream: remove the `fork_*` keys / set `fork_seen: gone` |
 | `inspectLocal()` / `LocalRepo` | What a local source's folder is: `missing`, `unusable`, `not-repo`, `bare`, `work`. Pure |
 | `initLocal()` / `newRepoGitignore()` | Makes a folder a repo, with a `.gitignore`, and snapshots it. Pure |
 | `snapshot()` / `SnapshotResult` | Commits a working folder's changes, if any. Pure |
