@@ -11,6 +11,7 @@ import { suggestFolders } from './ui/folder-suggest.ts';
 import { ConfirmModal } from './ui/confirm-modal.ts';
 import { isLocalRepo } from './sources/repo-url.ts';
 import { prepareLocalFolder } from './snapshot/run.ts';
+import { errorText } from './remote/vault-host.ts';
 import { SourceModal } from './ui/source-modal.ts';
 
 type TextField = 'forkFolder' | 'remotesFolder' | 'gitPath';
@@ -175,8 +176,10 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 			);
 	}
 
-	/** A text setting bound to one field. The input keeps what was typed; the saved value is normalized. */
-	/** A text setting. `vaultFolder`: the field offers the vault's folders to pick from. */
+	/**
+	 * A text setting bound to one field. The input keeps what was typed; the saved value is
+	 * normalized. `vaultFolder`: the field offers the vault's folders to pick from.
+	 */
 	private text(field: TextField, name: string, desc: string, vaultFolder = false): void {
 		new Setting(this.containerEl)
 			.setName(name)
@@ -205,8 +208,4 @@ function summary(f: Follow, folder: string | null): string {
 	if (f.listForks !== null) parts.push(`fork list: ${f.listForks ? 'on' : 'off'}`);
 	parts.push(f.path);
 	return parts.join(' · ');
-}
-
-function errorText(e: unknown): string {
-	return e instanceof Error ? e.message : String(e);
 }

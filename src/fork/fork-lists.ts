@@ -3,7 +3,7 @@
 
 import { App, debounce, Notice, TFile, type TAbstractFile } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
-import { scanForks } from '../check/run.ts';
+import { scanForks } from '../sources/forks.ts';
 import { readForkMeta } from '../sources/fork-meta.ts';
 import { isFollowPath, type Follow } from '../sources/follow-note.ts';
 import { scanFollows } from '../sources/follows.ts';

@@ -15,6 +15,15 @@ export interface GitResult {
 /** Runs `git <args>` in `cwd` (no shell). Rejects with `RemoteError('no-git')` if git can't start. */
 export type RunGit = (args: string[], cwd: string | null) => Promise<GitResult>;
 
+/** Runs git and throws a `RemoteError('git')` unless its exit code is one of `ok`. */
+export async function gitOrThrow(run: RunGit, args: string[], cwd: string | null, ok: number[] = [0]): Promise<GitResult> {
+	const r = await run(args, cwd);
+	if (!ok.includes(r.code)) {
+		throw new RemoteError('git', `git ${args[0] ?? ''} failed: ${r.stderr.trim() || `exit ${r.code}`}`);
+	}
+	return r;
+}
+
 export interface GitHostOptions {
 	run: RunGit;
 	/** Absolute folder holding the clones: the vault's `.remotes/` by default (docs/spec.md). */
@@ -138,12 +147,8 @@ export class GitHost implements RemoteHost {
 		return next;
 	}
 
-	private async git(args: string[], cwd: string | null, ok: number[] = [0]): Promise<GitResult> {
-		const r = await this.o.run(args, cwd);
-		if (!ok.includes(r.code)) {
-			throw new RemoteError('git', `git ${args[0] ?? ''} failed: ${r.stderr.trim() || `exit ${r.code}`}`);
-		}
-		return r;
+	private git(args: string[], cwd: string | null, ok: number[] = [0]): Promise<GitResult> {
+		return gitOrThrow(this.o.run, args, cwd, ok);
 	}
 
 	/** The clone of `repo`, made on first use. Its origin is set to `remote` each time, as a local folder can move. */

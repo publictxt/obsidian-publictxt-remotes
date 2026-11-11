@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { acknowledged, checkSource, checked, checkedAll, inInclude, isSettled, latestFirst, type Fork } from '../src/check/check.ts';
+import { acknowledged, checkSource, checked, checkedAll, inInclude, isSettled, latestFirst } from '../src/check/check.ts';
+import type { Fork } from '../src/sources/fork-meta.ts';
 import type { Change, Head, RemoteHost } from '../src/remote/host.ts';
 import type { Source, SourceState } from '../src/sources/schema.ts';
 import type { Remote } from '../src/fork/fork.ts';

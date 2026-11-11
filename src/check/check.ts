@@ -1,16 +1,10 @@
 // One check of one source: what's new, watched, forks (docs/spec.md → Check). Pure: the remote
 // host is passed in, so tests use a fake one.
 
-import { SEEN_GONE, type ForkMeta } from '../sources/fork-meta.ts';
+import { SEEN_GONE, type Fork, type ForkMeta } from '../sources/fork-meta.ts';
 import type { Source, SourceState } from '../sources/schema.ts';
 import type { Change, Head, RemoteHost } from '../remote/host.ts';
 import { isForkOf, type Remote } from '../fork/fork.ts';
-
-/** A fork note and its provenance. */
-export interface Fork {
-	path: string;
-	meta: ForkMeta;
-}
 
 /** Why "what's new" lists every file instead of the changes. */
 export type NewReason = 'first-check' | 'history-rewritten';

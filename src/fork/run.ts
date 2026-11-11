@@ -1,7 +1,7 @@
 // Forking source files into the vault (docs/spec.md → Fork): the Obsidian side of fork.ts.
 
 import { App, getFrontMatterInfo, normalizePath, Notice, parseYaml, TFile } from 'obsidian';
-import { scanForks } from '../check/run.ts';
+import { scanForks } from '../sources/forks.ts';
 import type { Head, RemoteHost, Tree } from '../remote/host.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
 import { writeForkMeta, type ForkMeta } from '../sources/fork-meta.ts';

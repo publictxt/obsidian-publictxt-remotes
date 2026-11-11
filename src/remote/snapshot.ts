@@ -2,18 +2,14 @@
 // (docs/spec.md → Snapshot). Pure: the process runner is injected.
 
 import { RemoteError } from './host.ts';
-import type { GitResult, RunGit } from './git.ts';
+import { gitOrThrow, type GitResult, type RunGit } from './git.ts';
 
 export type SnapshotResult =
 	| { committed: true; branch: string; commit: string; files: number }
 	| { committed: false; branch: string };
 
-async function git(run: RunGit, dir: string, args: string[], ok: number[] = [0]): Promise<GitResult> {
-	const r = await run(args, dir);
-	if (!ok.includes(r.code)) {
-		throw new RemoteError('git', `git ${args[0] ?? ''} failed: ${r.stderr.trim() || `exit ${r.code}`}`);
-	}
-	return r;
+function git(run: RunGit, dir: string, args: string[], ok: number[] = [0]): Promise<GitResult> {
+	return gitOrThrow(run, args, dir, ok);
 }
 
 /**

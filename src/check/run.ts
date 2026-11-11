@@ -1,12 +1,12 @@
 // A check of every source, from the vault (docs/spec.md → Check): the Obsidian side of check.ts.
 
 import type { App } from 'obsidian';
-import { readForkMeta } from '../sources/fork-meta.ts';
+import { scanForks } from '../sources/forks.ts';
 import { scanFollows } from '../sources/follows.ts';
 import type { Follow } from '../sources/follow-note.ts';
 import type { PublicTxtData } from '../sources/schema.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
-import { checkSource, type Fork, type SourceCheck } from './check.ts';
+import { checkSource, type SourceCheck } from './check.ts';
 
 export type SourceResult = { follow: Follow; check: SourceCheck; error: null } | { follow: Follow; check: null; error: string };
 
@@ -16,16 +16,6 @@ export interface CheckRun {
 	results: SourceResult[];
 	/** Follow notes ignored: duplicates and invalid. */
 	ignored: number;
-}
-
-/** Every fork note in the vault, from the metadata cache. */
-export function scanForks(app: App): Fork[] {
-	const forks: Fork[] = [];
-	for (const f of app.vault.getMarkdownFiles()) {
-		const meta = readForkMeta(app.metadataCache.getFileCache(f)?.frontmatter);
-		if (meta) forks.push({ path: f.path, meta });
-	}
-	return forks;
 }
 
 /**

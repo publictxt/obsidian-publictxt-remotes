@@ -21,6 +21,12 @@ export interface ForkMeta {
 	seen: string | null;
 }
 
+/** A fork note and its provenance. */
+export interface Fork {
+	path: string;
+	meta: ForkMeta;
+}
+
 /** `fork_seen` for a file that is gone upstream. */
 export const SEEN_GONE = 'gone';
 

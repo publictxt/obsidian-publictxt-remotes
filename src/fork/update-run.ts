@@ -5,7 +5,7 @@
 import { App, getFrontMatterInfo, Notice, parseYaml, type TFile } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
 import { isSettled, type ForkChange } from '../check/check.ts';
-import { scanForks } from '../check/run.ts';
+import { scanForks } from '../sources/forks.ts';
 import type { DiffStat } from '../remote/host.ts';
 import { vaultHost } from '../remote/vault-host.ts';
 import { clearForkMeta, readForkMeta, SEEN_GONE, setForkSeen, writeForkMeta, type ForkMeta } from '../sources/fork-meta.ts';

@@ -120,7 +120,7 @@ function normalizeState(v: unknown): SourceState {
 export function normalizeData(v: unknown): PublicTxtData {
 	const r = isRecord(v) ? v : {};
 
-	// Keys re-canonicalised; pruning to followed sources waits for the vault scan (pruneState).
+	// Keys re-canonicalised; pruning to followed sources waits for a check (check/run.ts).
 	const state: Record<string, SourceState> = {};
 	if (isRecord(r.state)) {
 		for (const [k, st] of Object.entries(r.state)) {
@@ -142,11 +142,4 @@ export function normalizeData(v: unknown): PublicTxtData {
 	const matchFolders = typeof r.matchFolders === 'boolean' ? r.matchFolders : DEFAULT_DATA.matchFolders;
 	const listForks = typeof r.listForks === 'boolean' ? r.listForks : DEFAULT_DATA.listForks;
 	return { version: DATA_VERSION, forkFolder, matchFolders, listForks, remotesFolder, gitPath, state, localPaths };
-}
-
-/** State for sources no longer followed dropped. */
-export function pruneState(data: PublicTxtData, urls: Iterable<string>): PublicTxtData {
-	const keep = new Set(urls);
-	const state = Object.fromEntries(Object.entries(data.state).filter(([url]) => keep.has(url)));
-	return { ...data, state };
 }

@@ -3,6 +3,7 @@ import { normalizeData, type PublicTxtData } from './sources/schema.ts';
 import { isFollowPath } from './sources/follow-note.ts';
 import { acknowledged, checkedAll } from './check/check.ts';
 import { runCheck, type CheckRun } from './check/run.ts';
+import { errorText } from './remote/vault-host.ts';
 import { PublicTxtSettingTab } from './settings.ts';
 import { CheckView, VIEW_TYPE_CHECK } from './ui/check-view.ts';
 import { UpstreamView } from './ui/upstream-view.ts';
@@ -72,7 +73,7 @@ export default class PublicTxtPlugin extends Plugin {
 			const sources = run.results.map((r) => ({ url: r.follow.url, ok: r.check !== null }));
 			await this.save({ ...this.data, state: checkedAll(this.data.state, sources, run.at) });
 		} catch (e) {
-			new Notice(e instanceof Error ? e.message : String(e));
+			new Notice(errorText(e));
 		} finally {
 			this.checking = null;
 			this.renderViews();
