@@ -71,3 +71,14 @@
 .publictxt-fork-plan .publictxt-fork-to {
 	color: var(--text-muted);
 }
+
+.publictxt-check .publictxt-actions {
+	display: flex;
+	gap: var(--size-4-2);
+	margin: var(--size-4-2) 0;
+}
+
+.publictxt-check .tree-item-self input[type='checkbox'] {
+	flex-shrink: 0;
+	align-self: center;
+}

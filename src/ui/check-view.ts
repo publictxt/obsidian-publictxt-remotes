@@ -3,16 +3,18 @@
 
 import { ItemView, type WorkspaceLeaf } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
+import type { SourceCheck } from '../check/check.ts';
 import type { SourceResult } from '../check/run.ts';
 import { FOLLOWS_FOLDER } from '../sources/follow-note.ts';
-import { startFork } from '../fork/run.ts';
+import { forkableUnder, selectedPaths, toggleAll } from '../check/selection.ts';
+import { startFork, startForkMany, type ForkSource } from '../fork/run.ts';
 import { folderOpen, newSourceUi, renderSource, sourceOpen, type SourceUi } from './check-source.ts';
 
 export const VIEW_TYPE_CHECK = 'publictxt-check';
 
 export class CheckView extends ItemView {
 	private readonly plugin: PublicTxtPlugin;
-	/** What the user opened and closed, per source key. Kept across checks, gone with the view. */
+	/** What the user opened, closed and ticked, per source key. Kept across checks, gone with the view. */
 	private readonly ui = new Map<string, SourceUi>();
 
 	constructor(leaf: WorkspaceLeaf, plugin: PublicTxtPlugin) {
@@ -99,6 +101,15 @@ export class CheckView extends ItemView {
 			case 'toggle-folder':
 				if (path) this.toggleFolder(url, path);
 				break;
+			case 'select':
+				if (path) this.select(url, [path]);
+				break;
+			case 'select-folder':
+				if (path) this.selectFolder(url, path);
+				break;
+			case 'fork-selected':
+				this.forkSelected(url);
+				break;
 		}
 	}
 
@@ -129,10 +140,43 @@ export class CheckView extends ItemView {
 		return this.plugin.lastRun?.results.find((r) => r.follow.url === url);
 	}
 
-	/** Forks `path` at the head the last check saw: what the user is looking at. */
-	private fork(url: string, path: string): void {
+	/** Ticks `paths` for forking, or clears them when all were ticked. */
+	private select(url: string, paths: readonly string[]): void {
+		toggleAll(this.uiOf(url).selected, paths);
+		this.render();
+	}
+
+	private selectFolder(url: string, folder: string): void {
+		const c = this.result(url)?.check;
+		if (c) this.select(url, forkableUnder(c, folder));
+	}
+
+	/** The source `url` as the last check saw it: forks come from the head the user is looking at. */
+	private forkSource(url: string): { from: ForkSource; check: SourceCheck } | null {
 		const r = this.result(url);
-		if (!r?.check) return;
-		void startFork(this.app, this.plugin.data, { url, name: r.follow.name, head: r.check.head, path, folder: r.follow.folder });
+		if (!r?.check) return null;
+		return { from: { url, name: r.follow.name, head: r.check.head, folder: r.follow.folder }, check: r.check };
+	}
+
+	private fork(url: string, path: string): void {
+		const source = this.forkSource(url);
+		if (source) void startFork(this.app, this.plugin.data, { ...source.from, path });
+	}
+
+	/** Forks the ticked files: one through the usual modal, several after confirming where they go. */
+	private forkSelected(url: string): void {
+		const source = this.forkSource(url);
+		if (!source) return;
+		const { selected } = this.uiOf(url);
+		const paths = selectedPaths(source.check, selected);
+		const [only] = paths;
+		if (paths.length === 1 && only) {
+			this.fork(url, only);
+			return;
+		}
+		startForkMany(this.app, this.plugin.data, source.from, paths, () => {
+			selected.clear();
+			this.render();
+		});
 	}
 }
