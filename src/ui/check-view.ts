@@ -6,7 +6,7 @@ import type PublicTxtPlugin from '../main.ts';
 import type { SourceResult } from '../check/run.ts';
 import { FOLLOWS_FOLDER } from '../sources/follow-note.ts';
 import { startFork } from '../fork/run.ts';
-import { newSourceUi, renderSource, sourceOpen, type SourceUi } from './check-source.ts';
+import { folderOpen, newSourceUi, renderSource, sourceOpen, type SourceUi } from './check-source.ts';
 
 export const VIEW_TYPE_CHECK = 'publictxt-check';
 
@@ -96,6 +96,9 @@ export class CheckView extends ItemView {
 			case 'toggle-source':
 				this.toggleSource(url);
 				break;
+			case 'toggle-folder':
+				if (path) this.toggleFolder(url, path);
+				break;
 		}
 	}
 
@@ -110,6 +113,14 @@ export class CheckView extends ItemView {
 		if (!r) return;
 		const ui = this.uiOf(url);
 		ui.open = !sourceOpen(r, ui);
+		this.render();
+	}
+
+	private toggleFolder(url: string, path: string): void {
+		const c = this.result(url)?.check;
+		if (!c) return;
+		const ui = this.uiOf(url);
+		ui.folders.set(path, !folderOpen(c, ui, path));
 		this.render();
 	}
 
