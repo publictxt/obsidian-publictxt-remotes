@@ -4,13 +4,12 @@
 // `data-action`; the source it belongs to is the nearest `data-source` (the source's key).
 
 import { hasNews, type NewReason, type SourceCheck } from '../check/check.ts';
+import { fileTree, type TreeFolder } from '../check/file-tree.ts';
 import type { SourceResult } from '../check/run.ts';
 import { isForkable } from '../fork/fork.ts';
+import type { Change } from '../remote/host.ts';
 import { isLocalRepo } from '../sources/repo-url.ts';
 import { treeFlair, treeItem } from './tree.ts';
-
-/** Files listed per source before "and n more". */
-const LIST_LIMIT = 50;
 
 const REASON: Record<NewReason, string> = {
 	'first-check': 'First check: every file is listed. Mark as seen to start from here.',
@@ -21,15 +20,25 @@ const REASON: Record<NewReason, string> = {
 export interface SourceUi {
 	/** Opened or closed by the user; `null`: left alone. */
 	open: boolean | null;
+	/** Folders in what's new the user opened (`true`) or closed, by path. */
+	folders: Map<string, boolean>;
 }
 
 export function newSourceUi(): SourceUi {
-	return { open: null };
+	return { open: null, folders: new Map() };
 }
 
 /** Whether a source shows what's under its header: as the user left it, else when it has an error or news. */
 export function sourceOpen(r: SourceResult, ui: SourceUi): boolean {
 	return ui.open ?? (r.check === null || hasNews(r.check));
+}
+
+/**
+ * Whether a folder in what's new shows what's in it: as the user left it, else open. When every
+ * file is listed (`reason`), nothing there is news, so folders start closed.
+ */
+export function folderOpen(c: SourceCheck, ui: SourceUi, path: string): boolean {
+	return ui.folders.get(path) ?? c.reason === null;
 }
 
 export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi): void {
@@ -46,7 +55,7 @@ export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi)
 		el.createEl('p', { cls: 'publictxt-quiet', text: 'Nothing new since you last looked.' });
 		return;
 	}
-	changes(el, c);
+	changes(el, c, ui);
 	watched(el, c);
 	forks(el, c);
 	if (c.changes.length || c.watched.length || c.reason) {
@@ -81,49 +90,60 @@ function summary(r: SourceResult): string {
 	return parts.join(' · ') || 'Nothing new';
 }
 
-function changes(el: HTMLElement, c: SourceCheck): void {
+function changes(el: HTMLElement, c: SourceCheck, ui: SourceUi): void {
 	if (!c.changes.length) return;
 	el.createEl('h5', { text: `What's new (${c.changes.length})` });
 	if (c.reason) el.createEl('p', { cls: 'publictxt-quiet', text: REASON[c.reason] });
-	const ul = el.createEl('ul');
-	for (const ch of c.changes.slice(0, LIST_LIMIT)) {
-		const li = ul.createEl('li');
-		li.createSpan({ cls: `publictxt-status-${ch.status}`, text: ch.status });
-		li.appendText(` ${ch.path}`);
-		if (ch.from) li.appendText(` (from ${ch.from})`);
-		if (ch.status !== 'removed') forkLink(li, ch.path);
+	folderRows(el, fileTree(c.changes, (ch) => ch.path), c, ui);
+}
+
+/** What's in `folder`: a row per folder, with its own rows under it when open, then a row per file. */
+function folderRows(parent: HTMLElement, folder: TreeFolder<Change>, c: SourceCheck, ui: SourceUi): void {
+	for (const f of folder.folders) {
+		const item = treeItem(parent, folderOpen(c, ui, f.path));
+		item.self.dataset.action = 'toggle-folder';
+		item.self.dataset.path = f.path;
+		item.inner.setText(f.name);
+		treeFlair(item, String(f.count));
+		if (item.children) folderRows(item.children, f, c, ui);
 	}
-	if (c.changes.length > LIST_LIMIT) el.createEl('p', { cls: 'publictxt-quiet', text: `And ${c.changes.length - LIST_LIMIT} more.` });
+	for (const file of folder.files) fileRow(parent, file.name, file.item);
 }
 
 function watched(el: HTMLElement, c: SourceCheck): void {
 	if (!c.watched.length) return;
 	el.createEl('h5', { text: `Watched (${c.watched.length})` });
-	const ul = el.createEl('ul');
-	for (const w of c.watched) {
-		const li = ul.createEl('li');
-		li.createSpan({ cls: `publictxt-status-${w.status}`, text: w.status });
-		li.appendText(` ${w.path}`);
-		if (w.status !== 'removed') forkLink(li, w.path);
-	}
+	for (const w of c.watched) fileRow(el, w.path, w);
 }
 
 function forks(el: HTMLElement, c: SourceCheck): void {
 	if (!c.forks.length) return;
 	el.createEl('h5', { text: `Forks changed upstream (${c.forks.length})` });
-	const ul = el.createEl('ul');
 	for (const f of c.forks) {
-		const li = ul.createEl('li');
-		li.createSpan({ cls: `publictxt-status-${f.status}`, text: f.status === 'removed' ? 'gone upstream' : 'changed upstream' });
-		li.appendText(' ');
-		li.createEl('a', { text: f.fork.path, attr: { 'data-open': f.fork.path } });
-		li.appendText(` ← ${f.fork.meta.path}`);
+		const { inner } = treeItem(el);
+		inner.createSpan({ cls: `publictxt-status-${f.status}`, text: f.status === 'removed' ? 'gone upstream' : 'changed upstream' });
+		inner.appendText(' ');
+		inner.createEl('a', { text: f.fork.path, attr: { 'data-open': f.fork.path } });
+		inner.appendText(` ← ${f.fork.meta.path}`);
 	}
 }
 
-/** A "fork" action after a file's path, for Markdown files. */
-function forkLink(li: HTMLElement, path: string): void {
-	if (!isForkable(path)) return;
-	li.appendText(' ');
-	li.createEl('a', { text: 'Fork', cls: 'publictxt-fork', attr: { 'data-action': 'fork', 'data-path': path, 'aria-label': `Fork ${path} into the vault` } });
+/** A remote file, as a change or a watched path. */
+interface RemoteFile {
+	path: string;
+	status: string;
+	/** A renamed file's old path. */
+	from?: string | null;
+}
+
+/** A file's row: what happened to it, then `label` (its name, or its path where there is no tree). */
+function fileRow(parent: HTMLElement, label: string, file: RemoteFile): void {
+	const { inner } = treeItem(parent);
+	inner.createSpan({ cls: `publictxt-status-${file.status}`, text: file.status });
+	inner.appendText(` ${label}`);
+	if (file.from) inner.appendText(` (from ${file.from})`);
+	if (file.status !== 'removed' && isForkable(file.path)) {
+		inner.appendText(' ');
+		inner.createEl('a', { text: 'Fork', cls: 'publictxt-fork', attr: { 'data-action': 'fork', 'data-path': file.path, 'aria-label': `Fork ${file.path} into the vault` } });
+	}
 }
