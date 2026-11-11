@@ -128,15 +128,20 @@ function watched(el: HTMLElement, c: SourceCheck, ui: SourceUi): void {
 	for (const w of c.watched) fileRow(el, w.path, w, ui);
 }
 
+/** One row per upstream file, then a row per note forked from it, latest first. */
 function forks(el: HTMLElement, c: SourceCheck): void {
 	if (!c.forks.length) return;
 	el.createEl('h5', { text: `Forks changed upstream (${c.forks.length})` });
 	for (const f of c.forks) {
 		const { inner } = treeItem(el);
 		inner.createSpan({ cls: `publictxt-status-${f.status}`, text: f.status === 'removed' ? 'gone upstream' : 'changed upstream' });
-		inner.appendText(' ');
-		inner.createEl('a', { text: f.fork.path, attr: { 'data-open': f.fork.path } });
-		inner.appendText(` ← ${f.fork.meta.path}`);
+		inner.appendText(` ${f.path}`);
+		for (const [i, copy] of f.copies.entries()) {
+			const row = treeItem(el);
+			row.self.addClass('publictxt-copy');
+			row.inner.createEl('a', { text: copy.path, attr: { 'data-open': copy.path } });
+			if (i === 0 && f.copies.length > 1) row.inner.createSpan({ cls: 'publictxt-quiet', text: ' · latest' });
+		}
 	}
 }
 

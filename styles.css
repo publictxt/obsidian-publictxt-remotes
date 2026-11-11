@@ -91,3 +91,7 @@
 	color: var(--text-muted);
 	font-size: var(--font-ui-smaller);
 }
+
+.publictxt-check .publictxt-copy {
+	padding-left: var(--size-4-6);
+}

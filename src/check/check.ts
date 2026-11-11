@@ -1,7 +1,7 @@
 // One check of one source: what's new, watched, forks (docs/spec.md → Check). Pure: the remote
 // host is passed in, so tests use a fake one.
 
-import type { ForkMeta } from '../sources/fork-meta.ts';
+import { SEEN_GONE, type ForkMeta } from '../sources/fork-meta.ts';
 import type { Source, SourceState } from '../sources/schema.ts';
 import type { Change, Head, RemoteHost } from '../remote/host.ts';
 import { isForkOf, type Remote } from '../fork/fork.ts';
@@ -23,11 +23,15 @@ export interface WatchedChange {
 	blob: string | null;
 }
 
+/** An upstream file that changed under the notes forked from it. */
 export interface ForkChange {
-	fork: Fork;
+	/** The upstream file (`fork_path`). */
+	path: string;
 	status: 'modified' | 'removed';
-	/** Blob of `fork_path` at head; `null` when removed. */
+	/** Blob of `path` at head; `null` when removed. */
 	blob: string | null;
+	/** The notes forked from it, latest first. */
+	copies: Fork[];
 }
 
 export interface SourceCheck {
@@ -74,15 +78,51 @@ export async function checkSource(host: RemoteHost, source: Source & Remote, sta
 		else if (before !== blob) watched.push({ path, status: 'modified', blob });
 	}
 
-	const forkChanges: ForkChange[] = [];
+	return { url: source.url, head, changes: inScope, reason, watched, forks: forkChanges(source, files, forks), watchedBlobs };
+}
+
+/**
+ * The upstream files that changed under this source's forks, by path. The notes forked from one
+ * file are its copies; the file is listed while any of them isn't settled for what is at head.
+ */
+function forkChanges(source: Remote, files: ReadonlyMap<string, string>, forks: readonly Fork[]): ForkChange[] {
+	const byPath = new Map<string, Fork[]>();
 	for (const fork of forks) {
 		if (!isForkOf(fork.meta, source)) continue;
-		const blob = files.get(fork.meta.path) ?? null;
-		if (!blob) forkChanges.push({ fork, status: 'removed', blob });
-		else if (blob !== fork.meta.blob) forkChanges.push({ fork, status: 'modified', blob });
+		const copies = byPath.get(fork.meta.path);
+		if (copies) copies.push(fork);
+		else byPath.set(fork.meta.path, [fork]);
 	}
+	const out: ForkChange[] = [];
+	for (const path of [...byPath.keys()].sort()) {
+		const copies = byPath.get(path) ?? [];
+		const blob = files.get(path) ?? null;
+		if (copies.every((f) => isSettled(f.meta, blob))) continue;
+		out.push({ path, status: blob ? 'modified' : 'removed', blob, copies: latestFirst(copies) });
+	}
+	return out;
+}
 
-	return { url: source.url, head, changes: inScope, reason, watched, forks: forkChanges, watchedBlobs };
+/**
+ * Whether a fork needs nothing done about the upstream `blob` (`null`: the file is gone): its
+ * text came from it, or the user has dealt with it (`fork_seen`).
+ */
+export function isSettled(meta: ForkMeta, blob: string | null): boolean {
+	if (blob === null) return meta.seen === SEEN_GONE;
+	return meta.blob === blob || meta.seen === blob;
+}
+
+/** Forks by `fork_date`, newest first; one without a date is older than any with; ties by path, in byte order. */
+export function latestFirst(forks: readonly Fork[]): Fork[] {
+	const time = (f: Fork) => {
+		const t = f.meta.date === null ? NaN : Date.parse(f.meta.date);
+		return Number.isNaN(t) ? -Infinity : t;
+	};
+	return [...forks].sort((a, b) => {
+		const [ta, tb] = [time(a), time(b)];
+		if (ta !== tb) return ta > tb ? -1 : 1;
+		return a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
+	});
 }
 
 /** State after a check, before it is acknowledged: only `checkedAt` moves. */
