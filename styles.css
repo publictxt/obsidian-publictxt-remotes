@@ -61,3 +61,13 @@
 	font-size: var(--font-ui-smaller);
 	margin-left: var(--size-4-1);
 }
+
+.publictxt-fork-plan {
+	max-height: 50vh;
+	overflow-y: auto;
+	margin-bottom: var(--size-4-3);
+}
+
+.publictxt-fork-plan .publictxt-fork-to {
+	color: var(--text-muted);
+}
