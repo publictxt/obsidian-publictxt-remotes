@@ -188,9 +188,9 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 				if (vaultFolder) suggestFolders(this.app, t.inputEl);
 				t.setPlaceholder(DEFAULT_DATA[field])
 					.setValue(this.plugin.data[field])
-					.onChange(async (value) => {
+					.onChange((value) => {
 						const next: PublicTxtData = { ...this.plugin.data, [field]: value };
-						await this.plugin.save(next);
+						this.plugin.saveSoon(next);
 					});
 			});
 	}

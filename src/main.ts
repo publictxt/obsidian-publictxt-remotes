@@ -1,4 +1,4 @@
-import { Notice, Plugin, type TAbstractFile } from 'obsidian';
+import { debounce, Notice, Plugin, type TAbstractFile } from 'obsidian';
 import { normalizeData, type PublicTxtData } from './sources/schema.ts';
 import { isFollowPath } from './sources/follow-note.ts';
 import { acknowledged, checkedAll, type SourceCheck } from './check/check.ts';
@@ -53,6 +53,22 @@ export default class PublicTxtPlugin extends Plugin {
 	async save(next: PublicTxtData): Promise<void> {
 		this.data = normalizeData(next);
 		await this.saveData(this.data);
+	}
+
+	/**
+	 * Normalizes `next` and keeps it now, and writes data.json once the calls stop: for a field
+	 * being typed in, where `save` would write the file at every key.
+	 */
+	saveSoon(next: PublicTxtData): void {
+		this.data = normalizeData(next);
+		this.writeSoon();
+	}
+
+	private readonly writeSoon = debounce(() => void this.saveData(this.data), 500, true);
+
+	onunload(): void {
+		// Anything typed and not yet written.
+		this.writeSoon.run();
 	}
 
 	/** Checks every source; saves `checkedAt`, keeps the results for the view. */
