@@ -2,6 +2,7 @@
 
 import { App, Modal, Setting } from 'obsidian';
 import { EMPTY_FORM, type SourceForm } from '../sources/edit.ts';
+import { suggestFolders } from './folder-suggest.ts';
 
 /** Returns an error to show and keep the modal open, or `null` to close it. */
 export type SubmitSource = (form: SourceForm) => Promise<string | null>;
@@ -62,7 +63,10 @@ export class SourceModal extends Modal {
 		new Setting(contentEl)
 			.setName('Fork folder')
 			.setDesc('Vault folder for forks from this source. Empty: the default fork folder.')
-			.addText((t) => t.setValue(this.form.folder).onChange((v) => (this.form.folder = v)));
+			.addText((t) => {
+				suggestFolders(this.app, t.inputEl);
+				t.setValue(this.form.folder).onChange((v) => (this.form.folder = v));
+			});
 
 		new Setting(contentEl)
 			.setName('Fork list')
