@@ -30,7 +30,7 @@ test('freePath: the path if free, else numbered before the extension', () => {
 });
 
 test('forksOf: same remote (or repo, for forks without one) and path only', () => {
-	const fork = (path: string, remote: string | null, repo: string, from: string): Fork => ({ path, meta: { remote, repo, path: from, blob: sha('1'), branch: null, commit: null, date: null } });
+	const fork = (path: string, remote: string | null, repo: string, from: string): Fork => ({ path, meta: { remote, repo, path: from, blob: sha('1'), branch: null, commit: null, date: null, seen: null } });
 	const forks = [
 		fork('a.md', 'a-b', REPO, 'wiki/a.md'),
 		fork('old.md', null, REPO, 'wiki/a.md'),

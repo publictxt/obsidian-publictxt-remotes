@@ -69,14 +69,14 @@ test('watched: new, modified, removed; unchanged left out', async () => {
 });
 
 test('forks: this source only; modified and removed; unchanged left out', async () => {
-	const fork = (path: string, fp: string, blob: string, repo = URL_): Fork => ({ path, meta: { remote: null, repo, path: fp, blob, branch: null, commit: null, date: null } });
+	const fork = (path: string, fp: string, blob: string, repo = URL_): Fork => ({ path, meta: { remote: null, repo, path: fp, blob, branch: null, commit: null, date: null, seen: null } });
 	const forks = [fork('f1.md', 'a.md', sha('0')), fork('f2.md', 'b.md', sha('2')), fork('f3.md', 'gone.md', sha('3')), fork('f4.md', 'a.md', sha('0'), 'https://github.com/x/y')];
 	const c = await checkSource(fakeHost({ 'a.md': sha('1'), 'b.md': sha('2') }), source(), state({ seenCommit: HEAD.commit }), forks);
 	assert.deepEqual(c.forks.map((f) => [f.fork.path, f.status]), [['f1.md', 'modified'], ['f3.md', 'removed']]);
 });
 
 test('forks: matched by fork_remote when they have one, else by fork_repo', async () => {
-	const fork = (path: string, remote: string | null, repo: string | null): Fork => ({ path, meta: { remote, repo, path: 'a.md', blob: sha('0'), branch: null, commit: null, date: null } });
+	const fork = (path: string, remote: string | null, repo: string | null): Fork => ({ path, meta: { remote, repo, path: 'a.md', blob: sha('0'), branch: null, commit: null, date: null, seen: null } });
 	const forks = [fork('named.md', 'A-B', 'https://github.com/x/y'), fork('other.md', 'x-y', URL_), fork('old.md', null, URL_), fork('local.md', 'notes', null)];
 	const c = await checkSource(fakeHost({ 'a.md': sha('1') }), source(), state({ seenCommit: HEAD.commit }), forks);
 	assert.deepEqual(c.forks.map((f) => f.fork.path), ['named.md', 'old.md']);

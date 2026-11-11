@@ -48,9 +48,9 @@ export function forksOf(forks: readonly Fork[], remote: Remote, path: string): F
 }
 
 /** Provenance for `path` forked from `remote` at `head`, at `now`. A local source has no `fork_repo`. */
-export function newForkMeta(remote: Remote, path: string, head: Head, blob: string, now: Date): ForkMeta {
+export function newForkMeta(remote: Remote, path: string, head: Pick<Head, 'branch' | 'commit'>, blob: string, now: Date): ForkMeta {
 	const repo = isLocalRepo(remote.url) ? null : remote.url;
-	return { remote: remote.name, repo, path, blob, branch: head.branch, commit: head.commit, date: localIso(now) };
+	return { remote: remote.name, repo, path, blob, branch: head.branch, commit: head.commit, date: localIso(now), seen: null };
 }
 
 /** ISO 8601 in local time with its offset, to the second: `2026-11-10T13:42:05+02:00`. */
