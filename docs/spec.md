@@ -392,8 +392,9 @@ settings, sorted. A source with no forks has no section: it is added at the end 
 fork and removed with the last. A note with the heading more than once is left alone, with a
 notice.
 
-Updated, debounced, after a fork note is created, renamed, deleted or has its `fork_*` keys
-changed, after a follow note changes, and when the setting is turned on; not before the
+Updated, debounced, after a fork note is created, renamed, deleted or changes the source it is
+a fork of (`fork_remote`, `fork_repo`; its text and other keys are in no list), after a follow
+note changes, and when the setting is turned on; not before the
 workspace is ready, so a half-loaded metadata cache can't empty a list. A note is written only if
 its list changed. A note that stops keeping a list (the setting off, or `list_forks: false`) is
 left as it is. **Update fork lists in follow notes** (`update-fork-lists`) syncs every follow note
