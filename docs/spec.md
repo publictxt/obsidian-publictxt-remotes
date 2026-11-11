@@ -130,7 +130,7 @@ them (later slice), since their state is their front matter.
 Details: a rename counts as in `include` if either path is. A watched path never acknowledged is
 `new`; a watched path not at head is reported every check until it leaves `watch`. A fork whose
 blob matches head is not listed. A fork is compared with the tracked branch, whatever its
-`fork_branch`. Pure logic in `src/check/check.ts`; the vault side in `src/check/run.ts`.
+`fork_branch`. Pure logic in `src/check/check.ts`; the vault side in `src/check/run.ts`; the tree in `src/check/file-tree.ts`.
 
 ### Check view
 
@@ -145,8 +145,11 @@ source. It starts open when it has an error or anything new, closed otherwise; o
 has opened or closed it, it stays that way until the view is closed, checks included. Under an
 open header: the error, or "nothing new", or:
 
-- **What's new**: status and path, at most 50 then "and n more"; with the reason when every file
-  is listed.
+- **What's new**: every changed file, as a folder tree: folders first, each with a count of the
+  files under it, then files with their status. A folder holding only one folder is joined
+  with it (`wiki/cs/se`). Selecting a folder opens or closes it; what's in a closed folder
+  isn't drawn. Folders start open, or closed when every file is listed (first check, history
+  rewritten), which comes with the reason; like sources, they stay as the user left them.
 - **Watched**: status and path.
 - **Forks changed upstream**: the fork note (opens it) and its `fork_path`.
 - **Mark as seen**: acknowledges this source. Forks stay listed.
