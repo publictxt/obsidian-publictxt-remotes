@@ -73,6 +73,9 @@ function onlyFolder<T>(folder: TreeFolder<T>): TreeFolder<T> | null {
 	return folder.files.length === 0 && folder.folders.length === 1 ? (folder.folders[0] ?? null) : null;
 }
 
+/** As `localeCompare`, without setting up the comparison for every pair. */
+const collator = new Intl.Collator();
+
 function byName(a: { name: string }, b: { name: string }): number {
-	return a.name.localeCompare(b.name);
+	return collator.compare(a.name, b.name);
 }

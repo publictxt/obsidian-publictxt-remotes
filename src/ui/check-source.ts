@@ -6,7 +6,7 @@
 import { hasNews, type NewReason, type SourceCheck } from '../check/check.ts';
 import { fileTree, type TreeFolder } from '../check/file-tree.ts';
 import type { SourceResult } from '../check/run.ts';
-import { canFork, forkableUnder, selectedPaths, ticked, type Ticked } from '../check/selection.ts';
+import { canFork, forkableByFolder, selectedPaths, ticked, type Ticked } from '../check/selection.ts';
 import type { Change } from '../remote/host.ts';
 import { isLocalRepo } from '../sources/repo-url.ts';
 import { treeFlair, treeItem, type TreeItem } from './tree.ts';
@@ -63,6 +63,30 @@ export function folderOpen(c: SourceCheck, ui: SourceUi, path: string): boolean 
 	return ui.folders.get(path) ?? c.reason === null;
 }
 
+/** What drawing a check's "what's new" needs, worked out once per check: the view draws again at every click. */
+interface NewFiles {
+	tree: TreeFolder<Change>;
+	/** Folder → the files under it its tick box stands for (`forkableUnder`). */
+	forkable: Map<string, string[]>;
+}
+
+/** By check: `changes` and `forked` are never changed in place (acknowledging makes a new check). */
+const newFilesOf = new WeakMap<SourceCheck, NewFiles>();
+
+function newFiles(c: SourceCheck): NewFiles {
+	let n = newFilesOf.get(c);
+	if (!n) newFilesOf.set(c, (n = { tree: fileTree(c.changes, (ch) => ch.path), forkable: forkableByFolder(c) }));
+	return n;
+}
+
+/** A check being drawn. */
+interface Drawing {
+	c: SourceCheck;
+	ui: SourceUi;
+	/** Upstream files with forks that aren't settled: `c.forks`, by path. */
+	unsettled: ReadonlySet<string>;
+}
+
 export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi): void {
 	const source = parent.createDiv({ cls: 'publictxt-source', attr: { 'data-source': r.follow.url } });
 	const el = header(source, r, sourceOpen(r, ui));
@@ -77,9 +101,10 @@ export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi)
 		el.createEl('p', { cls: 'publictxt-quiet', text: 'Nothing new since you last looked.' });
 		return;
 	}
+	const d: Drawing = { c, ui, unsettled: new Set(c.forks.map((f) => f.path)) };
 	actions(el, c, ui);
-	changes(el, c, ui);
-	watched(el, c, ui);
+	changes(el, d);
+	watched(el, d);
 	forks(el, c);
 }
 
@@ -120,31 +145,35 @@ function summary(r: SourceResult): string {
 	return parts.join(' · ') || 'Nothing new';
 }
 
-function changes(el: HTMLElement, c: SourceCheck, ui: SourceUi): void {
+function changes(el: HTMLElement, d: Drawing): void {
+	const { c } = d;
 	if (!c.changes.length) return;
 	el.createEl('h5', { text: `What's new (${c.changes.length})` });
 	if (c.reason) el.createEl('p', { cls: 'publictxt-quiet', text: REASON[c.reason] });
-	folderRows(el, fileTree(c.changes, (ch) => ch.path), c, ui);
+	folderRows(el, newFiles(c).tree, d);
 }
 
 /** What's in `folder`: a row per folder, with its own rows under it when open, then a row per file. */
-function folderRows(parent: HTMLElement, folder: TreeFolder<Change>, c: SourceCheck, ui: SourceUi): void {
+function folderRows(parent: HTMLElement, folder: TreeFolder<Change>, d: Drawing): void {
+	const { c, ui } = d;
+	const { forkable: byFolder } = newFiles(c);
 	for (const f of folder.folders) {
 		const item = treeItem(parent, folderOpen(c, ui, f.path));
 		setAction(item.self, 'toggle-folder', f.path);
 		item.inner.setText(f.name);
 		treeFlair(item, String(f.count));
-		const forkable = forkableUnder(c, f.path);
-		if (forkable.length) tickBox(item, 'select-folder', f.path, ticked(forkable, ui.selected));
-		if (item.children) folderRows(item.children, f, c, ui);
+		const forkable = byFolder.get(f.path);
+		if (forkable) tickBox(item, 'select-folder', f.path, ticked(forkable, ui.selected));
+		if (item.children) folderRows(item.children, f, d);
 	}
-	for (const file of folder.files) fileRow(parent, file.name, file.item, c, ui);
+	for (const file of folder.files) fileRow(parent, file.name, file.item, d);
 }
 
-function watched(el: HTMLElement, c: SourceCheck, ui: SourceUi): void {
+function watched(el: HTMLElement, d: Drawing): void {
+	const { c } = d;
 	if (!c.watched.length) return;
 	el.createEl('h5', { text: `Watched (${c.watched.length})` });
-	for (const w of c.watched) fileRow(el, w.path, w, c, ui);
+	for (const w of c.watched) fileRow(el, w.path, w, d);
 }
 
 /** One row per upstream file, then a row per note forked from it, latest first. */
@@ -188,7 +217,8 @@ interface RemoteFile {
  * `label` (its name, or its path where there is no tree). One already forked has "compare"
  * before "fork" while its forks aren't settled, else the word "forked".
  */
-function fileRow(parent: HTMLElement, label: string, file: RemoteFile, c: SourceCheck, ui: SourceUi): void {
+function fileRow(parent: HTMLElement, label: string, file: RemoteFile, d: Drawing): void {
+	const { c, ui } = d;
 	const item = treeItem(parent);
 	const { inner } = item;
 	inner.createSpan({ cls: `publictxt-status-${file.status}`, text: file.status });
@@ -197,7 +227,7 @@ function fileRow(parent: HTMLElement, label: string, file: RemoteFile, c: Source
 	if (!canFork(file)) return;
 	tickBox(item, 'select', file.path, ui.selected.has(file.path) ? 'all' : 'none');
 	// Already forked: say so, and offer the compare when a copy hasn't seen this version.
-	if (c.forks.some((f) => f.path === file.path)) forkAction(inner, 'compare', file.path, 'Compare', 'Compare your fork with upstream');
+	if (d.unsettled.has(file.path)) forkAction(inner, 'compare', file.path, 'Compare', 'Compare your fork with upstream');
 	else if (c.forked.has(file.path)) inner.createSpan({ cls: 'publictxt-quiet', text: ' forked' });
 	inner.appendText(' ');
 	inner.createEl('a', { text: 'Fork', cls: 'publictxt-fork', attr: { ...actionAttrs('fork', file.path), 'aria-label': `Fork ${file.path} into the vault` } });
