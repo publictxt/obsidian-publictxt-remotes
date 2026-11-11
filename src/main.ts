@@ -1,7 +1,7 @@
 import { Notice, Plugin, type TAbstractFile } from 'obsidian';
 import { normalizeData, type PublicTxtData } from './sources/schema.ts';
 import { isFollowPath } from './sources/follow-note.ts';
-import { acknowledged, checkedAll } from './check/check.ts';
+import { acknowledged, checkedAll, type SourceCheck } from './check/check.ts';
 import { runCheck, type CheckRun } from './check/run.ts';
 import { errorText } from './remote/vault-host.ts';
 import { PublicTxtSettingTab } from './settings.ts';
@@ -82,20 +82,33 @@ export default class PublicTxtPlugin extends Plugin {
 
 	/** Moves a source's `seenCommit` and `watched` to the last check's head. */
 	async acknowledge(url: string): Promise<void> {
-		const r = this.lastRun?.results.find((x) => x.check?.url === url);
-		if (!r?.check) return;
-		const c = r.check;
+		const c = this.checkOf(url);
+		if (!c) return;
 		await this.save({ ...this.data, state: { ...this.data.state, [url]: acknowledged(c, new Date().toISOString()) } });
 		// Forks stay: each is dealt with on its own (docs/spec.md → Fork update).
-		r.check = { ...c, changes: [], reason: null, watched: [] };
-		this.renderViews();
+		this.replaceCheck(c, { ...c, changes: [], reason: null, watched: [] });
 	}
 
 	/** Drops an upstream file from the last check's forks: every note forked from it is settled. */
 	forkSettled(url: string, path: string): void {
-		const c = this.lastRun?.results.find((x) => x.check?.url === url)?.check;
-		if (!c) return;
-		c.forks = c.forks.filter((f) => f.path !== path);
+		const c = this.checkOf(url);
+		if (c) this.replaceCheck(c, { ...c, forks: c.forks.filter((f) => f.path !== path) });
+	}
+
+	/** The last check of the source `url`, if it was checked without an error. */
+	private checkOf(url: string): SourceCheck | null {
+		return this.lastRun?.results.find((r) => r.check?.url === url)?.check ?? null;
+	}
+
+	/**
+	 * Puts `next` in place of `old` in the last run and draws it. A run and its checks are never
+	 * changed in place: a new run, with new results. Nothing happens if `old` isn't in the last
+	 * run any more (a new check finished meanwhile).
+	 */
+	private replaceCheck(old: SourceCheck, next: SourceCheck): void {
+		const run = this.lastRun;
+		if (!run?.results.some((r) => r.check === old)) return;
+		this.lastRun = { ...run, results: run.results.map((r) => (r.check === old ? { ...r, check: next } : r)) };
 		this.renderViews();
 	}
 

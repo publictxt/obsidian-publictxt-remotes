@@ -28,19 +28,20 @@ export interface ForkChange {
 	copies: Fork[];
 }
 
+/** What one check of a source found. Never changed in place. */
 export interface SourceCheck {
-	url: string;
-	head: Head;
+	readonly url: string;
+	readonly head: Head;
 	/** Changes since `seenCommit`, within `include`. */
-	changes: Change[];
+	readonly changes: readonly Change[];
 	/** Set when `changes` lists every file in `include`. */
-	reason: NewReason | null;
-	watched: WatchedChange[];
-	forks: ForkChange[];
+	readonly reason: NewReason | null;
+	readonly watched: readonly WatchedChange[];
+	readonly forks: readonly ForkChange[];
 	/** Every upstream path the user has a fork of, changed or not: the view marks those files. */
-	forked: ReadonlySet<string>;
+	readonly forked: ReadonlySet<string>;
 	/** Blob at head per watched path that exists there: what acknowledging stores. */
-	watchedBlobs: Record<string, string>;
+	readonly watchedBlobs: Readonly<Record<string, string>>;
 }
 
 /** A path within `include` prefixes; empty `include`: the whole repo. */

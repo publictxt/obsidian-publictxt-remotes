@@ -8,12 +8,13 @@ import type { PublicTxtData } from '../sources/schema.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
 import { checkSource, type SourceCheck } from './check.ts';
 
-export type SourceResult = { follow: Follow; check: SourceCheck; error: null } | { follow: Follow; check: null; error: string };
+/** One source's part of a run. Never changed in place: the plugin puts a new one in a new run. */
+export type SourceResult = Readonly<{ follow: Follow; check: SourceCheck; error: null } | { follow: Follow; check: null; error: string }>;
 
 export interface CheckRun {
 	/** ISO datetime the run started. */
 	at: string;
-	results: SourceResult[];
+	results: readonly SourceResult[];
 	/** Follow notes ignored: duplicates and invalid. */
 	ignored: number;
 }
