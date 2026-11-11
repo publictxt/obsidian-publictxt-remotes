@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkForkPath, forkFolder, forkPath, forksOf, freePath, isForkable, localIso, newForkMeta, planForks } from '../src/fork/fork.ts';
+import { forkPath, forksOf, freePath, isForkable, localIso, newForkMeta } from '../src/fork/fork.ts';
 import type { Fork } from '../src/check/check.ts';
 import { readForkMeta, forkMetaProps } from '../src/sources/fork-meta.ts';
 
@@ -27,15 +27,6 @@ test('freePath: the path if free, else numbered before the extension', () => {
 	assert.equal(freePath('f/a.md', (p) => taken.has(p)), 'f/a 2.md');
 	// A dot in a folder name is not an extension.
 	assert.equal(freePath('f.d/noext', (p) => taken.has(p)), 'f.d/noext 1');
-});
-
-test('checkForkPath: trimmed, .md added, no clash, no .. segments', () => {
-	const taken = (p: string) => p === 'x/a.md';
-	assert.deepEqual(checkForkPath('  /x/b ', taken), { ok: true, path: 'x/b.md' });
-	assert.deepEqual(checkForkPath('x/b.md', taken), { ok: true, path: 'x/b.md' });
-	assert.equal(checkForkPath('x/a', taken).ok, false);
-	assert.equal(checkForkPath('', taken).ok, false);
-	assert.equal(checkForkPath('../a.md', taken).ok, false);
 });
 
 test('forksOf: same remote (or repo, for forks without one) and path only', () => {
@@ -77,38 +68,4 @@ test('newForkMeta: a local source records its name, no repo', () => {
 	assert.equal(m.repo, null);
 	assert.deepEqual(readForkMeta(forkMetaProps(m)), m);
 	assert.equal('fork_repo' in forkMetaProps(m), false);
-});
-
-test('forkFolder: source folder, else a matching vault folder, else the default', () => {
-	const vault = new Set(['wiki', 'wiki/cs']);
-	const o = { sourceFolder: null, defaultFolder: 'forks', matchFolders: true, folderExists: (f: string) => vault.has(f) };
-	assert.deepEqual(forkFolder('wiki/cs/a.md', { ...o, sourceFolder: 'theirs' }), { folder: 'theirs', reason: 'source' });
-	assert.deepEqual(forkFolder('wiki/cs/a.md', o), { folder: 'wiki/cs', reason: 'matched' });
-	// Exact folder only: a partial match falls back to the default.
-	assert.deepEqual(forkFolder('wiki/cs/se/a.md', o), { folder: 'forks', reason: 'default' });
-	assert.deepEqual(forkFolder('wiki/cs/a.md', { ...o, matchFolders: false }), { folder: 'forks', reason: 'default' });
-	// A file at the repo root has no folder to match.
-	assert.deepEqual(forkFolder('a.md', o), { folder: 'forks', reason: 'default' });
-});
-
-test('planForks: each to its own folder by the usual rules', () => {
-	const vault = new Set(['wiki']);
-	const o = { sourceFolder: null, defaultFolder: 'forks', matchFolders: true, folderExists: (f: string) => vault.has(f) };
-	assert.deepEqual(planForks(['wiki/a.md', 'blog/b.md', 'c.md'], o, () => false), [
-		{ path: 'wiki/a.md', to: 'wiki/a.md' },
-		{ path: 'blog/b.md', to: 'forks/b.md' },
-		{ path: 'c.md', to: 'forks/c.md' },
-	]);
-});
-
-test('planForks: a name taken in the vault, or by an earlier file, is numbered', () => {
-	const o = { sourceFolder: 'forks', defaultFolder: '', matchFolders: false, folderExists: () => false };
-	const taken = (p: string) => p === 'forks/a.md';
-	assert.deepEqual(planForks(['wiki/a.md', 'blog/a.md', 'x/b.md', 'y/B.md'], o, taken).map((p) => p.to), [
-		'forks/a 1.md',
-		'forks/a 2.md',
-		'forks/b.md',
-		// Planned names are compared without case.
-		'forks/B 1.md',
-	]);
 });

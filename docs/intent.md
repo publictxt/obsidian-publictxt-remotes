@@ -88,7 +88,9 @@ source's folder, again only when asked.
    then cheap.
 7. **Create the remote's folders on fork.** Folder matching uses the remote file's folder only
    when the vault already has it. An option to create it instead would mirror the remote's
-   layout. Parked 2026-11-10.
+   layout. Parked 2026-11-10. Answered per fork 2026-11-11: the fork modal's **Same folder as in
+   the source** creates the folder when the user turns it on. A setting to always do so stays
+   parked.
 8. **`fork_remote` as a link.** `[[follows/name]]` would be clickable and follow renames, if
    Obsidian updates links in properties; then names needn't be read-only. Parked 2026-11-10:
    the spec uses Markdown links, and it needs checking.

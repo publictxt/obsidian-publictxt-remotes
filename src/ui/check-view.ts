@@ -7,7 +7,7 @@ import type { SourceCheck } from '../check/check.ts';
 import type { SourceResult } from '../check/run.ts';
 import { FOLLOWS_FOLDER } from '../sources/follow-note.ts';
 import { forkableUnder, selectedPaths, toggleAll } from '../check/selection.ts';
-import { startFork, startForkMany, type ForkSource } from '../fork/run.ts';
+import { startFork, type ForkSource } from '../fork/run.ts';
 import { folderOpen, newSourceUi, renderSource, sourceOpen, type SourceUi } from './check-source.ts';
 
 export const VIEW_TYPE_CHECK = 'publictxt-check';
@@ -160,21 +160,15 @@ export class CheckView extends ItemView {
 
 	private fork(url: string, path: string): void {
 		const source = this.forkSource(url);
-		if (source) void startFork(this.app, this.plugin.data, { ...source.from, path });
+		if (source) void startFork(this.app, this.plugin.data, source.from, [path]);
 	}
 
-	/** Forks the ticked files: one through the usual modal, several after confirming where they go. */
+	/** Forks the ticked files, then clears the ticks. */
 	private forkSelected(url: string): void {
 		const source = this.forkSource(url);
 		if (!source) return;
 		const { selected } = this.uiOf(url);
-		const paths = selectedPaths(source.check, selected);
-		const [only] = paths;
-		if (paths.length === 1 && only) {
-			this.fork(url, only);
-			return;
-		}
-		startForkMany(this.app, this.plugin.data, source.from, paths, () => {
+		void startFork(this.app, this.plugin.data, source.from, selectedPaths(source.check, selected), () => {
 			selected.clear();
 			this.render();
 		});

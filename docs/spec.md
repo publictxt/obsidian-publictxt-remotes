@@ -9,7 +9,7 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 | Field | Default | Meaning |
 |---|---|---|
 | `forkFolder` | `''` | Default vault folder for forks (`''`: the vault root) |
-| `matchFolders` | `true` | Fork into the remote file's folder when the vault has that exact folder |
+| `matchFolders` | `true` | The fork modal opens with **Same folder as in the source** on when the vault has that exact folder (Fork, below). The user can change it at each fork |
 | `listForks` | `false` | Keep a fork list in each follow note (Fork list, below) |
 | `remotesFolder` | `.remotes` | Vault folder holding the clones; never empty. Hidden, so Obsidian doesn't index it and Sync skips it |
 | `gitPath` | `git` | The git executable. Set it when Obsidian doesn't see the shell's PATH (macOS apps started from Finder) |
@@ -61,7 +61,8 @@ Anything else is invalid, `file:` URLs included: a local source has no URL in it
 
 The settings tab lists the sources found in `follows/` (name; URL, or a local source's folder
 here, or that it has none; branch, include, watch count, fork folder, fork list when set, note
-path), any duplicate or invalid notes, and **Add source**. Lists are one path per line in the form; **Fork list** is Default, On or Off
+path), any duplicate or invalid notes, and **Add source**. **Fork folder**, here and in the
+form, offers the vault's folders as the user types. Lists are one path per line in the form; **Fork list** is Default, On or Off
 (`list_forks` absent, `true`, `false`). It redraws when a note in `follows/` changes. Needs Obsidian 1.6.6 (`trashFile`). Pure logic in
 `src/sources/edit.ts` and `src/sources/follow-note.ts`; vault access in `src/sources/follows.ts`.
 
@@ -244,32 +245,59 @@ changes staged.
 ## Fork
 
 Three ways in: **Fork** after a file in the check view's What's new or Watched (at the head that
-check saw); **Fork selected** there, for the ticked files (Several at once, below; one ticked
-file goes the usual way); or **Fork a file from a source** (pick a source, skipped when there is one; its head
-is fetched; pick a file). Markdown files only: front matter is where the provenance goes.
+check saw); **Fork selected** there, for the ticked files; or **Fork a file from a source**
+(pick a source, skipped when there is one; its head is fetched; pick a file). Markdown files
+only: front matter is where the provenance goes.
 
-A modal offers the vault path `<folder>/<file name>`. The folder is, in order: the source's
-`folder`; the remote file's folder, if `matchFolders` is on and the vault has that exact folder
-(a partial match doesn't count, and no folder is created for it); else `forkFolder`. The modal
-says which. If that path is taken, it offers `<name> 1.md`, `<name> 2.md`, … and says why; if
-the file was forked before, it names those notes. The path can be edited (`.md` is added); an
-existing note is never overwritten. On **Fork**: the blob is fetched, the note created with the
-remote text, then the provenance keys added (`processFrontMatter`: remote keys kept, `fork_*`
-added or overwritten). Remote front matter that isn't valid YAML is refused before anything is
-written. `fork_date` is local time with its offset. The new note opens.
+All three open one modal, for one file or several. Where the forks go is two choices:
 
-### Several at once
+- **Same folder as in the source**: each file goes to the folder it is in in the source, at
+  the same path in the vault; a file at the top of the source goes to the vault root. Missing
+  folders are created. Disabled when no file has a folder in the source.
+- **Folder**: used when that is off. Every file goes into this one folder; empty is the vault
+  root; a folder that doesn't exist is created. The field offers the vault's folders as the
+  user types, at most 50, and stays free text. Slashes at its ends are dropped; a `.` or `..`
+  part, or a path that is a file, is an error.
 
-**Fork selected** with more than one file ticked shows a plan instead: each file and the vault
-path it would go to, by the folder rules above, each file on its own; a name that is taken, in
-the vault or by an earlier file in the plan (compared without case), is numbered. A file forked
-before is marked. Paths can't be edited here. On **Fork all**, each file is forked in turn as
-above, going on past one that fails. One notice says how many were forked, and lists those
-that weren't with why; that one stays until dismissed. No note is opened, and the ticks are
-cleared.
+The modal opens as follows, and says which rule filled in the folder until the user edits it:
 
-Pure logic in `src/fork/fork.ts` (and `src/check/selection.ts` for the ticks); the vault side
-in `src/fork/run.ts`.
+| Case | Same folder | Folder |
+|---|---|---|
+| The source has a `folder` | off | that folder |
+| Else `matchFolders` is on, and every file has a folder in the source that the vault has exactly | on | `forkFolder` |
+| Otherwise | off | `forkFolder` |
+
+A partial match doesn't count, and nothing is created for a match: the user turns the toggle
+on for that. The folder typed is kept while the toggle is on, and comes back with it off.
+
+For **one file** there is also its **Name**, without `.md`: the source file's name, or the
+first free `<name> 1`, `<name> 2`, … when that is taken in the destination, with a note saying
+so. The suggestion follows the destination until the user types a name; then it is theirs,
+and must be free. Empty, or with `/` or `\`, is an error. If the file was forked before, the
+modal names those notes.
+
+Above the buttons the modal shows what would be written, redrawn on each change: for one file
+"Goes to `<path>`"; for several, a row per file (`source path → vault path`, "Name taken." when
+numbered, in the vault or by an earlier row, compared without case; "Forked before."). Both
+list the folders that would be made. An error takes its place and disables **Fork** / **Fork
+all**. Enter in a text field forks; an existing note is never overwritten.
+
+On **Fork**, per file: the blob is fetched, the note created with the remote text, then the
+provenance keys added (`processFrontMatter`: remote keys kept, `fork_*` added or overwritten).
+Remote front matter that isn't valid YAML is refused before anything is written. `fork_date`
+is local time with its offset.
+
+- One file: a notice, and the new note opens. A failure shows in the modal, which stays open.
+- Several: each is forked in turn, going on past one that fails. One notice says how many were
+  forked, and lists those that weren't with why; that one stays until dismissed. No note is
+  opened.
+
+After **Fork selected**, the ticks are cleared.
+
+Pure logic in `src/fork/destination.ts` (where forks go) and `src/fork/fork.ts` (and
+`src/check/selection.ts` for the ticks); the vault side in `src/fork/run.ts`; the modal in
+`src/ui/fork-modal.ts` and `src/ui/fork-preview.ts`; the folder list in
+`src/ui/folder-suggest.ts`.
 
 ## Fork list
 

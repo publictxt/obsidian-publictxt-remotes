@@ -7,6 +7,7 @@ import { DEFAULT_DATA, type PublicTxtData } from './sources/schema.ts';
 import { checkAdd, checkUpdate, sourceToForm, type SourceForm } from './sources/edit.ts';
 import { FOLLOWS_FOLDER, type Follow } from './sources/follow-note.ts';
 import { createFollow, scanFollows, trashFollow, updateFollow } from './sources/follows.ts';
+import { suggestFolders } from './ui/folder-suggest.ts';
 import { ConfirmModal } from './ui/confirm-modal.ts';
 import { isLocalRepo } from './sources/repo-url.ts';
 import { prepareLocalFolder } from './snapshot/run.ts';
@@ -27,8 +28,8 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		this.text('forkFolder', 'Fork folder', 'Default vault folder for forked notes. Empty: the vault root.');
-		this.toggle('matchFolders', 'Match source folders', 'Fork into the same folder as in the source when your vault has that folder.');
+		this.text('forkFolder', 'Fork folder', 'Default vault folder for forked notes. Empty: the vault root.', true);
+		this.toggle('matchFolders', 'Match source folders', 'Offer the same folder as in the source first when your vault has that folder. You can change it at each fork.');
 		this.toggle('listForks', 'List forks in follow notes', 'Keep a list of links to the pages forked from each source at the end of its follow note, under Forked pages. The plugin rewrites that section; the rest of the note is yours.', (on) => {
 			if (on) void this.plugin.forkLists.update(false);
 		});
@@ -175,19 +176,20 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 	}
 
 	/** A text setting bound to one field. The input keeps what was typed; the saved value is normalized. */
-	private text(field: TextField, name: string, desc: string): void {
+	/** A text setting. `vaultFolder`: the field offers the vault's folders to pick from. */
+	private text(field: TextField, name: string, desc: string, vaultFolder = false): void {
 		new Setting(this.containerEl)
 			.setName(name)
 			.setDesc(desc)
-			.addText((t) =>
-				t
-					.setPlaceholder(DEFAULT_DATA[field])
+			.addText((t) => {
+				if (vaultFolder) suggestFolders(this.app, t.inputEl);
+				t.setPlaceholder(DEFAULT_DATA[field])
 					.setValue(this.plugin.data[field])
 					.onChange(async (value) => {
 						const next: PublicTxtData = { ...this.plugin.data, [field]: value };
 						await this.plugin.save(next);
-					}),
-			);
+					});
+			});
 	}
 }
 
