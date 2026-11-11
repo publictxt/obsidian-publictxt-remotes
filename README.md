@@ -27,9 +27,10 @@ pages you want into your vault. Each fork records where it came from in its fron
 - A **fork** is a note copied from a source, with `fork_remote` (the source's name),
   `fork_repo`, `fork_path`, `fork_blob` and related keys in its front matter. Those keys are how the plugin tells when the original has
   changed. Fork a Markdown file with **Fork** next to it in the check view, or with **Fork a
-  file from a source**. You choose where it goes; nothing is overwritten. To fork several, tick
-  files or whole folders in the check view and select **Fork selected**: it shows where each
-  would go before writing any.
+  file from a source**. You choose where it goes: the same folder as in the source, or a folder
+  you pick, and for one file its name. Nothing is overwritten. To fork several, tick files or
+  whole folders in the check view and select **Fork selected**. Either way it shows what would
+  be written before writing any.
 - **Fork lists.** With **List forks in follow notes** on, each follow note ends with a **Forked
   pages** list of links to the pages forked from it. A follow note's `list_forks: true` or
   `false` overrides the setting for that note. The plugin rewrites that section only.
@@ -70,7 +71,7 @@ A source can be a git repo on your computer, such as another vault. Enter its fo
 | Setting | Default | Meaning |
 | --- | --- | --- |
 | **Fork folder** | vault root | Where forked notes go, unless the source sets its own |
-| **Match source folders** | on | Fork into the same folder as in the source when your vault has it |
+| **Match source folders** | on | Offer the same folder as in the source first when your vault has it. You can change it at each fork |
 | **List forks in follow notes** | off | Keep a **Forked pages** list of links at the end of each follow note |
 | **Remotes folder** | `.remotes` | Where the git clones live |
 | **Git executable** | `git` | Path to git |

@@ -59,7 +59,7 @@ and command ids freeze at the first release.
 | `SourceUi` | What the user did to a source in the view: what's open, what's ticked |
 | `fileTree()` | A folder tree (`TreeFolder`) from a flat list of paths. Pure |
 | `forkablePaths()` / `forkableUnder()` | The files a check lists that can be forked; those under a folder. Pure |
-| `planForks()` | Where each of several files goes when forked together. Pure |
+| `planForks()` / `PlannedFork` | Where each file goes under a destination, numbered when its name is taken. Pure |
 | `treeItem()` | A row in Obsidian's tree style; collapsible when given `open` |
 | `RemoteHost` | What the plugin needs from a remote: `head`, `tree`, `changes`, `blob` |
 | `GitHost` | `RemoteHost` over the git CLI |
@@ -67,11 +67,14 @@ and command ids freeze at the first release.
 | `RemoteError` | Remote failure, by `kind`: `no-git`, `git`, `not-found`, `bad-input` |
 | `choose()` | A question with a few answers (`ChoiceModal`) |
 | `vaultHost()` | The `RemoteHost` for this vault's settings. Desktop only |
-| `forkFolder()` | The folder a fork goes to, and which rule chose it (`FolderReason`). Pure |
+| `Destination` | The fork modal's choice: each file's folder as in the source (`same`), or one `folder` |
+| `initialDestination()` | The destination the modal opens with, and which rule chose it (`FolderReason`). Pure |
+| `resolveForks()` | A destination, and a typed name for one file → the plan and its new folders, or the error. Pure |
 | `forkPath()` / `freePath()` | Default vault path for a fork / the first free numbered one. Pure |
 | `newForkMeta()` | Provenance for a file forked now. Pure |
-| `startFork()` / `ForkRequest` | Asks where to put a fork (`ForkModal`), then writes it (`writeFork()`) |
-| `startForkMany()` | Shows where several forks would go (`ForkManyModal`), then writes them all |
+| `startFork()` / `ForkSource` | Asks where one or several forks go (`ForkModal`), then writes them (`writeFork()`) |
+| `renderForkPreview()` | What the fork modal's choices would write, or the error |
+| `suggestFolders()` | The vault's folders under a text field, to pick from while typing |
 | `forkFromSource()` | The fork command: pick a source, then a file |
 | `renderForkList()` / `withForkList()` | A follow note's fork list section / the note with it replaced. Pure |
 | `wantsForkList()` | Whether a follow note keeps a fork list: its `list_forks`, else the setting |
