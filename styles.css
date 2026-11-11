@@ -15,6 +15,7 @@
 
 .publictxt-check .publictxt-status,
 .publictxt-check .publictxt-quiet,
+.publictxt-upstream .publictxt-quiet,
 .publictxt-check .publictxt-branch {
 	color: var(--text-muted);
 }
@@ -72,7 +73,8 @@
 	color: var(--text-muted);
 }
 
-.publictxt-check .publictxt-actions {
+.publictxt-check .publictxt-actions,
+.publictxt-upstream .publictxt-actions {
 	display: flex;
 	gap: var(--size-4-2);
 	margin: var(--size-4-2) 0;
@@ -94,4 +96,19 @@
 
 .publictxt-check .publictxt-copy {
 	padding-left: var(--size-4-6);
+}
+
+.publictxt-upstream .publictxt-upstream-head {
+	border-bottom: 1px solid var(--background-modifier-border);
+	margin-bottom: var(--size-4-3);
+	color: var(--text-muted);
+}
+
+.publictxt-upstream .publictxt-actions {
+	flex-wrap: wrap;
+}
+
+.publictxt-upstream .publictxt-upstream-body pre {
+	white-space: pre-wrap;
+	user-select: text;
 }

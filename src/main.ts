@@ -5,7 +5,9 @@ import { acknowledged } from './check/check.ts';
 import { runCheck, type CheckRun } from './check/run.ts';
 import { PublicTxtSettingTab } from './settings.ts';
 import { CheckView, VIEW_TYPE_CHECK } from './ui/check-view.ts';
+import { UpstreamView } from './ui/upstream-view.ts';
 import { forkFromSource } from './fork/command.ts';
+import { compareActiveFork, VIEW_TYPE_UPSTREAM } from './fork/compare-run.ts';
 import { ForkLists } from './fork/fork-lists.ts';
 import { localFollows, snapshotAndTell } from './snapshot/run.ts';
 
@@ -25,10 +27,12 @@ export default class PublicTxtPlugin extends Plugin {
 		this.addSettingTab(tab);
 
 		this.registerView(VIEW_TYPE_CHECK, (leaf) => new CheckView(leaf, this));
+		this.registerView(VIEW_TYPE_UPSTREAM, (leaf) => new UpstreamView(leaf, this));
 		this.addRibbonIcon('git-compare', 'Check sources', () => void this.showAndCheck());
 		this.addCommand({ id: 'check-sources', name: 'Check sources', callback: () => void this.showAndCheck() });
 		this.addCommand({ id: 'open-check-view', name: 'Open check view', callback: () => void this.showCheckView() });
 		this.addCommand({ id: 'fork-file', name: 'Fork a file from a source', callback: () => forkFromSource(this.app, this.data) });
+		this.addCommand({ id: 'compare-fork', name: 'Compare this fork with upstream', callback: () => void compareActiveFork(this.app, this.data) });
 		this.addCommand({ id: 'snapshot-local-sources', name: 'Snapshot local sources', callback: () => void this.snapshot() });
 		this.addCommand({ id: 'update-fork-lists', name: 'Update fork lists in follow notes', callback: () => void this.forkLists.update(true) });
 
@@ -76,8 +80,16 @@ export default class PublicTxtPlugin extends Plugin {
 		if (!r?.check) return;
 		const c = r.check;
 		await this.save({ ...this.data, state: { ...this.data.state, [url]: acknowledged(c, new Date().toISOString()) } });
-		// Forks stay: only updating a fork acknowledges it (docs/spec.md → Check).
+		// Forks stay: each is dealt with on its own (docs/spec.md → Fork update).
 		r.check = { ...c, changes: [], reason: null, watched: [] };
+		this.renderViews();
+	}
+
+	/** Drops an upstream file from the last check's forks: every note forked from it is settled. */
+	forkSettled(url: string, path: string): void {
+		const c = this.lastRun?.results.find((x) => x.check?.url === url)?.check;
+		if (!c) return;
+		c.forks = c.forks.filter((f) => f.path !== path);
 		this.renderViews();
 	}
 
