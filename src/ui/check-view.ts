@@ -1,26 +1,21 @@
-// The check view: what's new, watched and forks, per source (docs/spec.md → Check view).
+// The check view: the last check, source by source (docs/spec.md → Check view). It owns the
+// clicks; check-source.ts draws each source.
 
 import { ItemView, type WorkspaceLeaf } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
-import { hasNews, type NewReason, type SourceCheck } from '../check/check.ts';
+import type { SourceCheck } from '../check/check.ts';
 import type { SourceResult } from '../check/run.ts';
 import { FOLLOWS_FOLDER } from '../sources/follow-note.ts';
-import { isForkable } from '../fork/fork.ts';
-import { startFork } from '../fork/run.ts';
-import { isLocalRepo } from '../sources/repo-url.ts';
+import { forkableUnder, selectedPaths, toggleAll } from '../check/selection.ts';
+import { startFork, startForkMany, type ForkSource } from '../fork/run.ts';
+import { folderOpen, newSourceUi, renderSource, sourceOpen, type SourceUi } from './check-source.ts';
 
 export const VIEW_TYPE_CHECK = 'publictxt-check';
 
-/** Files listed per source before "and n more". */
-const LIST_LIMIT = 50;
-
-const REASON: Record<NewReason, string> = {
-	'first-check': 'First check: every file is listed. Mark as seen to start from here.',
-	'history-rewritten': 'History was rewritten since you last looked: every file is listed.',
-};
-
 export class CheckView extends ItemView {
 	private readonly plugin: PublicTxtPlugin;
+	/** What the user opened, closed and ticked, per source key. Kept across checks, gone with the view. */
+	private readonly ui = new Map<string, SourceUi>();
 
 	constructor(leaf: WorkspaceLeaf, plugin: PublicTxtPlugin) {
 		super(leaf);
@@ -48,6 +43,8 @@ export class CheckView extends ItemView {
 	/** Draws the last run, or the prompt to run one. */
 	render(): void {
 		const el = this.contentEl;
+		// Drawing again (a row opened, a check's progress) must not jump back to the top.
+		const scrolled = el.scrollTop;
 		el.empty();
 		const { lastRun, checking } = this.plugin;
 
@@ -62,104 +59,124 @@ export class CheckView extends ItemView {
 		if (lastRun.ignored) {
 			el.createEl('p', { cls: 'publictxt-warning', text: `${lastRun.ignored} follow notes ignored: see settings.` });
 		}
-		for (const r of lastRun.results) this.source(el, r);
-	}
-
-	private source(parent: HTMLElement, r: SourceResult): void {
-		const el = parent.createDiv({ cls: 'publictxt-source' });
-		const h = el.createEl('h4');
-		h.createEl('a', { text: r.follow.name, attr: { 'data-open': r.follow.path, 'aria-label': isLocalRepo(r.follow.url) ? 'Local source' : r.follow.url } });
-		if (r.check) h.createSpan({ cls: 'publictxt-branch', text: ` · ${r.check.head.branch}` });
-		if (isLocalRepo(r.follow.url)) {
-			el.createEl('button', {
-				text: 'Snapshot',
-				attr: { 'data-action': 'snapshot', 'data-url': r.follow.url, 'aria-label': 'Commit what changed in this folder, then check again' },
-			});
-		}
-
-		if (r.error !== null) {
-			el.createEl('p', { cls: 'publictxt-error', text: r.error });
-			return;
-		}
-		const c = r.check;
-		if (!hasNews(c)) {
-			el.createEl('p', { cls: 'publictxt-quiet', text: 'Nothing new since you last looked.' });
-			return;
-		}
-		this.changes(el, c);
-		this.watched(el, c);
-		this.forks(el, c);
-		if (c.changes.length || c.watched.length || c.reason) {
-			el.createEl('button', { text: 'Mark as seen', attr: { 'data-action': 'ack', 'data-url': c.url } });
-		}
-	}
-
-	private changes(el: HTMLElement, c: SourceCheck): void {
-		if (!c.changes.length) return;
-		el.createEl('h5', { text: `What's new (${c.changes.length})` });
-		if (c.reason) el.createEl('p', { cls: 'publictxt-quiet', text: REASON[c.reason] });
-		const ul = el.createEl('ul');
-		for (const ch of c.changes.slice(0, LIST_LIMIT)) {
-			const li = ul.createEl('li');
-			li.createSpan({ cls: `publictxt-status-${ch.status}`, text: ch.status });
-			li.appendText(` ${ch.path}`);
-			if (ch.from) li.appendText(` (from ${ch.from})`);
-			if (ch.status !== 'removed') forkLink(li, c.url, ch.path);
-		}
-		if (c.changes.length > LIST_LIMIT) el.createEl('p', { cls: 'publictxt-quiet', text: `And ${c.changes.length - LIST_LIMIT} more.` });
-	}
-
-	private watched(el: HTMLElement, c: SourceCheck): void {
-		if (!c.watched.length) return;
-		el.createEl('h5', { text: `Watched (${c.watched.length})` });
-		const ul = el.createEl('ul');
-		for (const w of c.watched) {
-			const li = ul.createEl('li');
-			li.createSpan({ cls: `publictxt-status-${w.status}`, text: w.status });
-			li.appendText(` ${w.path}`);
-			if (w.status !== 'removed') forkLink(li, c.url, w.path);
-		}
-	}
-
-	private forks(el: HTMLElement, c: SourceCheck): void {
-		if (!c.forks.length) return;
-		el.createEl('h5', { text: `Forks changed upstream (${c.forks.length})` });
-		const ul = el.createEl('ul');
-		for (const f of c.forks) {
-			const li = ul.createEl('li');
-			li.createSpan({ cls: `publictxt-status-${f.status}`, text: f.status === 'removed' ? 'gone upstream' : 'changed upstream' });
-			li.appendText(' ');
-			li.createEl('a', { text: f.fork.path, attr: { 'data-open': f.fork.path } });
-			li.appendText(` ← ${f.fork.meta.path}`);
-		}
+		for (const r of lastRun.results) renderSource(el, r, this.uiOf(r.follow.url));
+		el.scrollTop = scrolled;
 	}
 
 	/** The one click handler: `data-open` opens a note, `data-action` runs one. */
 	private onClick(e: MouseEvent): void {
-		const t = e.target instanceof HTMLElement ? e.target : null;
-		const open = t?.closest<HTMLElement>('[data-open]');
-		if (open?.dataset.open) {
-			void this.app.workspace.openLinkText(open.dataset.open, '', e.ctrlKey || e.metaKey);
+		// An icon is an SVG element, not an HTML one.
+		const target = e.target instanceof Element ? e.target : null;
+		const open = target?.closest<HTMLElement>('[data-open]')?.dataset.open;
+		if (open) {
+			void this.app.workspace.openLinkText(open, '', e.ctrlKey || e.metaKey);
 			return;
 		}
-		const action = t?.closest<HTMLElement>('[data-action]');
-		if (action?.dataset.action === 'check') void this.plugin.check();
-		if (action?.dataset.action === 'snapshot' && action.dataset.url) void this.plugin.snapshot(action.dataset.url);
-		if (action?.dataset.action === 'ack' && action.dataset.url) void this.plugin.acknowledge(action.dataset.url);
-		if (action?.dataset.action === 'fork' && action.dataset.url && action.dataset.path) this.fork(action.dataset.url, action.dataset.path);
+		const el = target?.closest<HTMLElement>('[data-action]');
+		if (!el) return;
+		const { action, path } = el.dataset;
+		if (action === 'check') {
+			void this.plugin.check();
+			return;
+		}
+		const url = el.closest<HTMLElement>('[data-source]')?.dataset.source;
+		if (url) this.act(action, url, path);
 	}
 
-	/** Forks `path` at the head the last check saw: what the user is looking at. */
+	/** Runs `action` on the source `url`; `path` is the file it is about, if any. */
+	private act(action: string | undefined, url: string, path: string | undefined): void {
+		switch (action) {
+			case 'snapshot':
+				void this.plugin.snapshot(url);
+				break;
+			case 'ack':
+				void this.plugin.acknowledge(url);
+				break;
+			case 'fork':
+				if (path) this.fork(url, path);
+				break;
+			case 'toggle-source':
+				this.toggleSource(url);
+				break;
+			case 'toggle-folder':
+				if (path) this.toggleFolder(url, path);
+				break;
+			case 'select':
+				if (path) this.select(url, [path]);
+				break;
+			case 'select-folder':
+				if (path) this.selectFolder(url, path);
+				break;
+			case 'fork-selected':
+				this.forkSelected(url);
+				break;
+		}
+	}
+
+	private uiOf(url: string): SourceUi {
+		let ui = this.ui.get(url);
+		if (!ui) this.ui.set(url, (ui = newSourceUi()));
+		return ui;
+	}
+
+	private toggleSource(url: string): void {
+		const r = this.result(url);
+		if (!r) return;
+		const ui = this.uiOf(url);
+		ui.open = !sourceOpen(r, ui);
+		this.render();
+	}
+
+	private toggleFolder(url: string, path: string): void {
+		const c = this.result(url)?.check;
+		if (!c) return;
+		const ui = this.uiOf(url);
+		ui.folders.set(path, !folderOpen(c, ui, path));
+		this.render();
+	}
+
+	/** The last check's result for the source `url`. */
+	private result(url: string): SourceResult | undefined {
+		return this.plugin.lastRun?.results.find((r) => r.follow.url === url);
+	}
+
+	/** Ticks `paths` for forking, or clears them when all were ticked. */
+	private select(url: string, paths: readonly string[]): void {
+		toggleAll(this.uiOf(url).selected, paths);
+		this.render();
+	}
+
+	private selectFolder(url: string, folder: string): void {
+		const c = this.result(url)?.check;
+		if (c) this.select(url, forkableUnder(c, folder));
+	}
+
+	/** The source `url` as the last check saw it: forks come from the head the user is looking at. */
+	private forkSource(url: string): { from: ForkSource; check: SourceCheck } | null {
+		const r = this.result(url);
+		if (!r?.check) return null;
+		return { from: { url, name: r.follow.name, head: r.check.head, folder: r.follow.folder }, check: r.check };
+	}
+
 	private fork(url: string, path: string): void {
-		const r = this.plugin.lastRun?.results.find((x) => x.check?.url === url);
-		if (!r?.check) return;
-		void startFork(this.app, this.plugin.data, { url, name: r.follow.name, head: r.check.head, path, folder: r.follow.folder });
+		const source = this.forkSource(url);
+		if (source) void startFork(this.app, this.plugin.data, { ...source.from, path });
 	}
-}
 
-/** A "fork" action after a file's path, for Markdown files. */
-function forkLink(li: HTMLElement, url: string, path: string): void {
-	if (!isForkable(path)) return;
-	li.appendText(' ');
-	li.createEl('a', { text: 'Fork', cls: 'publictxt-fork', attr: { 'data-action': 'fork', 'data-url': url, 'data-path': path, 'aria-label': `Fork ${path} into the vault` } });
+	/** Forks the ticked files: one through the usual modal, several after confirming where they go. */
+	private forkSelected(url: string): void {
+		const source = this.forkSource(url);
+		if (!source) return;
+		const { selected } = this.uiOf(url);
+		const paths = selectedPaths(source.check, selected);
+		const [only] = paths;
+		if (paths.length === 1 && only) {
+			this.fork(url, only);
+			return;
+		}
+		startForkMany(this.app, this.plugin.data, source.from, paths, () => {
+			selected.clear();
+			this.render();
+		});
+	}
 }

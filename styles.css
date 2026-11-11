@@ -25,8 +25,17 @@
 	margin-bottom: var(--size-4-3);
 }
 
-.publictxt-check .publictxt-source h4 a {
-	cursor: pointer;
+.publictxt-check .publictxt-source-head {
+	font-weight: var(--font-semibold);
+	align-items: center;
+}
+
+.publictxt-check .publictxt-source-head .publictxt-branch {
+	font-weight: var(--font-normal);
+}
+
+.publictxt-check .publictxt-source-head button {
+	margin-left: var(--size-4-2);
 }
 
 .publictxt-check [class^='publictxt-status-'] {
@@ -51,4 +60,25 @@
 	cursor: pointer;
 	font-size: var(--font-ui-smaller);
 	margin-left: var(--size-4-1);
+}
+
+.publictxt-fork-plan {
+	max-height: 50vh;
+	overflow-y: auto;
+	margin-bottom: var(--size-4-3);
+}
+
+.publictxt-fork-plan .publictxt-fork-to {
+	color: var(--text-muted);
+}
+
+.publictxt-check .publictxt-actions {
+	display: flex;
+	gap: var(--size-4-2);
+	margin: var(--size-4-2) 0;
+}
+
+.publictxt-check .tree-item-self input[type='checkbox'] {
+	flex-shrink: 0;
+	align-self: center;
 }

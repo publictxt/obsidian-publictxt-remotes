@@ -54,7 +54,13 @@ and command ids freeze at the first release.
 | `SourceCheck` | Its result: `changes` (with `reason`), `watched`, `forks` |
 | `checked()` / `acknowledged()` | State after a check / after "mark as seen" |
 | `runCheck()` | Every source, from the vault; returns results and state to save |
-| `CheckView` | The check view |
+| `CheckView` | The check view: the last check, and its clicks |
+| `renderSource()` | Draws one source in the check view |
+| `SourceUi` | What the user did to a source in the view: what's open, what's ticked |
+| `fileTree()` | A folder tree (`TreeFolder`) from a flat list of paths. Pure |
+| `forkablePaths()` / `forkableUnder()` | The files a check lists that can be forked; those under a folder. Pure |
+| `planForks()` | Where each of several files goes when forked together. Pure |
+| `treeItem()` | A row in Obsidian's tree style; collapsible when given `open` |
 | `RemoteHost` | What the plugin needs from a remote: `head`, `tree`, `changes`, `blob` |
 | `GitHost` | `RemoteHost` over the git CLI |
 | `RunGit` / `gitRunner()` | Runs one git command; the real one is in `git-process.ts`, the only Node module |
@@ -65,6 +71,7 @@ and command ids freeze at the first release.
 | `forkPath()` / `freePath()` | Default vault path for a fork / the first free numbered one. Pure |
 | `newForkMeta()` | Provenance for a file forked now. Pure |
 | `startFork()` / `ForkRequest` | Asks where to put a fork (`ForkModal`), then writes it (`writeFork()`) |
+| `startForkMany()` | Shows where several forks would go (`ForkManyModal`), then writes them all |
 | `forkFromSource()` | The fork command: pick a source, then a file |
 | `renderForkList()` / `withForkList()` | A follow note's fork list section / the note with it replaced. Pure |
 | `wantsForkList()` | Whether a follow note keeps a fork list: its `list_forks`, else the setting |

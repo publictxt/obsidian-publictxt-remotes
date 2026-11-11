@@ -53,6 +53,27 @@ export function freePath(path: string, taken: (p: string) => boolean): string {
 	}
 }
 
+/** One of several files forked together, and the vault path it goes to. */
+export interface PlannedFork {
+	path: string;
+	to: string;
+}
+
+/**
+ * Where each of `paths` goes when they are forked together: its default folder and name, as for
+ * one fork, numbered when that is taken in the vault or by an earlier one of them (compared
+ * without case, as file names are).
+ */
+export function planForks(paths: readonly string[], o: ForkFolderOptions, taken: (p: string) => boolean): PlannedFork[] {
+	const planned = new Set<string>();
+	return paths.map((path) => {
+		const wanted = forkPath(forkFolder(path, o).folder, path);
+		const to = freePath(wanted, (p) => taken(p) || planned.has(p.toLowerCase()));
+		planned.add(to.toLowerCase());
+		return { path, to };
+	});
+}
+
 export type CheckedPath = { ok: true; path: string } | { ok: false; error: string };
 
 /** A vault path typed by the user: trimmed, `.md` added, never one that exists. */

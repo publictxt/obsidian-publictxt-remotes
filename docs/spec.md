@@ -130,7 +130,7 @@ them (later slice), since their state is their front matter.
 Details: a rename counts as in `include` if either path is. A watched path never acknowledged is
 `new`; a watched path not at head is reported every check until it leaves `watch`. A fork whose
 blob matches head is not listed. A fork is compared with the tracked branch, whatever its
-`fork_branch`. Pure logic in `src/check/check.ts`; the vault side in `src/check/run.ts`.
+`fork_branch`. Pure logic in `src/check/check.ts`; the vault side in `src/check/run.ts`; the tree in `src/check/file-tree.ts`.
 
 ### Check view
 
@@ -139,14 +139,28 @@ source, one at a time. **Open check view** opens it without checking. The last r
 memory only; `checkedAt` is saved for each source checked, and state for sources no longer
 followed is dropped.
 
-Per source: its remote name (opens the follow note) and branch, then an error, or "nothing new", or:
+Per source, a header: its remote name (opens the follow note), branch, and a summary (`New 4 ·
+Watched 1 · Forks 2`, "Nothing new" or "Error"). Selecting the header opens or closes the
+source. It starts open when it has an error or anything new, closed otherwise; once the user
+has opened or closed it, it stays that way until the view is closed, checks included. Under an
+open header: the error, or "nothing new", or the two actions and then the lists:
 
-- **What's new**: status and path, at most 50 then "and n more"; with the reason when every file
-  is listed.
-- **Watched**: status and path.
-- **Forks changed upstream**: the fork note (opens it) and its `fork_path`.
 - **Mark as seen**: acknowledges this source. Forks stay listed.
-- **Snapshot**: local sources only, shown whatever the result (Local sources → Snapshot).
+- **Fork selected (n)**: shown when files are ticked (Fork, below).
+
+- **What's new**: every changed file, as a folder tree: folders first, each with a count of the
+  files under it, then files with their status. A folder holding only one folder is joined
+  with it (`wiki/cs/se`). Selecting a folder opens or closes it; what's in a closed folder
+  isn't drawn. Folders start open, or closed when every file is listed (first check, history
+  rewritten), which comes with the reason; like sources, they stay as the user left them.
+- **Watched**: status and path.
+- A file that can be forked (Markdown, not removed), in either list, has a tick box and
+  **Fork**. A folder holding any has a tick box for them all: ticked, half ticked or clear;
+  selecting it ticks them all, or clears them if all were ticked. Ticks stay like what's open;
+  one whose file a later check doesn't list isn't counted.
+- **Forks changed upstream**: the fork note (opens it) and its `fork_path`.
+- **Snapshot**: local sources only, in the header, so shown whatever the result and when closed
+  (Local sources → Snapshot).
 
 Needs Obsidian 1.7.2 (`revealLeaf` returning a promise).
 
@@ -229,8 +243,9 @@ changes staged.
 
 ## Fork
 
-Two ways in: **Fork** after a file in the check view's What's new or Watched (at the head that
-check saw), or **Fork a file from a source** (pick a source, skipped when there is one; its head
+Three ways in: **Fork** after a file in the check view's What's new or Watched (at the head that
+check saw); **Fork selected** there, for the ticked files (Several at once, below; one ticked
+file goes the usual way); or **Fork a file from a source** (pick a source, skipped when there is one; its head
 is fetched; pick a file). Markdown files only: front matter is where the provenance goes.
 
 A modal offers the vault path `<folder>/<file name>`. The folder is, in order: the source's
@@ -243,7 +258,18 @@ remote text, then the provenance keys added (`processFrontMatter`: remote keys k
 added or overwritten). Remote front matter that isn't valid YAML is refused before anything is
 written. `fork_date` is local time with its offset. The new note opens.
 
-Pure logic in `src/fork/fork.ts`; the vault side in `src/fork/run.ts`.
+### Several at once
+
+**Fork selected** with more than one file ticked shows a plan instead: each file and the vault
+path it would go to, by the folder rules above, each file on its own; a name that is taken, in
+the vault or by an earlier file in the plan (compared without case), is numbered. A file forked
+before is marked. Paths can't be edited here. On **Fork all**, each file is forked in turn as
+above, going on past one that fails. One notice says how many were forked, and lists those
+that weren't with why; that one stays until dismissed. No note is opened, and the ticks are
+cleared.
+
+Pure logic in `src/fork/fork.ts` (and `src/check/selection.ts` for the ticks); the vault side
+in `src/fork/run.ts`.
 
 ## Fork list
 
