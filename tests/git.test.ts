@@ -5,6 +5,7 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { setTimeout as wait } from 'node:timers/promises';
 import { GitHost, cachePath, parseLsTree, parseNameStatus, parseNumstat } from '../src/remote/git.ts';
 import { gitRunner, pathExists } from '../src/remote/git-process.ts';
 import { RemoteError } from '../src/remote/host.ts';
@@ -146,4 +147,32 @@ test('errors: missing branch, bad SHA, no git', async () => {
 	await assert.rejects(h.blob(REPO, 'abc'), (e) => e instanceof RemoteError && e.kind === 'bad-input');
 	const none = new GitHost({ run: gitRunner('/no/such/git'), cacheDir: join(root, 'x'), join, exists: pathExists });
 	await assert.rejects(none.head(REPO, null), (e) => e instanceof RemoteError && e.kind === 'no-git');
+});
+
+test('queues: hosts sharing them take turns on a clone; a clone with nothing waiting leaves no queue', async () => {
+	const queues = new Map<string, Promise<unknown>>();
+	const log: string[] = [];
+	// A fake git that takes a while: overlapping commands would interleave in the log.
+	const run = (name: string) => async (args: string[]) => {
+		log.push(`${name} start`);
+		await wait(20);
+		log.push(`${name} end`);
+		return { code: 0, stdout: args[0] === 'cat-file' ? name : '', stderr: '' };
+	};
+	const make = (name: string) => new GitHost({ run: run(name), cacheDir: '/cache', join, exists: async () => true, queues });
+	const blob = 'a'.repeat(40);
+	const jobs = [make('one').blob(REPO, blob), make('two').blob(REPO, blob)];
+	assert.equal(queues.size, 1);
+	assert.deepEqual(await Promise.all(jobs), ['one', 'two']);
+	assert.deepEqual(log, ['one start', 'one end', 'two start', 'two end']);
+	await wait(0);
+	assert.equal(queues.size, 0);
+});
+
+test('a command that outlasts the timeout is stopped, and is not a missing git', async () => {
+	const run = gitRunner(process.execPath, 200);
+	await assert.rejects(
+		() => run(['-e', 'setTimeout(() => {}, 10000)'], null),
+		(e: unknown) => e instanceof RemoteError && e.kind === 'git' && /stopped after/.test(e.message),
+	);
 });

@@ -143,7 +143,8 @@ without a valid date after any with; ties by path, in byte order. A file that is
 **Check sources** (command and ribbon) opens the view in the right sidebar and checks every
 source, one at a time. **Open check view** opens it without checking. The last run is kept in
 memory only; `checkedAt` is saved for each source checked, and state for sources no longer
-followed is dropped.
+followed is dropped. The state saved is built from the state when the run ends, so a source
+acknowledged while it ran stays acknowledged.
 
 Per source, a header: its remote name (opens the follow note), branch, and a summary (`New 4 ·
 Watched 1 · Forks 2`, "Nothing new" or "Error"). Selecting the header opens or closes the
@@ -185,7 +186,9 @@ local source (`<hash>`: 32-bit FNV-1a of the key, so names that clean up the sam
 clone). git fetches a local source from `fileUrl()` of its folder in `localPaths`, and the
 clone's origin is set to it before each fetch (`remote set-url`), so a moved folder is followed;
 no folder here is a `not-found` error. Commands run without a shell, with
-`GIT_TERMINAL_PROMPT=0`, one at a time per clone.
+`GIT_TERMINAL_PROMPT=0`, one at a time per clone: every host the plugin makes shares the
+queues, so a check, a fork and a compare take turns. A command still running after five minutes
+is stopped, and fails as a `git` error.
 
 | Method | git |
 |---|---|

@@ -28,6 +28,11 @@ export interface GitHostOptions {
 	 * source with no folder on this computer). Absent: the key is the URL.
 	 */
 	remote?: (repo: string) => string;
+	/**
+	 * The per-clone queues, to share between hosts over the same clones: the plugin makes a host
+	 * per operation, and they must still take turns. Absent: this host's own.
+	 */
+	queues?: Map<string, Promise<unknown>>;
 }
 
 const STATUS: Record<string, ChangeStatus> = {
@@ -108,11 +113,12 @@ export function parseNumstat(out: string): DiffStat | null {
 
 export class GitHost implements RemoteHost {
 	private readonly o: GitHostOptions;
-	/** Per-clone queue: git takes locks, so commands on one clone run in turn. */
-	private readonly queues = new Map<string, Promise<unknown>>();
+	/** Per-clone queue, by cache folder and source key: git takes locks, so commands on one clone run in turn. */
+	private readonly queues: Map<string, Promise<unknown>>;
 
 	constructor(options: GitHostOptions) {
 		this.o = options;
+		this.queues = options.queues ?? new Map<string, Promise<unknown>>();
 	}
 
 	private dir(repo: string): string {
@@ -120,9 +126,15 @@ export class GitHost implements RemoteHost {
 	}
 
 	private serial<T>(repo: string, job: () => Promise<T>): Promise<T> {
-		const prev = this.queues.get(repo) ?? Promise.resolve();
+		const key = `${this.o.cacheDir}\0${repo}`;
+		const prev = this.queues.get(key) ?? Promise.resolve();
 		const next = prev.then(job, job);
-		this.queues.set(repo, next.catch(() => undefined));
+		const settled = next.catch(() => undefined);
+		this.queues.set(key, settled);
+		// Nothing waiting behind this job: drop the queue, so the map doesn't keep every clone ever used.
+		void settled.then(() => {
+			if (this.queues.get(key) === settled) this.queues.delete(key);
+		});
 		return next;
 	}
 
