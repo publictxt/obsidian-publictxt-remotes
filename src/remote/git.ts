@@ -171,13 +171,19 @@ export class GitHost implements RemoteHost {
 	head(repo: string, branch: string | null): Promise<Head> {
 		return this.serial(repo, async () => {
 			const dir = await this.ensureClone(repo);
-			await this.git(['fetch', '--prune', '--quiet', 'origin'], dir);
 			let name = branch;
+			let current = false;
 			if (name === null) {
+				// The default branch has to be asked for, and the answer says where it is: when the
+				// clone is already there, that was the one round trip, and there is nothing to fetch.
 				const out = (await this.git(['ls-remote', '--symref', 'origin', 'HEAD'], dir)).stdout;
 				name = /^ref: refs\/heads\/(\S+)\tHEAD$/m.exec(out)?.[1] ?? null;
 				if (!name) throw new RemoteError('not-found', `No default branch: ${repo}`);
+				const at = /^([0-9a-f]+)\tHEAD$/m.exec(out)?.[1];
+				const have = await this.o.run(['rev-parse', '--verify', '--quiet', `refs/heads/${name}^{commit}`], dir);
+				current = at !== undefined && have.code === 0 && have.stdout.trim() === at;
 			}
+			if (!current) await this.git(['fetch', '--prune', '--quiet', 'origin'], dir);
 			const ref = `refs/heads/${name}`;
 			// Not --verify: it takes one name. A missing ref exits 128.
 			const r = await this.git(['rev-parse', `${ref}^{commit}`, `${ref}^{tree}`], dir, [0, 128]);

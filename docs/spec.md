@@ -194,7 +194,7 @@ is stopped, and fails as a `git` error.
 | Method | git |
 |---|---|
 | (first use) | `clone --bare --filter=blob:none`, then `remote.origin.fetch = +refs/heads/*:refs/heads/*` |
-| `head` | `fetch --prune`; `ls-remote --symref origin HEAD` when `branch` is null; `rev-parse` the commit and tree |
+| `head` | When `branch` is null, `ls-remote --symref origin HEAD` for the default branch and its commit; `fetch --prune`, unless that commit is the clone's already; `rev-parse` the commit and tree |
 | `tree` | `ls-tree -r -z`, blobs only (submodules skipped) |
 | `changes` | `null` if `base` is unknown or not an ancestor (`cat-file -e`, `merge-base --is-ancestor`); else `diff --name-status -z -M` |
 | `blob` | `cat-file blob`; a partial clone fetches it on demand |

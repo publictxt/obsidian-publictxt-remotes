@@ -199,3 +199,22 @@ test('prefetch: several blobs of a partial clone in one go; a blob it can\'t get
 	await h.prefetch(key, ['f'.repeat(40)]);
 	assert.equal(await h.blob(key, files.get('c.md') ?? ''), 'c\n');
 });
+
+test('head of the default branch: no fetch when the clone is already there, one when upstream moved', async () => {
+	const key = 'https://example.com/a/quiet';
+	const ran: string[] = [];
+	const real = gitRunner();
+	const h = new GitHost({ run: (args, cwd) => (ran.push(args[0] ?? ''), real(args, cwd)), cacheDir: join(root, 'remotes'), join, exists: pathExists, remote: () => up });
+	const first = await h.head(key, null);
+	assert.equal(first.commit, g('rev-parse', 'HEAD'));
+
+	ran.length = 0;
+	assert.deepEqual(await h.head(key, null), first);
+	assert.ok(!ran.includes('fetch'), ran.join(' '));
+
+	write('quiet.md', 'q\n');
+	const next = commit('quiet');
+	ran.length = 0;
+	assert.equal((await h.head(key, null)).commit, next);
+	assert.ok(ran.includes('fetch'));
+});

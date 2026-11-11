@@ -41,7 +41,7 @@ export class RemoteError extends Error {
 }
 
 export interface RemoteHost {
-	/** Fetches, then reads the tracked branch's head. */
+	/** Reads the tracked branch's head as it is upstream now, fetching what is new. */
 	head(repo: string, branch: string | null): Promise<Head>;
 	tree(repo: string, tree: string): Promise<Tree>;
 	/** Files changed from `base` to `head`; `null` when `base` isn't an ancestor of `head` (unknown, or history rewritten). */
