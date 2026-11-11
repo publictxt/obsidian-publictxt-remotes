@@ -136,6 +136,11 @@ function forks(el: HTMLElement, c: SourceCheck): void {
 		const { inner } = treeItem(el);
 		inner.createSpan({ cls: `publictxt-status-${f.status}`, text: f.status === 'removed' ? 'gone upstream' : 'changed upstream' });
 		inner.appendText(` ${f.path}`);
+		if (f.status === 'modified') forkAction(inner, 'compare', f.path, 'Compare', 'Compare the latest copy with upstream');
+		else {
+			forkAction(inner, 'detach', f.path, 'Detach', 'Make these notes no longer forks');
+			forkAction(inner, 'keep-gone', f.path, 'Keep', 'Keep them as forks, and stop listing this');
+		}
 		for (const [i, copy] of f.copies.entries()) {
 			const row = treeItem(el);
 			row.self.addClass('publictxt-copy');
@@ -143,6 +148,12 @@ function forks(el: HTMLElement, c: SourceCheck): void {
 			if (i === 0 && f.copies.length > 1) row.inner.createSpan({ cls: 'publictxt-quiet', text: ' · latest' });
 		}
 	}
+}
+
+/** A link at the end of a fork's row that does `action` for the upstream file `path`. */
+function forkAction(inner: HTMLElement, action: 'compare' | 'detach' | 'keep-gone', path: string, text: string, label: string): void {
+	inner.appendText(' ');
+	inner.createEl('a', { text, cls: 'publictxt-fork', attr: { 'data-action': action, 'data-path': path, 'aria-label': label } });
 }
 
 /** A remote file, as a change or a watched path. */
