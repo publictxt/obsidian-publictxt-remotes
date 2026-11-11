@@ -6,10 +6,10 @@
 import { hasNews, type NewReason, type SourceCheck } from '../check/check.ts';
 import { fileTree, type TreeFolder } from '../check/file-tree.ts';
 import type { SourceResult } from '../check/run.ts';
-import { isForkable } from '../fork/fork.ts';
+import { canFork, forkableUnder, selectedPaths, ticked, type Ticked } from '../check/selection.ts';
 import type { Change } from '../remote/host.ts';
 import { isLocalRepo } from '../sources/repo-url.ts';
-import { treeFlair, treeItem } from './tree.ts';
+import { treeFlair, treeItem, type TreeItem } from './tree.ts';
 
 const REASON: Record<NewReason, string> = {
 	'first-check': 'First check: every file is listed. Mark as seen to start from here.',
@@ -22,10 +22,12 @@ export interface SourceUi {
 	open: boolean | null;
 	/** Folders in what's new the user opened (`true`) or closed, by path. */
 	folders: Map<string, boolean>;
+	/** Repo paths of the files ticked for forking. */
+	selected: Set<string>;
 }
 
 export function newSourceUi(): SourceUi {
-	return { open: null, folders: new Map() };
+	return { open: null, folders: new Map(), selected: new Set() };
 }
 
 /** Whether a source shows what's under its header: as the user left it, else when it has an error or news. */
@@ -55,12 +57,20 @@ export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi)
 		el.createEl('p', { cls: 'publictxt-quiet', text: 'Nothing new since you last looked.' });
 		return;
 	}
+	actions(el, c, ui);
 	changes(el, c, ui);
-	watched(el, c);
+	watched(el, c, ui);
 	forks(el, c);
-	if (c.changes.length || c.watched.length || c.reason) {
-		el.createEl('button', { text: 'Mark as seen', attr: { 'data-action': 'ack' } });
-	}
+}
+
+/** What can be done with the whole source: before the lists, which can be long. */
+function actions(el: HTMLElement, c: SourceCheck, ui: SourceUi): void {
+	const seeable = c.changes.length > 0 || c.watched.length > 0 || c.reason !== null;
+	const selected = selectedPaths(c, ui.selected).length;
+	if (!seeable && !selected) return;
+	const row = el.createDiv({ cls: 'publictxt-actions' });
+	if (seeable) row.createEl('button', { text: 'Mark as seen', attr: { 'data-action': 'ack' } });
+	if (selected) row.createEl('button', { text: `Fork selected (${selected})`, cls: 'mod-cta', attr: { 'data-action': 'fork-selected' } });
 }
 
 /** The row that opens and closes the source. Returns where its details go, or `null` when closed. */
@@ -105,15 +115,17 @@ function folderRows(parent: HTMLElement, folder: TreeFolder<Change>, c: SourceCh
 		item.self.dataset.path = f.path;
 		item.inner.setText(f.name);
 		treeFlair(item, String(f.count));
+		const forkable = forkableUnder(c, f.path);
+		if (forkable.length) tickBox(item, 'select-folder', f.path, ticked(forkable, ui.selected));
 		if (item.children) folderRows(item.children, f, c, ui);
 	}
-	for (const file of folder.files) fileRow(parent, file.name, file.item);
+	for (const file of folder.files) fileRow(parent, file.name, file.item, ui);
 }
 
-function watched(el: HTMLElement, c: SourceCheck): void {
+function watched(el: HTMLElement, c: SourceCheck, ui: SourceUi): void {
 	if (!c.watched.length) return;
 	el.createEl('h5', { text: `Watched (${c.watched.length})` });
-	for (const w of c.watched) fileRow(el, w.path, w);
+	for (const w of c.watched) fileRow(el, w.path, w, ui);
 }
 
 function forks(el: HTMLElement, c: SourceCheck): void {
@@ -136,14 +148,25 @@ interface RemoteFile {
 	from?: string | null;
 }
 
-/** A file's row: what happened to it, then `label` (its name, or its path where there is no tree). */
-function fileRow(parent: HTMLElement, label: string, file: RemoteFile): void {
-	const { inner } = treeItem(parent);
+/**
+ * A file's row: a tick box and a "fork" action if it can be forked, what happened to it, then
+ * `label` (its name, or its path where there is no tree).
+ */
+function fileRow(parent: HTMLElement, label: string, file: RemoteFile, ui: SourceUi): void {
+	const item = treeItem(parent);
+	const { inner } = item;
 	inner.createSpan({ cls: `publictxt-status-${file.status}`, text: file.status });
 	inner.appendText(` ${label}`);
 	if (file.from) inner.appendText(` (from ${file.from})`);
-	if (file.status !== 'removed' && isForkable(file.path)) {
-		inner.appendText(' ');
-		inner.createEl('a', { text: 'Fork', cls: 'publictxt-fork', attr: { 'data-action': 'fork', 'data-path': file.path, 'aria-label': `Fork ${file.path} into the vault` } });
-	}
+	if (!canFork(file)) return;
+	tickBox(item, 'select', file.path, ui.selected.has(file.path) ? 'all' : 'none');
+	inner.appendText(' ');
+	inner.createEl('a', { text: 'Fork', cls: 'publictxt-fork', attr: { 'data-action': 'fork', 'data-path': file.path, 'aria-label': `Fork ${file.path} into the vault` } });
+}
+
+/** A tick box at the start of a row, for the file or folder `path`: ticked, half ticked or clear. */
+function tickBox(item: TreeItem, action: 'select' | 'select-folder', path: string, state: Ticked): void {
+	const box = item.self.createEl('input', { type: 'checkbox', prepend: true, attr: { 'data-action': action, 'data-path': path, 'aria-label': `Select ${path} to fork` } });
+	box.checked = state === 'all';
+	box.indeterminate = state === 'some';
 }

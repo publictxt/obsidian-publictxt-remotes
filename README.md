@@ -27,7 +27,9 @@ pages you want into your vault. Each fork records where it came from in its fron
 - A **fork** is a note copied from a source, with `fork_remote` (the source's name),
   `fork_repo`, `fork_path`, `fork_blob` and related keys in its front matter. Those keys are how the plugin tells when the original has
   changed. Fork a Markdown file with **Fork** next to it in the check view, or with **Fork a
-  file from a source**. You choose where it goes; nothing is overwritten.
+  file from a source**. You choose where it goes; nothing is overwritten. To fork several, tick
+  files or whole folders in the check view and select **Fork selected**: it shows where each
+  would go before writing any.
 - **Fork lists.** With **List forks in follow notes** on, each follow note ends with a **Forked
   pages** list of links to the pages forked from it. A follow note's `list_forks: true` or
   `false` overrides the setting for that note. The plugin rewrites that section only.
