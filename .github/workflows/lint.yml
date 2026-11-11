@@ -25,3 +25,6 @@ jobs:
             - run: npm ci
             - run: npm run build --if-present
             - run: npm run lint
+            # The tests are TypeScript run by Node itself, which strips types from 22.18 on.
+            - run: npm test
+              if: matrix.node-version != '20.x'
