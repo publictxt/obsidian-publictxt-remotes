@@ -31,7 +31,7 @@ async function pickFile(app: App, data: PublicTxtData, follow: Follow): Promise<
 			new Notice(`No Markdown files in ${follow.name} at ${head.branch}.`);
 			return;
 		}
-		const choose = (path: string) => void startFork(app, data, { url: follow.url, name: follow.name, head, path, folder: follow.folder });
+		const choose = (path: string) => void startFork(app, data, { url: follow.url, name: follow.name, head, folder: follow.folder }, [path]);
 		new PickModal(app, `Fork which file from ${head.branch}?`, paths, (p) => p, choose).open();
 	} catch (e) {
 		fetching.hide();
