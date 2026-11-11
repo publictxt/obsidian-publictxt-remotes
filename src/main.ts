@@ -1,7 +1,7 @@
 import { Notice, Plugin, type TAbstractFile } from 'obsidian';
 import { normalizeData, type PublicTxtData } from './sources/schema.ts';
 import { isFollowPath } from './sources/follow-note.ts';
-import { acknowledged } from './check/check.ts';
+import { acknowledged, checkedAll } from './check/check.ts';
 import { runCheck, type CheckRun } from './check/run.ts';
 import { PublicTxtSettingTab } from './settings.ts';
 import { CheckView, VIEW_TYPE_CHECK } from './ui/check-view.ts';
@@ -60,12 +60,14 @@ export default class PublicTxtPlugin extends Plugin {
 		this.checking = 'Checking…';
 		this.renderViews();
 		try {
-			const { run, state } = await runCheck(this.app, this.data, (done, total) => {
+			const run = await runCheck(this.app, this.data, (done, total) => {
 				this.checking = `Checking ${Math.min(done + 1, total)} of ${total}…`;
 				this.renderViews();
 			});
 			this.lastRun = run;
-			await this.save({ ...this.data, state });
+			// From the state as it is now: a source acknowledged while this ran keeps that.
+			const sources = run.results.map((r) => ({ url: r.follow.url, ok: r.check !== null }));
+			await this.save({ ...this.data, state: checkedAll(this.data.state, sources, run.at) });
 		} catch (e) {
 			new Notice(e instanceof Error ? e.message : String(e));
 		} finally {

@@ -135,6 +135,22 @@ export function checked(state: SourceState | undefined, at: string): SourceState
 	return { seenCommit: state?.seenCommit ?? null, watched: { ...(state?.watched ?? {}) }, checkedAt: at };
 }
 
+/**
+ * Every source's state after a run that started at `at`, from the state as it is now (`state`):
+ * `checkedAt` moves for each source checked (`ok`), one that failed keeps what it has, and one
+ * not in `sources` (no longer followed) is dropped. From the state now, not as it was when the
+ * run started: what the user acknowledged while it ran stays.
+ */
+export function checkedAll(state: Readonly<Record<string, SourceState>>, sources: readonly { url: string; ok: boolean }[], at: string): Record<string, SourceState> {
+	const out: Record<string, SourceState> = {};
+	for (const s of sources) {
+		const now = state[s.url];
+		if (s.ok) out[s.url] = checked(now, at);
+		else if (now) out[s.url] = now;
+	}
+	return out;
+}
+
 /** State after acknowledging a check: `seenCommit` and `watched` move to head. */
 export function acknowledged(c: SourceCheck, at: string): SourceState {
 	return { seenCommit: c.head.commit, watched: { ...c.watchedBlobs }, checkedAt: at };

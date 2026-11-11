@@ -6,7 +6,7 @@ import { scanFollows } from '../sources/follows.ts';
 import type { Follow } from '../sources/follow-note.ts';
 import type { PublicTxtData } from '../sources/schema.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
-import { checkSource, checked, type Fork, type SourceCheck } from './check.ts';
+import { checkSource, type Fork, type SourceCheck } from './check.ts';
 
 export type SourceResult = { follow: Follow; check: SourceCheck; error: null } | { follow: Follow; check: null; error: string };
 
@@ -29,29 +29,26 @@ export function scanForks(app: App): Fork[] {
 }
 
 /**
- * Checks each source in turn (one git process at a time) and returns the results with the state
- * to save: `checkedAt` moved for each source checked, state for unfollowed sources dropped.
+ * Checks each source in turn (one git process at a time). The state to save comes after, from
+ * the state as it is then (`checkedAll` in check.ts).
  */
-export async function runCheck(app: App, data: PublicTxtData, progress: (done: number, total: number) => void): Promise<{ run: CheckRun; state: PublicTxtData['state'] }> {
+export async function runCheck(app: App, data: PublicTxtData, progress: (done: number, total: number) => void): Promise<CheckRun> {
 	const host = vaultHost(app, data);
 	const scan = scanFollows(app);
 	const forks = scanForks(app);
 	const at = new Date().toISOString();
 
 	const results: SourceResult[] = [];
-	const state: PublicTxtData['state'] = {};
 	for (const [i, follow] of scan.follows.entries()) {
 		progress(i, scan.follows.length);
 		const before = data.state[follow.url];
 		try {
 			const check = await checkSource(host, follow, before, forks);
 			results.push({ follow, check, error: null });
-			state[follow.url] = checked(before, at);
 		} catch (e) {
 			results.push({ follow, check: null, error: errorText(e) });
-			if (before) state[follow.url] = before;
 		}
 	}
 	progress(scan.follows.length, scan.follows.length);
-	return { run: { at, results, ignored: scan.duplicates.length + scan.invalid.length }, state };
+	return { at, results, ignored: scan.duplicates.length + scan.invalid.length };
 }
