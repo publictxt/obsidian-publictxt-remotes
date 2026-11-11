@@ -9,7 +9,7 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 | Field | Default | Meaning |
 |---|---|---|
 | `forkFolder` | `''` | Default vault folder for forks (`''`: the vault root) |
-| `matchFolders` | `true` | The fork modal opens with **Same folder as in the source** on when the vault has that exact folder (Fork, below). The user can change it at each fork |
+| `matchFolders` | `true` | The fork modal opens with **Folders** set to **Same folder as in the source** when the vault has that exact folder (Fork, below). The user can change it at each fork |
 | `listForks` | `false` | Keep a fork list in each follow note (Fork list, below) |
 | `remotesFolder` | `.remotes` | Vault folder holding the clones; never empty. Hidden, so Obsidian doesn't index it and Sync skips it |
 | `gitPath` | `git` | The git executable. Set it when Obsidian doesn't see the shell's PATH (macOS apps started from Finder) |
@@ -268,24 +268,32 @@ only: front matter is where the provenance goes.
 
 All three open one modal, for one file or several. Where the forks go is two choices:
 
-- **Same folder as in the source**: each file goes to the folder it is in in the source, at
-  the same path in the vault; a file at the top of the source goes to the vault root. Missing
-  folders are created. Disabled when no file has a folder in the source.
-- **Folder**: used when that is off. Every file goes into this one folder; empty is the vault
-  root; a folder that doesn't exist is created. The field offers the vault's folders as the
-  user types, at most 50, and stays free text. Slashes at its ends are dropped; a `.` or `..`
-  part, or a path that is a file, is an error.
+- **Folders**, how the source's folders come over:
+  - **Into the folder**: every file goes into the one **Folder**, under its own name.
+  - **Into the folder, keeping source folders**: each file goes into **Folder**, under the
+    folder it is in in the source: `wiki/cs/git.md` with folder `remotes/research` goes to
+    `remotes/research/wiki/cs/git.md`. A file at the top of the source goes into **Folder**.
+  - **Same folder as in the source**: each file goes to the folder it is in in the source, at
+    the same path in the vault; a file at the top of the source goes to the vault root.
+
+  Missing folders are created, whether or not the vault has them. Fixed at **Into the
+  folder** when no file has a folder in the source.
+- **Folder**: used by the first two. Empty is the vault root; a folder that doesn't exist is
+  created. The field offers the vault's folders as the user types, at most 50, and stays free
+  text. Slashes at its ends are dropped; a `.` or `..` part, or a path that is a file, is an
+  error.
 
 The modal opens as follows, and says which rule filled in the folder until the user edits it:
 
-| Case | Same folder | Folder |
+| Case | Folders | Folder |
 |---|---|---|
-| The source has a `folder` | off | that folder |
-| Else `matchFolders` is on, and every file has a folder in the source that the vault has exactly | on | `forkFolder` |
-| Otherwise | off | `forkFolder` |
+| The source has a `folder` | Into the folder | that folder |
+| Else `matchFolders` is on, and every file has a folder in the source that the vault has exactly | Same folder as in the source | `forkFolder` |
+| Otherwise | Into the folder | `forkFolder` |
 
-A partial match doesn't count, and nothing is created for a match: the user turns the toggle
-on for that. The folder typed is kept while the toggle is on, and comes back with it off.
+A partial match doesn't count, and nothing is created for a match: the user picks **Same
+folder as in the source** for that. The folder typed is kept while that is picked, and comes
+back with another choice.
 
 For **one file** there is also its **Name**, without `.md`: the source file's name, or the
 first free `<name> 1`, `<name> 2`, … when that is taken in the destination, with a note saying
