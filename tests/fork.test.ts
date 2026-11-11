@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { checkForkPath, forkFolder, forkPath, forksOf, freePath, isForkable, localIso, newForkMeta } from '../src/fork/fork.ts';
+import { checkForkPath, forkFolder, forkPath, forksOf, freePath, isForkable, localIso, newForkMeta, planForks } from '../src/fork/fork.ts';
 import type { Fork } from '../src/check/check.ts';
 import { readForkMeta, forkMetaProps } from '../src/sources/fork-meta.ts';
 
@@ -89,4 +89,26 @@ test('forkFolder: source folder, else a matching vault folder, else the default'
 	assert.deepEqual(forkFolder('wiki/cs/a.md', { ...o, matchFolders: false }), { folder: 'forks', reason: 'default' });
 	// A file at the repo root has no folder to match.
 	assert.deepEqual(forkFolder('a.md', o), { folder: 'forks', reason: 'default' });
+});
+
+test('planForks: each to its own folder by the usual rules', () => {
+	const vault = new Set(['wiki']);
+	const o = { sourceFolder: null, defaultFolder: 'forks', matchFolders: true, folderExists: (f: string) => vault.has(f) };
+	assert.deepEqual(planForks(['wiki/a.md', 'blog/b.md', 'c.md'], o, () => false), [
+		{ path: 'wiki/a.md', to: 'wiki/a.md' },
+		{ path: 'blog/b.md', to: 'forks/b.md' },
+		{ path: 'c.md', to: 'forks/c.md' },
+	]);
+});
+
+test('planForks: a name taken in the vault, or by an earlier file, is numbered', () => {
+	const o = { sourceFolder: 'forks', defaultFolder: '', matchFolders: false, folderExists: () => false };
+	const taken = (p: string) => p === 'forks/a.md';
+	assert.deepEqual(planForks(['wiki/a.md', 'blog/a.md', 'x/b.md', 'y/B.md'], o, taken).map((p) => p.to), [
+		'forks/a 1.md',
+		'forks/a 2.md',
+		'forks/b.md',
+		// Planned names are compared without case.
+		'forks/B 1.md',
+	]);
 });
