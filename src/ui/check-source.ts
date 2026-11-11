@@ -11,6 +11,26 @@ import type { Change } from '../remote/host.ts';
 import { isLocalRepo } from '../sources/repo-url.ts';
 import { treeFlair, treeItem, type TreeItem } from './tree.ts';
 
+/** What a click in the view can do: the `data-action` of the element clicked. */
+export const CHECK_ACTIONS = ['check', 'snapshot', 'ack', 'fork', 'fork-selected', 'toggle-source', 'toggle-folder', 'select', 'select-folder', 'compare', 'detach', 'keep-gone'] as const;
+
+export type CheckAction = (typeof CHECK_ACTIONS)[number];
+
+/** The action an element's `data-action` names, if it is one. */
+export function checkAction(v: string | undefined): CheckAction | null {
+	return CHECK_ACTIONS.find((a) => a === v) ?? null;
+}
+
+/** The attributes that make a click on an element do `action`, on the file or folder `path` if it is about one. */
+export function actionAttrs(action: CheckAction, path?: string): Record<string, string> {
+	return path === undefined ? { 'data-action': action } : { 'data-action': action, 'data-path': path };
+}
+
+/** Makes a click on the row `el` do `action`. */
+function setAction(el: HTMLElement, action: CheckAction, path?: string): void {
+	for (const [k, v] of Object.entries(actionAttrs(action, path))) el.setAttr(k, v);
+}
+
 const REASON: Record<NewReason, string> = {
 	'first-check': 'First check: every file is listed. Mark as seen to start from here.',
 	'history-rewritten': 'History was rewritten since you last looked: every file is listed.',
@@ -69,8 +89,8 @@ function actions(el: HTMLElement, c: SourceCheck, ui: SourceUi): void {
 	const selected = selectedPaths(c, ui.selected).length;
 	if (!seeable && !selected) return;
 	const row = el.createDiv({ cls: 'publictxt-actions' });
-	if (seeable) row.createEl('button', { text: 'Mark as seen', attr: { 'data-action': 'ack' } });
-	if (selected) row.createEl('button', { text: `Fork selected (${selected})`, cls: 'mod-cta', attr: { 'data-action': 'fork-selected' } });
+	if (seeable) row.createEl('button', { text: 'Mark as seen', attr: actionAttrs('ack') });
+	if (selected) row.createEl('button', { text: `Fork selected (${selected})`, cls: 'mod-cta', attr: actionAttrs('fork-selected') });
 }
 
 /** The row that opens and closes the source. Returns where its details go, or `null` when closed. */
@@ -78,12 +98,12 @@ function header(source: HTMLElement, r: SourceResult, open: boolean): HTMLElemen
 	const local = isLocalRepo(r.follow.url);
 	const item = treeItem(source, open);
 	item.self.addClass('publictxt-source-head');
-	item.self.dataset.action = 'toggle-source';
+	setAction(item.self, 'toggle-source');
 	item.inner.createEl('a', { text: r.follow.name, attr: { 'data-open': r.follow.path, 'aria-label': local ? 'Local source' : r.follow.url } });
 	if (r.check) item.inner.createSpan({ cls: 'publictxt-branch', text: ` · ${r.check.head.branch}` });
 	treeFlair(item, summary(r));
 	if (local) {
-		item.self.createEl('button', { text: 'Snapshot', attr: { 'data-action': 'snapshot', 'aria-label': 'Commit what changed in this folder, then check again' } });
+		item.self.createEl('button', { text: 'Snapshot', attr: { ...actionAttrs('snapshot'), 'aria-label': 'Commit what changed in this folder, then check again' } });
 	}
 	return item.children;
 }
@@ -111,8 +131,7 @@ function changes(el: HTMLElement, c: SourceCheck, ui: SourceUi): void {
 function folderRows(parent: HTMLElement, folder: TreeFolder<Change>, c: SourceCheck, ui: SourceUi): void {
 	for (const f of folder.folders) {
 		const item = treeItem(parent, folderOpen(c, ui, f.path));
-		item.self.dataset.action = 'toggle-folder';
-		item.self.dataset.path = f.path;
+		setAction(item.self, 'toggle-folder', f.path);
 		item.inner.setText(f.name);
 		treeFlair(item, String(f.count));
 		const forkable = forkableUnder(c, f.path);
@@ -151,9 +170,9 @@ function forks(el: HTMLElement, c: SourceCheck): void {
 }
 
 /** A link at the end of a fork's row that does `action` for the upstream file `path`. */
-function forkAction(inner: HTMLElement, action: 'compare' | 'detach' | 'keep-gone', path: string, text: string, label: string): void {
+function forkAction(inner: HTMLElement, action: Extract<CheckAction, 'compare' | 'detach' | 'keep-gone'>, path: string, text: string, label: string): void {
 	inner.appendText(' ');
-	inner.createEl('a', { text, cls: 'publictxt-fork', attr: { 'data-action': action, 'data-path': path, 'aria-label': label } });
+	inner.createEl('a', { text, cls: 'publictxt-fork', attr: { ...actionAttrs(action, path), 'aria-label': label } });
 }
 
 /** A remote file, as a change or a watched path. */
@@ -181,12 +200,12 @@ function fileRow(parent: HTMLElement, label: string, file: RemoteFile, c: Source
 	if (c.forks.some((f) => f.path === file.path)) forkAction(inner, 'compare', file.path, 'Compare', 'Compare your fork with upstream');
 	else if (c.forked.has(file.path)) inner.createSpan({ cls: 'publictxt-quiet', text: ' forked' });
 	inner.appendText(' ');
-	inner.createEl('a', { text: 'Fork', cls: 'publictxt-fork', attr: { 'data-action': 'fork', 'data-path': file.path, 'aria-label': `Fork ${file.path} into the vault` } });
+	inner.createEl('a', { text: 'Fork', cls: 'publictxt-fork', attr: { ...actionAttrs('fork', file.path), 'aria-label': `Fork ${file.path} into the vault` } });
 }
 
 /** A tick box at the start of a row, for the file or folder `path`: ticked, half ticked or clear. */
-function tickBox(item: TreeItem, action: 'select' | 'select-folder', path: string, state: Ticked): void {
-	const box = item.self.createEl('input', { type: 'checkbox', prepend: true, attr: { 'data-action': action, 'data-path': path, 'aria-label': `Select ${path} to fork` } });
+function tickBox(item: TreeItem, action: Extract<CheckAction, 'select' | 'select-folder'>, path: string, state: Ticked): void {
+	const box = item.self.createEl('input', { type: 'checkbox', prepend: true, attr: { ...actionAttrs(action, path), 'aria-label': `Select ${path} to fork` } });
 	box.checked = state === 'all';
 	box.indeterminate = state === 'some';
 }
