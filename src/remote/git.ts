@@ -2,7 +2,7 @@
 // (docs/spec.md → Remote host). Pure: the process runner is injected, so
 // this module has no Node imports; src/remote/git-process.ts is the real one.
 
-import { isLocalRepo, localRepoName } from '../sources/repo-url.ts';
+import { isLocalRepo, localName } from '../sources/repo-url.ts';
 import { isSha } from '../util/validate.ts';
 import { RemoteError, type Change, type ChangeStatus, type Head, type RemoteHost, type Tree } from './host.ts';
 
@@ -23,7 +23,10 @@ export interface GitHostOptions {
 	join: (...parts: string[]) => string;
 	/** Whether a path exists. */
 	exists: (path: string) => Promise<boolean>;
-	/** Repo URL → what git clones from. Identity in the plugin; tests map to local repos. */
+	/**
+	 * Source key → what git clones and fetches from. Throws if it can't be resolved (a local
+	 * source with no folder on this computer). Absent: the key is the URL.
+	 */
 	remote?: (repo: string) => string;
 }
 
@@ -38,13 +41,13 @@ const STATUS: Record<string, ChangeStatus> = {
 
 /**
  * Where a repo's clone goes under the cache folder: `https://host/owner/repo` →
- * [host, owner, repo.git]; `file:///…/name` → [file, name-<hash>.git], the hash telling apart
- * local repos with one name. Never a folder another repo's clone could be in.
+ * [host, owner, repo.git]; `local:<name>` → [local, <name>-<hash>.git], the hash telling apart
+ * names that clean up the same. Never a folder another repo's clone could be in.
  */
 export function cachePath(repo: string): string[] {
 	if (isLocalRepo(repo)) {
-		const name = localRepoName(repo).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '') || 'repo';
-		return ['file', `${name}-${fnv1a(repo)}.git`];
+		const name = localName(repo).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^[.-]+/, '') || 'repo';
+		return ['local', `${name}-${fnv1a(repo)}.git`];
 	}
 	const m = /^https:\/\/([^/]+)\/([^/]+)\/([^/]+)$/.exec(repo);
 	if (!m) throw new RemoteError('bad-input', `Not a canonical repo URL: ${repo}`);
@@ -123,10 +126,14 @@ export class GitHost implements RemoteHost {
 		return r;
 	}
 
+	/** The clone of `repo`, made on first use. Its origin is set to `remote` each time, as a local folder can move. */
 	private async ensureClone(repo: string): Promise<string> {
 		const dir = this.dir(repo);
-		if (await this.o.exists(dir)) return dir;
-		const remote = this.o.remote?.(repo) ?? repo;
+		const remote = this.o.remote ? this.o.remote(repo) : repo;
+		if (await this.o.exists(dir)) {
+			if (this.o.remote) await this.git(['remote', 'set-url', 'origin', remote], dir);
+			return dir;
+		}
 		await this.git(['clone', '--bare', '--filter=blob:none', '--quiet', '--', remote, dir], null);
 		// A bare clone has no fetch refspec; mirror branches so fetch keeps them current.
 		await this.git(['config', 'remote.origin.fetch', '+refs/heads/*:refs/heads/*'], dir);

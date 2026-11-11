@@ -9,6 +9,7 @@ import { isFollowPath, type Follow } from '../sources/follow-note.ts';
 import { scanFollows } from '../sources/follows.ts';
 import { errorText } from '../remote/vault-host.ts';
 import { renderForkList, withForkList } from './fork-list.ts';
+import { isForkOf } from './fork.ts';
 
 export interface SyncResult {
 	/** Follow notes rewritten. */
@@ -34,7 +35,7 @@ export async function syncForkLists(app: App, wanted: (follow: Follow) => boolea
 		if (!note) continue;
 		const links: string[] = [];
 		for (const f of forks) {
-			const file = f.meta.repo === follow.url ? app.vault.getFileByPath(f.path) : null;
+			const file = isForkOf(f.meta, follow) ? app.vault.getFileByPath(f.path) : null;
 			if (file) links.push(app.fileManager.generateMarkdownLink(file, follow.path));
 		}
 		const section = renderForkList(links);

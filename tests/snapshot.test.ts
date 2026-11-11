@@ -8,7 +8,6 @@ import { execFileSync } from 'node:child_process';
 import { gitRunner } from '../src/remote/git-process.ts';
 import { RemoteError } from '../src/remote/host.ts';
 import { snapshot } from '../src/remote/snapshot.ts';
-import { canonicalRepoUrl, localRepoPath } from '../src/sources/repo-url.ts';
 
 let root = '';
 let dir = '';
@@ -28,12 +27,6 @@ before(() => {
 	g(dir, 'init', '-q', '-b', 'main');
 });
 after(() => rmSync(root, { recursive: true, force: true }));
-
-test('localRepoPath: the folder back from a canonical URL', () => {
-	assert.equal(localRepoPath(canonicalRepoUrl(dir) ?? ''), dir);
-	assert.equal(localRepoPath('file:///C:/Users/me/my%20notes'), 'C:/Users/me/my notes');
-	assert.equal(localRepoPath('file:///a/50%25%231'), '/a/50%#1');
-});
 
 test('commits new, changed and deleted files; nothing when nothing changed', async () => {
 	writeFileSync(join(dir, 'a.md'), 'a\n');

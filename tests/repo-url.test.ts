@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canonicalRepoUrl, isLocalRepo, localRepoName } from '../src/sources/repo-url.ts';
+import { canonicalRepoUrl, defaultRemoteName, fileUrl, isLocalRepo, localKey, localName, localPathInput, remoteNameProblem, sourceKey } from '../src/sources/repo-url.ts';
 
 test('canonical form: host lower-cased, .git and trailing slash dropped, case kept', () => {
 	for (const input of [
@@ -22,9 +22,8 @@ test('not a repo URL', () => {
 		'https://github.com/a',
 		'https://github.com/a/b/tree/main',
 		'https://user:pw@github.com/a/b',
-		'file://server/share/notes',
-		'file:///',
-		'/',
+		'file:///home/me/notes',
+		'/home/me/notes',
 		'notes',
 		'./notes',
 		'~/notes',
@@ -33,31 +32,42 @@ test('not a repo URL', () => {
 	}
 });
 
-test('local repo: a file URL or an absolute path', () => {
-	for (const input of [
-		'file:///home/me/my%20notes',
-		'file:///home/me/my notes/',
-		'file://localhost/home/me/my%20notes?x#y',
-		'/home/me/my notes',
-		' /home/me/my notes// ',
-	]) {
-		assert.equal(canonicalRepoUrl(input), 'file:///home/me/my%20notes', input);
-	}
-	assert.equal(canonicalRepoUrl('file:///srv/notes.git'), 'file:///srv/notes.git');
-	assert.equal(canonicalRepoUrl('C:\\Users\\me\\notes'), 'file:///C:/Users/me/notes');
-	assert.equal(canonicalRepoUrl('/a/50%#1?'), 'file:///a/50%25%231%3F');
+test('remote names: file names without the characters a vault link or path breaks on', () => {
+	for (const ok of ['a-b', 'My Vault', 'notes.v2', 'ünïcode']) assert.equal(remoteNameProblem(ok), null, ok);
+	for (const bad of ['', ' a', 'a ', '.hidden', 'a/b', 'a\\b', 'a:b', 'a#b', 'a[b]', 'a|b']) assert.ok(remoteNameProblem(bad), bad);
 });
 
-test('canonical URLs are fixed points', () => {
-	for (const url of ['https://github.com/Owner/Repo', 'file:///home/me/my%20notes', 'file:///a/50%25%231%3F', 'file:///C:/Users/me/notes']) {
-		assert.equal(canonicalRepoUrl(url), url);
-	}
-});
-
-test('isLocalRepo, localRepoName', () => {
-	assert.ok(isLocalRepo('file:///home/me/notes'));
+test('local keys', () => {
+	assert.equal(localKey('My Vault'), 'local:My Vault');
+	assert.ok(isLocalRepo('local:x'));
 	assert.ok(!isLocalRepo('https://github.com/a/b'));
-	assert.equal(localRepoName('file:///home/me/my%20notes.git'), 'my notes');
-	assert.equal(localRepoName('file:///home/me/100%25'), '100%');
-	assert.equal(localRepoName('file:///home/me/bad%zz'), 'bad%zz');
+	assert.equal(localName('local:My Vault'), 'My Vault');
+	assert.equal(sourceKey('local:My Vault'), 'local:My Vault');
+	assert.equal(sourceKey('local:a/b'), null);
+	assert.equal(sourceKey('https://GITHUB.com/a/b.git'), 'https://github.com/a/b');
+});
+
+test('localPathInput: a typed folder or file URL, as an absolute path', () => {
+	for (const input of ['/home/me/my notes', ' /home/me/my notes// ', 'file:///home/me/my%20notes/', 'file://localhost/home/me/my%20notes']) {
+		assert.equal(localPathInput(input), '/home/me/my notes', input);
+	}
+	assert.equal(localPathInput('C:\\Users\\me\\notes'), 'C:/Users/me/notes');
+	assert.equal(localPathInput('file:///C:/Users/me/notes'), 'C:/Users/me/notes');
+	for (const bad of ['', 'notes', './notes', '~/notes', '/', 'C:\\', 'file://server/x', 'https://github.com/a/b']) {
+		assert.equal(localPathInput(bad), null, bad);
+	}
+});
+
+test('fileUrl round-trips through localPathInput, special characters escaped', () => {
+	for (const p of ['/home/me/my notes', '/a/50%#1?', 'C:/Users/me/notes']) assert.equal(localPathInput(fileUrl(p)), p, p);
+	assert.equal(fileUrl('/a/b c'), 'file:///a/b%20c');
+	assert.equal(fileUrl('C:/x'), 'file:///C:/x');
+});
+
+test('defaultRemoteName: owner-repo, or the folder name', () => {
+	assert.equal(defaultRemoteName('git@github.com:Ann/notes.git'), 'Ann-notes');
+	assert.equal(defaultRemoteName('/home/me/My Vault/'), 'My Vault');
+	assert.equal(defaultRemoteName('/srv/notes.git'), 'notes');
+	assert.equal(defaultRemoteName('/srv/a#b'), 'a-b');
+	assert.equal(defaultRemoteName('nope'), '');
 });

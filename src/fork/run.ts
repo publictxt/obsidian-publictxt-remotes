@@ -4,15 +4,17 @@ import { App, getFrontMatterInfo, normalizePath, Notice, parseYaml, TFile } from
 import { scanForks } from '../check/run.ts';
 import type { Head } from '../remote/host.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
-import { forkMetaProps, type ForkMeta } from '../sources/fork-meta.ts';
+import { writeForkMeta, type ForkMeta } from '../sources/fork-meta.ts';
 import type { PublicTxtData } from '../sources/schema.ts';
 import { ForkModal } from '../ui/fork-modal.ts';
 import { ensureFolder } from '../util/vault.ts';
 import { checkForkPath, forkFolder, forkPath, forksOf, freePath, isForkable, newForkMeta, type FolderReason } from './fork.ts';
 
 export interface ForkRequest {
-	/** The source's canonical URL. */
+	/** The source's key (`Source.url`). */
 	url: string;
+	/** The source's remote name. */
+	name: string;
 	/** The head to fork from: the last check's, or one just read. */
 	head: Head;
 	/** Repo-relative path of the file. */
@@ -38,14 +40,14 @@ export async function startFork(app: App, data: PublicTxtData, req: ForkRequest)
 		});
 		const wanted = forkPath(folder, req.path);
 		const suggested = freePath(wanted, taken);
-		const earlier = forksOf(scanForks(app), req.url, req.path).map((f) => f.path);
+		const earlier = forksOf(scanForks(app), req, req.path).map((f) => f.path);
 
 		const submit = async (input: string): Promise<string | null> => {
 			const checked = checkForkPath(input, taken);
 			if (!checked.ok) return checked.error;
 			try {
 				const text = await host.blob(req.url, blob);
-				const file = await writeFork(app, normalizePath(checked.path), text, newForkMeta(req.url, req.path, req.head, blob, new Date()));
+				const file = await writeFork(app, normalizePath(checked.path), text, newForkMeta(req, req.path, req.head, blob, new Date()));
 				new Notice(`Forked ${req.path} to ${file.path}.`);
 				await app.workspace.getLeaf(false).openFile(file);
 				return null;
@@ -53,7 +55,7 @@ export async function startFork(app: App, data: PublicTxtData, req: ForkRequest)
 				return errorText(e);
 			}
 		};
-		new ForkModal(app, { from: `${req.url} · ${req.path}`, suggested, why: WHY[reason], clash: suggested !== wanted ? wanted : null, earlier }, submit).open();
+		new ForkModal(app, { from: `${req.name} · ${req.path}`, suggested, why: WHY[reason], clash: suggested !== wanted ? wanted : null, earlier }, submit).open();
 	} catch (e) {
 		new Notice(errorText(e));
 	}
@@ -81,7 +83,7 @@ export async function writeFork(app: App, path: string, text: string, meta: Fork
 	const file = await app.vault.create(path, text);
 	try {
 		await app.fileManager.processFrontMatter(file, (front: Record<string, unknown>) => {
-			Object.assign(front, forkMetaProps(meta));
+			writeForkMeta(front, meta);
 		});
 	} catch (e) {
 		// A note without its provenance isn't a fork; don't leave one behind.

@@ -36,6 +36,18 @@ test('state: keys canonical, invalid values dropped, old sources key dropped', (
 	assert.equal('sources' in d, false);
 });
 
+test('local sources: state under local keys; folders by valid name, as absolute paths', () => {
+	const st = { seenCommit: B, checkedAt: null, watched: {} };
+	const d = normalizeData({
+		state: { 'local:notes': st, 'local:a/b': st },
+		localPaths: { notes: '/home/me/notes/', 'a/b': '/x', rel: 'notes', gone: 3 },
+	});
+	assert.deepEqual(Object.keys(d.state), ['local:notes']);
+	assert.deepEqual(d.localPaths, { notes: '/home/me/notes' });
+	assert.equal(normalizeSource({ local: true }, 'notes')?.url, 'local:notes');
+	assert.equal(normalizeSource({ local: true }), null);
+});
+
 test('pruneState: keeps followed sources only', () => {
 	const st = { seenCommit: B, checkedAt: null, watched: {} };
 	const d = normalizeData({ state: { 'https://github.com/a/b': st, 'https://github.com/gone/x': st } });

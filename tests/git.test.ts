@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { GitHost, cachePath, parseLsTree, parseNameStatus } from '../src/remote/git.ts';
 import { gitRunner, pathExists } from '../src/remote/git-process.ts';
 import { RemoteError } from '../src/remote/host.ts';
-import { canonicalRepoUrl } from '../src/sources/repo-url.ts';
+import { fileUrl } from '../src/sources/repo-url.ts';
 
 const REPO = 'https://example.com/a/b';
 let root = '';
@@ -40,16 +40,11 @@ after(() => rmSync(root, { recursive: true, force: true }));
 
 test('cachePath: host/owner/repo.git', () => {
 	assert.deepEqual(cachePath(REPO), ['example.com', 'a', 'b.git']);
-	assert.throws(() => cachePath('nope'), RemoteError);
-});
-
-test('cachePath: file/name-hash.git for a local repo', () => {
-	const [dir, name] = cachePath('file:///home/me/my%20notes.git');
-	assert.equal(dir, 'file');
+	const [dir, name] = cachePath('local:my notes');
+	assert.equal(dir, 'local');
 	assert.match(name ?? '', /^my-notes-[0-9a-f]{8}\.git$/);
-	assert.notDeepEqual(cachePath('file:///home/me/notes'), cachePath('file:///home/you/notes'));
-	assert.deepEqual(cachePath('file:///home/me/notes'), cachePath('file:///home/me/notes'));
-	assert.match(cachePath('file:///home/me/..git')[1] ?? '', /^repo-[0-9a-f]{8}\.git$/);
+	assert.notDeepEqual(cachePath('local:a b'), cachePath('local:a-b'));
+	assert.throws(() => cachePath('nope'), RemoteError);
 });
 
 test('parsers', () => {
@@ -109,15 +104,28 @@ test('clone, head, tree, changes, blob, then a force-push', async () => {
 	assert.equal(await h.changes(REPO, 'f'.repeat(40), c3), null);
 });
 
-test('a local repo by its file URL, no URL mapping', async () => {
-	const url = canonicalRepoUrl(up) ?? '';
-	assert.ok(url.startsWith('file:///'));
-	const h = new GitHost({ run: gitRunner(), cacheDir: join(root, 'local-remotes'), join, exists: pathExists });
-	const head = await h.head(url, null);
+test('a local source: fetched from the folder the mapping gives, which can move', async () => {
+	const key = 'local:my notes';
+	let folder = up;
+	const h = new GitHost({ run: gitRunner(), cacheDir: join(root, 'local-remotes'), join, exists: pathExists, remote: () => fileUrl(folder) });
+	const head = await h.head(key, null);
 	assert.equal(head.commit, g('rev-parse', 'HEAD'));
-	assert.ok(await pathExists(join(root, 'local-remotes', ...cachePath(url))));
-	const { files } = await h.tree(url, head.tree);
-	assert.ok(files.has('wiki/a.md'));
+	assert.ok(await pathExists(join(root, 'local-remotes', ...cachePath(key))));
+	assert.ok((await h.tree(key, head.tree)).files.has('wiki/a.md'));
+
+	// Moved: a copy elsewhere with a new commit; the clone follows the new folder.
+	const moved = join(root, 'moved copy');
+	execFileSync('git', ['clone', '-q', up, moved]);
+	writeFileSync(join(moved, 'new.md'), 'n\n');
+	execFileSync('git', ['add', '-A'], { cwd: moved });
+	execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'moved'], { cwd: moved });
+	folder = moved;
+	assert.equal((await h.head(key, null)).commit, execFileSync('git', ['rev-parse', 'HEAD'], { cwd: moved, encoding: 'utf8' }).trim());
+
+	const unset = new GitHost({ run: gitRunner(), cacheDir: join(root, 'local-remotes'), join, exists: pathExists, remote: () => {
+		throw new RemoteError('not-found', 'No folder set on this computer.');
+	} });
+	await assert.rejects(unset.head(key, null), (e) => e instanceof RemoteError && e.kind === 'not-found');
 });
 
 test('errors: missing branch, bad SHA, no git', async () => {

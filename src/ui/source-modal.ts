@@ -1,7 +1,7 @@
 // The add/edit source form (docs/spec.md → Sources settings).
 
 import { App, Modal, Setting } from 'obsidian';
-import type { SourceForm } from '../sources/edit.ts';
+import { EMPTY_FORM, type SourceForm } from '../sources/edit.ts';
 
 /** Returns an error to show and keep the modal open, or `null` to close it. */
 export type SubmitSource = (form: SourceForm) => Promise<string | null>;
@@ -9,14 +9,19 @@ export type SubmitSource = (form: SourceForm) => Promise<string | null>;
 export class SourceModal extends Modal {
 	private readonly form: SourceForm;
 	private readonly editing: boolean;
+	private readonly local: boolean;
 	private readonly submit: SubmitSource;
 
-	/** `initial` given: editing, URL read-only (it is the source's key). */
-	constructor(app: App, submit: SubmitSource, initial?: SourceForm) {
+	/**
+	 * `initial` given: editing. The name is read-only (forks record it), and so is a hosted
+	 * source's URL; a local source's folder (`local`) can change.
+	 */
+	constructor(app: App, submit: SubmitSource, initial?: SourceForm, local = false) {
 		super(app);
 		this.submit = submit;
 		this.editing = initial !== undefined;
-		this.form = initial ? { ...initial } : { url: '', branch: '', include: '', watch: '', folder: '', listForks: '' };
+		this.local = local;
+		this.form = initial ? { ...initial } : { ...EMPTY_FORM };
 	}
 
 	onOpen(): void {
@@ -24,11 +29,23 @@ export class SourceModal extends Modal {
 		this.setTitle(this.editing ? 'Edit source' : 'Add source');
 
 		new Setting(contentEl)
-			.setName('Repo URL')
-			.setDesc(this.editing ? 'To follow a different repo, remove this source and add that one.' : 'https://host/owner/repo, git@host:owner/repo.git, or the path to a repo on this computer')
+			.setName('Name')
+			.setDesc(this.editing ? 'The follow note\'s name; forks record it, so it can\'t change.' : 'Names the follow note, and is recorded in each fork. Empty: owner-repo, or the folder\'s name.')
+			.addText((t) => {
+				t.setValue(this.form.name).onChange((v) => (this.form.name = v));
+				t.setDisabled(this.editing);
+			});
+		const urlDesc = this.local
+			? 'This computer\'s copy. Kept in the plugin\'s settings, never in the note.'
+			: this.editing
+				? 'To follow a different repo, remove this source and add that one.'
+				: 'https://host/owner/repo, git@host:owner/repo.git, or a folder on this computer. A folder is kept in the plugin\'s settings, never in the note.';
+		new Setting(contentEl)
+			.setName(this.local ? 'Folder' : 'Repo URL or folder')
+			.setDesc(urlDesc)
 			.addText((t) => {
 				t.setValue(this.form.url).onChange((v) => (this.form.url = v));
-				t.setDisabled(this.editing);
+				t.setDisabled(this.editing && !this.local);
 			});
 		new Setting(contentEl)
 			.setName('Branch')
