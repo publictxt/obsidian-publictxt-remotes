@@ -139,14 +139,19 @@ source, one at a time. **Open check view** opens it without checking. The last r
 memory only; `checkedAt` is saved for each source checked, and state for sources no longer
 followed is dropped.
 
-Per source: its remote name (opens the follow note) and branch, then an error, or "nothing new", or:
+Per source, a header: its remote name (opens the follow note), branch, and a summary (`New 4 ·
+Watched 1 · Forks 2`, "Nothing new" or "Error"). Selecting the header opens or closes the
+source. It starts open when it has an error or anything new, closed otherwise; once the user
+has opened or closed it, it stays that way until the view is closed, checks included. Under an
+open header: the error, or "nothing new", or:
 
 - **What's new**: status and path, at most 50 then "and n more"; with the reason when every file
   is listed.
 - **Watched**: status and path.
 - **Forks changed upstream**: the fork note (opens it) and its `fork_path`.
 - **Mark as seen**: acknowledges this source. Forks stay listed.
-- **Snapshot**: local sources only, shown whatever the result (Local sources → Snapshot).
+- **Snapshot**: local sources only, in the header, so shown whatever the result and when closed
+  (Local sources → Snapshot).
 
 Needs Obsidian 1.7.2 (`revealLeaf` returning a promise).
 
