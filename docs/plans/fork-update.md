@@ -23,9 +23,7 @@ keep a copy of it, or wave it off.
 1. **Compare in a split pane**, not a modal: the user's note in one pane, the upstream version
    read-only in a pane beside it. No merge, no line-by-line diff in this work.
 2. **Write alongside** saves upstream next to the note as `name (up-01).md`, then `(up-02)`, …
-3. **The alongside note is itself a fork** (OPEN: being confirmed with the owner; the
-   alternative is a plain reference copy with no `fork_*` keys, which would remove "copies"
-   from this plan): it gets `fork_*` keys. So one upstream file can
+3. **The alongside note is itself a fork** it gets `fork_*` keys. So one upstream file can
    have several notes forked from it. They are its **copies**, and the newest is the one
    compared next time.
 4. **`fork_seen`**, a new front matter key: the upstream blob the user last dealt with. A copy
