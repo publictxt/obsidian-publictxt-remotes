@@ -106,6 +106,7 @@ Remote front matter is kept; these keys are added or overwritten.
 | `fork_commit` | Head commit SHA at fork time |
 | `fork_blob` | Git blob SHA of the file at fork time: the change marker and merge base |
 | `fork_date` | ISO datetime of the fork, with offset |
+| `fork_seen` | The upstream blob the user last dealt with without taking it, or `gone` for a file removed upstream (Fork update, below). Absent until then |
 
 A note is a fork when `fork_path` and `fork_blob` are valid and it has a valid `fork_remote` or
 `fork_repo`; the rest are optional when reading. Writing a fork sets these keys and removes any
@@ -122,16 +123,20 @@ Per source, against the tracked branch's head:
    `seenCommit` is null, or `changes` is `null` (history rewritten): list every file in
    `include` as new, and say why.
 3. **Watched**: each `watch` path whose blob differs from `watched[path]`, or that is gone.
-4. **Forks**: each fork of this source whose `fork_path` blob at head differs from `fork_blob`,
-   or that is gone.
+4. **Forks**: each upstream file with forks of this source that aren't all settled for it. The
+   forks with one `fork_path` are that file's **copies**. A copy is **settled** for the blob at
+   head when its `fork_blob` or its `fork_seen` is that blob; for a file that is gone, when its
+   `fork_seen` is `gone`.
 
-Acknowledging moves `seenCommit` and `watched` forward. Forks are acknowledged only by updating
-them (later slice), since their state is their front matter.
+Acknowledging moves `seenCommit` and `watched` forward. Forks are dealt with one upstream file
+at a time (Fork update, below), since their state is their front matter.
 
 Details: a rename counts as in `include` if either path is. A watched path never acknowledged is
 `new`; a watched path not at head is reported every check until it leaves `watch`. A fork whose
 blob matches head is not listed. A fork is compared with the tracked branch, whatever its
-`fork_branch`. Pure logic in `src/check/check.ts`; the vault side in `src/check/run.ts`; the tree in `src/check/file-tree.ts`.
+`fork_branch`. A file's copies are listed latest first: by `fork_date`, newest first; one
+without a valid date after any with; ties by path, in byte order. A file that is back after
+`fork_seen: gone` is listed again if its blob differs from `fork_blob`. Pure logic in `src/check/check.ts`; the vault side in `src/check/run.ts`; the tree in `src/check/file-tree.ts`.
 
 ### Check view
 
@@ -158,8 +163,14 @@ open header: the error, or "nothing new", or the two actions and then the lists:
 - A file that can be forked (Markdown, not removed), in either list, has a tick box and
   **Fork**. A folder holding any has a tick box for them all: ticked, half ticked or clear;
   selecting it ticks them all, or clears them if all were ticked. Ticks stay like what's open;
-  one whose file a later check doesn't list isn't counted.
-- **Forks changed upstream**: the fork note (opens it) and its `fork_path`.
+  one whose file a later check doesn't list isn't counted. A file the user has already forked
+  also has **Compare** (as under Forks changed upstream) while its copies aren't settled, else
+  the word "forked"; it keeps its own tick box and **Fork**, but a folder's tick box leaves it
+  out, so ticking a folder never forks it again.
+- **Forks changed upstream**: a row per upstream file (its `fork_path`), then a row per copy,
+  latest first (opens the note; with several, the first says "latest"). A changed file has
+  **Compare**, for the latest copy. A file gone upstream has **Detach** and **Keep** (Fork
+  update, below).
 - **Snapshot**: local sources only, in the header, so shown whatever the result and when closed
   (Local sources → Snapshot).
 
@@ -183,6 +194,7 @@ no folder here is a `not-found` error. Commands run without a shell, with
 | `tree` | `ls-tree -r -z`, blobs only (submodules skipped) |
 | `changes` | `null` if `base` is unknown or not an ancestor (`cat-file -e`, `merge-base --is-ancestor`); else `diff --name-status -z -M` |
 | `blob` | `cat-file blob`; a partial clone fetches it on demand |
+| `diffStat` | Lines added and removed between two blobs: `diff --numstat <from> <to>`. `null` when git fails (a blob gone upstream can't be fetched) or the diff is binary |
 
 Errors are a `RemoteError` by `kind`: `no-git` (git can't start), `git` (a command failed),
 `not-found` (branch or default branch missing), `bad-input` (not a canonical URL or SHA).
@@ -299,6 +311,63 @@ Pure logic in `src/fork/destination.ts` (where forks go) and `src/fork/fork.ts` 
 `src/ui/fork-modal.ts` and `src/ui/fork-preview.ts`; the folder list in
 `src/ui/folder-suggest.ts`.
 
+## Fork update
+
+For a fork whose upstream file changed: look at the new version beside the note, then take it,
+keep a copy of it, or wave it off. No merge.
+
+**Compare** (check view), or the command **Compare this fork with upstream** on the active
+note, opens two panes: the note, and to its right the **Upstream** view (`publictxt-upstream`)
+with the file as it is at head, read-only. The check view compares the latest copy, at the head
+the check saw. The command reads the source's head itself, and compares unless the note's
+`fork_blob` is already the blob at head ("Nothing new upstream."): a version the note has only
+seen is still compared. One Upstream pane is reused.
+
+The view's header says the source, the branch and the note it is beside, then:
+
+- **What changed**: "12 lines added, 3 removed since you forked." (`diffStat` from `fork_blob`
+  to the blob at head), or "Can't tell what changed: the version you forked is gone upstream."
+- **Whether the copy is edited** since it was forked, kept current as the note is saved: "Your
+  copy is edited." / "Your copy is as you forked it." / "Can't tell whether your copy is
+  edited." (the forked blob can't be read). Edited: the body differs from the forked version's
+  (blank lines at its start and the kind of line ending aside), or the front matter does,
+  parsed and without the `fork_*` keys. Parsed, because Obsidian rewrites the YAML when it adds
+  the keys.
+
+Below, the upstream file rendered as Markdown, without its front matter. **Show source**
+switches to its whole text, and back.
+
+| Action | The compared copy | The file's other copies |
+|---|---|---|
+| **Overwrite** | Text replaced by upstream's; `fork_branch`, `fork_commit`, `fork_blob` and `fork_date` rewritten for it; `fork_seen` removed | `fork_seen` set to the blob |
+| **Write alongside** | `fork_seen` set | `fork_seen` set |
+| **Keep mine** | `fork_seen` set | `fork_seen` set |
+
+Each ends with every copy settled, so the file leaves the check view, and the Upstream pane
+closes. A copy already settled is not written to.
+
+- **Overwrite** asks first when the copy is edited or that can't be told, checked at that
+  moment. The note keeps its name and path. Upstream front matter that isn't valid YAML is
+  refused; if the provenance can't be written, the note is put back as it was.
+- **Write alongside** writes upstream as a new fork (`writeFork()`), in the copy's folder: the
+  copy's name with any ` (up-nn)` ending dropped, then ` (up-01)`, ` (up-02)`, … the first that
+  is free. It opens where the copy was, and is now the latest copy.
+- **Keep mine** changes no text.
+
+Nothing is overwritten except by **Overwrite**, on the one note it names.
+
+A file gone upstream has nothing to compare. **Detach** removes the `fork_*` keys from every
+copy, after asking; the notes stay. **Keep** sets `fork_seen: gone` on every copy: they stay
+forks and aren't listed until the file is back and differs.
+
+The view's state is the source key, the upstream path, blob, branch and commit, and the note's
+path, so it comes back after a restart, reading the blob from the clone. If the note is gone, no
+longer a fork of that file, or its source isn't followed, the view says so and offers nothing.
+
+Pure logic in `src/fork/update.ts` (and `isSettled()`, `latestFirst()` in `src/check/check.ts`);
+the vault side in `src/fork/update-run.ts` and `src/fork/compare-run.ts`; the view in
+`src/ui/upstream-view.ts`.
+
 ## Fork list
 
 A follow note keeps a fork list when its `list_forks` is `true`, or when it has no `list_forks`
@@ -336,4 +405,5 @@ now except those with `list_forks: false`, whatever the setting. Pure logic in
 5. Fork: check view and command, folder matching, fork list. Done.
 6. Local sources: snapshot, making a repo, folder checks on add. Done.
 7. Remote names: the note's name is the remote's, `fork_remote`, local folders in `localPaths`. Done.
-8. Later: update a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.
+8. Fork update: compare with upstream, overwrite, write alongside, keep; `fork_seen`. Done.
+9. Later: merge a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.

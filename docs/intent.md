@@ -62,6 +62,12 @@ source's folder, again only when asked.
   files are public even when a page isn't, and a path means nothing on another computer anyway.
   It lives in `data.json`, per computer. Names are read-only, since forks record them; making
   `fork_remote` a link that Obsidian updates on rename is parked.
+- **Updating a fork is a compare, not a merge** (decided 2026-11-11). The new upstream version
+  opens in a pane beside the note; the user overwrites the note, writes upstream alongside as
+  `name (up-nn).md`, or keeps theirs. The alongside note is itself a fork, so one upstream file
+  can have several copies, and the newest is compared next time. `fork_seen` records the
+  upstream version dealt with, so `fork_blob` stays what the note's text came from: the merge
+  base, should merging come later.
 - **Folder selection reuses the manifest's convention**: repo-relative folder prefixes ending in
   `/` (as `types` and `ignore` in `publictxt.yaml`), not a new glob grammar. Tag filters need
   file contents, so they wait.
@@ -81,7 +87,10 @@ source's folder, again only when asked.
    `.remotes/` in its `.gitignore`: git doesn't skip dot folders. Public follow notes live
    apart, in `follows/`, so the ignore rule stays one line.
 5. **Local edits to a fork.** Detecting them needs a hash of the body without the `fork_*` keys.
-   Deferred until "update my fork" is built.
+   Deferred until "update my fork" is built. Answered 2026-11-11 without a stored hash: the
+   compare fetches the version at `fork_blob` and compares it with the note, body and parsed
+   front matter, `fork_*` keys aside. It costs a fetch, so only the compare does it, not the
+   check.
 6. **Removing a source leaves its clone** (`<remotesFolder>/<host>/<owner>/<repo>.git`, or
    `<remotesFolder>/local/<name>-<hash>.git` for a local source). Options: delete it on remove
    (asking first), offer a "clean up clones" command, or leave it. Left for now: re-adding is
@@ -104,6 +113,7 @@ Not authoritative there yet; raise when this settles.
 
 - Reserve `fork_remote`, `fork_repo`, `fork_path`, `fork_branch`, `fork_commit`, `fork_blob`, `fork_date`
   (§5), as authored provenance.
+- Reserve `fork_seen` too: the upstream blob a reader has looked at without taking, or `gone`.
 - `follows` entries gain `branch` (default: the remote's default branch) and `include` (folder
   prefixes): the first, simplest piece of the open filter grammar (§13 q1).
 - A v0 canonical repo URL (§13 q2).

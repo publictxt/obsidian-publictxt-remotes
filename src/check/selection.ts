@@ -14,9 +14,13 @@ export function forkablePaths(c: SourceCheck): string[] {
 	return [...new Set(files.map((f) => f.path))];
 }
 
-/** The files in what's new, in `folder` or below, that can be forked: what its tick box stands for. */
+/**
+ * The files in what's new, in `folder` or below, that can be forked and aren't yet: what its
+ * tick box stands for. A file already forked is ticked on its own row, so a folder's box never
+ * forks it a second time by the way.
+ */
 export function forkableUnder(c: SourceCheck, folder: string): string[] {
-	return c.changes.filter((ch) => canFork(ch) && ch.path.startsWith(`${folder}/`)).map((ch) => ch.path);
+	return c.changes.filter((ch) => canFork(ch) && !c.forked.has(ch.path) && ch.path.startsWith(`${folder}/`)).map((ch) => ch.path);
 }
 
 /** The ticked files the check still lists; a tick outlives its file when a later check drops it. */

@@ -4,7 +4,7 @@ Follow other people's PublicTxt repos, see what changed since you last looked, a
 pages you want into your vault. Each fork records where it came from in its front matter.
 
 > **Status: early development.** Nothing is released. Following sources (hosted or on your
-> computer), checking them and forking files work; updating a fork is next.
+> computer), checking them, forking files and updating forks from upstream work.
 
 ## Requirements
 
@@ -31,6 +31,13 @@ pages you want into your vault. Each fork records where it came from in its fron
   you pick, and for one file its name. Nothing is overwritten. To fork several, tick files or
   whole folders in the check view and select **Fork selected**. Either way it shows what would
   be written before writing any.
+- **Updating a fork.** When a fork's original has changed, **Compare** in the check view opens
+  your note with the new upstream version beside it, saying how many lines changed and whether
+  you have edited your copy. Then **Overwrite** your note with it (it asks first if you edited
+  it), **Write alongside** to save it as a second note, `name (up-01).md`, or **Keep mine**.
+  Either way that version isn't listed again; the plugin records it as `fork_seen`. Nothing is
+  merged. If the original is gone, **Detach** makes your note an ordinary note, and **Keep**
+  leaves it a fork.
 - **Fork lists.** With **List forks in follow notes** on, each follow note ends with a **Forked
   pages** list of links to the pages forked from it. A follow note's `list_forks: true` or
   `false` overrides the setting for that note. The plugin rewrites that section only.
@@ -63,6 +70,7 @@ A source can be a git repo on your computer, such as another vault. Enter its fo
 | **Check sources** (also the ribbon) | Opens the check view and checks every source |
 | **Open check view** | Opens it without checking |
 | **Fork a file from a source** | Pick a source, then a Markdown file to fork |
+| **Compare this fork with upstream** | For the note you are in, if it is a fork: fetches its source and opens the compare |
 | **Snapshot local sources** | Commits what changed in each local source's folder |
 | **Update fork lists in follow notes** | Rewrites every follow note's **Forked pages** list now |
 

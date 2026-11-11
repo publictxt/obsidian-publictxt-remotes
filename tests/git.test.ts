@@ -5,7 +5,7 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { GitHost, cachePath, parseLsTree, parseNameStatus } from '../src/remote/git.ts';
+import { GitHost, cachePath, parseLsTree, parseNameStatus, parseNumstat } from '../src/remote/git.ts';
 import { gitRunner, pathExists } from '../src/remote/git-process.ts';
 import { RemoteError } from '../src/remote/host.ts';
 import { fileUrl } from '../src/sources/repo-url.ts';
@@ -63,6 +63,12 @@ test('parsers', () => {
 	);
 });
 
+test('parseNumstat: lines added and removed; nothing for no difference; null for binary', () => {
+	assert.deepEqual(parseNumstat('12\t3\taaa => bbb\n'), { added: 12, removed: 3 });
+	assert.deepEqual(parseNumstat(''), { added: 0, removed: 0 });
+	assert.equal(parseNumstat('-\t-\taaa => bbb\n'), null);
+});
+
 test('clone, head, tree, changes, blob, then a force-push', async () => {
 	write('wiki/a.md', '# A ✓\n');
 	write('notes/n.md', 'n\n');
@@ -94,6 +100,12 @@ test('clone, head, tree, changes, blob, then a force-push', async () => {
 		],
 	);
 	assert.deepEqual(await h.changes(REPO, c2, c2), []);
+
+	const a1 = tree1.files.get('wiki/a.md') ?? '';
+	const a2 = (await h.tree(REPO, head2.tree)).files.get('wiki/a.md') ?? '';
+	assert.deepEqual(await h.diffStat(REPO, a1, a2), { added: 1, removed: 1 });
+	assert.deepEqual(await h.diffStat(REPO, a1, a1), { added: 0, removed: 0 });
+	assert.equal(await h.diffStat(REPO, 'f'.repeat(40), a2), null);
 
 	// Rewrite history: c2 is no longer an ancestor of head.
 	g('reset', '-q', '--hard', c1);

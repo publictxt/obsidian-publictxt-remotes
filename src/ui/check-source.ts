@@ -119,25 +119,41 @@ function folderRows(parent: HTMLElement, folder: TreeFolder<Change>, c: SourceCh
 		if (forkable.length) tickBox(item, 'select-folder', f.path, ticked(forkable, ui.selected));
 		if (item.children) folderRows(item.children, f, c, ui);
 	}
-	for (const file of folder.files) fileRow(parent, file.name, file.item, ui);
+	for (const file of folder.files) fileRow(parent, file.name, file.item, c, ui);
 }
 
 function watched(el: HTMLElement, c: SourceCheck, ui: SourceUi): void {
 	if (!c.watched.length) return;
 	el.createEl('h5', { text: `Watched (${c.watched.length})` });
-	for (const w of c.watched) fileRow(el, w.path, w, ui);
+	for (const w of c.watched) fileRow(el, w.path, w, c, ui);
 }
 
+/** One row per upstream file, then a row per note forked from it, latest first. */
 function forks(el: HTMLElement, c: SourceCheck): void {
 	if (!c.forks.length) return;
 	el.createEl('h5', { text: `Forks changed upstream (${c.forks.length})` });
 	for (const f of c.forks) {
 		const { inner } = treeItem(el);
 		inner.createSpan({ cls: `publictxt-status-${f.status}`, text: f.status === 'removed' ? 'gone upstream' : 'changed upstream' });
-		inner.appendText(' ');
-		inner.createEl('a', { text: f.fork.path, attr: { 'data-open': f.fork.path } });
-		inner.appendText(` ← ${f.fork.meta.path}`);
+		inner.appendText(` ${f.path}`);
+		if (f.status === 'modified') forkAction(inner, 'compare', f.path, 'Compare', 'Compare the latest copy with upstream');
+		else {
+			forkAction(inner, 'detach', f.path, 'Detach', 'Make these notes no longer forks');
+			forkAction(inner, 'keep-gone', f.path, 'Keep', 'Keep them as forks, and stop listing this');
+		}
+		for (const [i, copy] of f.copies.entries()) {
+			const row = treeItem(el);
+			row.self.addClass('publictxt-copy');
+			row.inner.createEl('a', { text: copy.path, attr: { 'data-open': copy.path } });
+			if (i === 0 && f.copies.length > 1) row.inner.createSpan({ cls: 'publictxt-quiet', text: ' · latest' });
+		}
 	}
+}
+
+/** A link at the end of a fork's row that does `action` for the upstream file `path`. */
+function forkAction(inner: HTMLElement, action: 'compare' | 'detach' | 'keep-gone', path: string, text: string, label: string): void {
+	inner.appendText(' ');
+	inner.createEl('a', { text, cls: 'publictxt-fork', attr: { 'data-action': action, 'data-path': path, 'aria-label': label } });
 }
 
 /** A remote file, as a change or a watched path. */
@@ -150,9 +166,10 @@ interface RemoteFile {
 
 /**
  * A file's row: a tick box and a "fork" action if it can be forked, what happened to it, then
- * `label` (its name, or its path where there is no tree).
+ * `label` (its name, or its path where there is no tree). One already forked has "compare"
+ * before "fork" while its forks aren't settled, else the word "forked".
  */
-function fileRow(parent: HTMLElement, label: string, file: RemoteFile, ui: SourceUi): void {
+function fileRow(parent: HTMLElement, label: string, file: RemoteFile, c: SourceCheck, ui: SourceUi): void {
 	const item = treeItem(parent);
 	const { inner } = item;
 	inner.createSpan({ cls: `publictxt-status-${file.status}`, text: file.status });
@@ -160,6 +177,9 @@ function fileRow(parent: HTMLElement, label: string, file: RemoteFile, ui: Sourc
 	if (file.from) inner.appendText(` (from ${file.from})`);
 	if (!canFork(file)) return;
 	tickBox(item, 'select', file.path, ui.selected.has(file.path) ? 'all' : 'none');
+	// Already forked: say so, and offer the compare when a copy hasn't seen this version.
+	if (c.forks.some((f) => f.path === file.path)) forkAction(inner, 'compare', file.path, 'Compare', 'Compare your fork with upstream');
+	else if (c.forked.has(file.path)) inner.createSpan({ cls: 'publictxt-quiet', text: ' forked' });
 	inner.appendText(' ');
 	inner.createEl('a', { text: 'Fork', cls: 'publictxt-fork', attr: { 'data-action': 'fork', 'data-path': file.path, 'aria-label': `Fork ${file.path} into the vault` } });
 }

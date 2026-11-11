@@ -22,6 +22,12 @@ export interface Change {
 	from: string | null;
 }
 
+/** How far apart two versions of a file are, in lines. */
+export interface DiffStat {
+	added: number;
+	removed: number;
+}
+
 export type RemoteErrorKind = 'no-git' | 'git' | 'not-found' | 'bad-input';
 
 export class RemoteError extends Error {
@@ -42,4 +48,6 @@ export interface RemoteHost {
 	changes(repo: string, base: string, head: string): Promise<Change[] | null>;
 	/** A blob's content as UTF-8 text. */
 	blob(repo: string, sha: string): Promise<string>;
+	/** Lines added and removed from blob `from` to blob `to`; `null` when either can't be read, or isn't text. */
+	diffStat(repo: string, from: string, to: string): Promise<DiffStat | null>;
 }

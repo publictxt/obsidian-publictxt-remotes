@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { forkMetaProps, readForkMeta, writeForkMeta, type ForkMeta } from '../src/sources/fork-meta.ts';
+import { clearForkMeta, forkMetaProps, readForkMeta, setForkSeen, writeForkMeta, type ForkMeta } from '../src/sources/fork-meta.ts';
 
 const B = '0123456789abcdef0123456789abcdef01234567';
 const meta: ForkMeta = {
@@ -11,6 +11,7 @@ const meta: ForkMeta = {
 	branch: 'main',
 	commit: B,
 	date: '2026-11-03T10:00:00+02:00',
+	seen: null,
 };
 
 test('round trip', () => {
@@ -53,4 +54,24 @@ test('fork_path: leading slash stripped, . and .. segments rejected', () => {
 test('repo canonicalised, bad commit dropped, unrelated keys ignored', () => {
 	const m = readForkMeta({ ...forkMetaProps(meta), fork_repo: 'git@github.com:a/b.git', fork_commit: 'x', tags: ['t'] });
 	assert.deepEqual(m, { ...meta, commit: null });
+});
+
+test('fork_seen: a blob or gone; anything else reads as none', () => {
+	const props = forkMetaProps(meta);
+	assert.ok(!('fork_seen' in props));
+	assert.equal(readForkMeta({ ...props, fork_seen: B })?.seen, B);
+	assert.equal(readForkMeta({ ...props, fork_seen: 'gone' })?.seen, 'gone');
+	assert.equal(readForkMeta({ ...props, fork_seen: 'yes' })?.seen, null);
+	assert.equal(Object.keys(forkMetaProps({ ...meta, seen: B })).at(-1), 'fork_seen');
+});
+
+test('setForkSeen sets the one key; writing the provenance again clears it; clearForkMeta leaves no fork', () => {
+	const front: Record<string, unknown> = { title: 'T', ...forkMetaProps(meta) };
+	setForkSeen(front, B);
+	assert.deepEqual(readForkMeta(front), { ...meta, seen: B });
+	writeForkMeta(front, meta);
+	assert.ok(!('fork_seen' in front));
+	setForkSeen(front, 'gone');
+	clearForkMeta(front);
+	assert.deepEqual(front, { title: 'T' });
 });

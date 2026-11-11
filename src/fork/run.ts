@@ -107,16 +107,20 @@ function lookAt(app: App): VaultLook {
 	};
 }
 
+/** Throws if `text` has front matter that isn't valid YAML: the provenance keys couldn't be added to it. */
+export function needFrontMatter(text: string): void {
+	const fm = getFrontMatterInfo(text);
+	if (!fm.exists) return;
+	try {
+		parseYaml(fm.frontmatter);
+	} catch {
+		throw new Error('Its front matter is not valid YAML, so the provenance can\'t be added.');
+	}
+}
+
 /** Creates the note at `path` with `text` and the provenance keys added. Never overwrites. */
 export async function writeFork(app: App, path: string, text: string, meta: ForkMeta): Promise<TFile> {
-	const fm = getFrontMatterInfo(text);
-	if (fm.exists) {
-		try {
-			parseYaml(fm.frontmatter);
-		} catch {
-			throw new Error('Its front matter is not valid YAML, so the provenance can\'t be added.');
-		}
-	}
+	needFrontMatter(text);
 	if (app.vault.getAbstractFileByPath(path)) throw new Error(`${path} already exists.`);
 	const slash = path.lastIndexOf('/');
 	if (slash > 0) await ensureFolder(app, path.slice(0, slash));

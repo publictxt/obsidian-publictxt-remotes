@@ -1,13 +1,17 @@
 // The check view: the last check, source by source (docs/spec.md → Check view). It owns the
 // clicks; check-source.ts draws each source.
 
-import { ItemView, type WorkspaceLeaf } from 'obsidian';
+import { ItemView, Notice, type WorkspaceLeaf } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
-import type { SourceCheck } from '../check/check.ts';
+import type { ForkChange, SourceCheck } from '../check/check.ts';
 import type { SourceResult } from '../check/run.ts';
 import { FOLLOWS_FOLDER } from '../sources/follow-note.ts';
 import { forkableUnder, selectedPaths, toggleAll } from '../check/selection.ts';
+import { compareChange } from '../fork/compare-run.ts';
 import { startFork, type ForkSource } from '../fork/run.ts';
+import { detach, keepGone } from '../fork/update-run.ts';
+import { errorText } from '../remote/vault-host.ts';
+import { ConfirmModal } from './confirm-modal.ts';
 import { folderOpen, newSourceUi, renderSource, sourceOpen, type SourceUi } from './check-source.ts';
 
 export const VIEW_TYPE_CHECK = 'publictxt-check';
@@ -110,6 +114,11 @@ export class CheckView extends ItemView {
 			case 'fork-selected':
 				this.forkSelected(url);
 				break;
+			case 'compare':
+			case 'detach':
+			case 'keep-gone':
+				if (path) this.forkChanged(action, url, path);
+				break;
 		}
 	}
 
@@ -173,4 +182,23 @@ export class CheckView extends ItemView {
 			this.render();
 		});
 	}
+
+	/** Acts on an upstream file that changed under its forks: compare it, or, gone, detach or keep them. */
+	private forkChanged(action: 'compare' | 'detach' | 'keep-gone', url: string, path: string): void {
+		const c = this.result(url)?.check;
+		const change = c?.forks.find((f) => f.path === path);
+		if (!c || !change) return;
+		const { app, plugin } = this;
+		const told = (job: Promise<void>) => job.catch((e: unknown) => void new Notice(errorText(e)));
+		if (action === 'compare') void told(compareChange(app, url, c.head, change));
+		else if (action === 'keep-gone') void told(keepGone(plugin, url, change));
+		else new ConfirmModal(app, 'Detach from upstream?', detachQuestion(change), 'Detach', () => told(detach(plugin, url, change))).open();
+	}
+}
+
+/** What detaching does, before it is done. */
+function detachQuestion(change: ForkChange): string {
+	const notes = change.copies.map((f) => f.path).join(', ');
+	const stay = change.copies.length === 1 ? 'The note stays, as an ordinary note.' : 'The notes stay, as ordinary notes.';
+	return `${change.path} is gone upstream. Detaching removes the fork_* keys from ${notes}. ${stay}`;
 }
