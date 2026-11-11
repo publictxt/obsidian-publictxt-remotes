@@ -23,6 +23,21 @@ export function forkableUnder(c: SourceCheck, folder: string): string[] {
 	return c.changes.filter((ch) => canFork(ch) && !c.forked.has(ch.path) && ch.path.startsWith(`${folder}/`)).map((ch) => ch.path);
 }
 
+/** `forkableUnder` for every folder that has any, in one pass over what's new: folder → its files. */
+export function forkableByFolder(c: SourceCheck): Map<string, string[]> {
+	const out = new Map<string, string[]>();
+	for (const ch of c.changes) {
+		if (!canFork(ch) || c.forked.has(ch.path)) continue;
+		for (let slash = ch.path.indexOf('/'); slash >= 0; slash = ch.path.indexOf('/', slash + 1)) {
+			const folder = ch.path.slice(0, slash);
+			const paths = out.get(folder);
+			if (paths) paths.push(ch.path);
+			else out.set(folder, [ch.path]);
+		}
+	}
+	return out;
+}
+
 /** The ticked files the check still lists; a tick outlives its file when a later check drops it. */
 export function selectedPaths(c: SourceCheck, selected: ReadonlySet<string>): string[] {
 	return forkablePaths(c).filter((p) => selected.has(p));

@@ -2,7 +2,6 @@
 // side of remote/snapshot.ts and remote/local-repo.ts.
 
 import { App, Notice } from 'obsidian';
-import { localIso } from '../fork/fork.ts';
 import { gitRunner, localFs } from '../remote/git-process.ts';
 import { initLocal, initQuestion, newRepoGitignore, inspectLocal, localProblem, localWarnings } from '../remote/local-repo.ts';
 import { snapshot, type SnapshotResult } from '../remote/snapshot.ts';
@@ -13,6 +12,7 @@ import { isLocalRepo } from '../sources/repo-url.ts';
 import type { PublicTxtData, Source } from '../sources/schema.ts';
 import { choose } from '../ui/choice-modal.ts';
 import { ConfirmModal } from '../ui/confirm-modal.ts';
+import { localIso } from '../util/time.ts';
 
 type Outcome = { kind: 'done'; result: SnapshotResult } | { kind: 'not-repo'; within: boolean; dir: string } | { kind: 'busy' };
 

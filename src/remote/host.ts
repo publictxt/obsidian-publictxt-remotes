@@ -41,11 +41,16 @@ export class RemoteError extends Error {
 }
 
 export interface RemoteHost {
-	/** Fetches, then reads the tracked branch's head. */
+	/** Reads the tracked branch's head as it is upstream now, fetching what is new. */
 	head(repo: string, branch: string | null): Promise<Head>;
 	tree(repo: string, tree: string): Promise<Tree>;
 	/** Files changed from `base` to `head`; `null` when `base` isn't an ancestor of `head` (unknown, or history rewritten). */
 	changes(repo: string, base: string, head: string): Promise<Change[] | null>;
+	/**
+	 * Gets ready to read `blobs`, in fewer round trips than one `blob` each. Only a head start:
+	 * it never fails for a blob it can't get, and `blob` works without it.
+	 */
+	prefetch?(repo: string, blobs: readonly string[]): Promise<void>;
 	/** A blob's content as UTF-8 text. */
 	blob(repo: string, sha: string): Promise<string>;
 	/** Lines added and removed from blob `from` to blob `to`; `null` when either can't be read, or isn't text. */

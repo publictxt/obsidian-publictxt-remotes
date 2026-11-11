@@ -15,6 +15,15 @@ export interface GitResult {
 /** Runs `git <args>` in `cwd` (no shell). Rejects with `RemoteError('no-git')` if git can't start. */
 export type RunGit = (args: string[], cwd: string | null) => Promise<GitResult>;
 
+/** Runs git and throws a `RemoteError('git')` unless its exit code is one of `ok`. */
+export async function gitOrThrow(run: RunGit, args: string[], cwd: string | null, ok: number[] = [0]): Promise<GitResult> {
+	const r = await run(args, cwd);
+	if (!ok.includes(r.code)) {
+		throw new RemoteError('git', `git ${args[0] ?? ''} failed: ${r.stderr.trim() || `exit ${r.code}`}`);
+	}
+	return r;
+}
+
 export interface GitHostOptions {
 	run: RunGit;
 	/** Absolute folder holding the clones: the vault's `.remotes/` by default (docs/spec.md). */
@@ -28,7 +37,15 @@ export interface GitHostOptions {
 	 * source with no folder on this computer). Absent: the key is the URL.
 	 */
 	remote?: (repo: string) => string;
+	/**
+	 * The per-clone queues, to share between hosts over the same clones: the plugin makes a host
+	 * per operation, and they must still take turns. Absent: this host's own.
+	 */
+	queues?: Map<string, Promise<unknown>>;
 }
+
+/** Blobs asked for in one fetch: well under any limit on a command line's length. */
+const PREFETCH_BATCH = 200;
 
 const STATUS: Record<string, ChangeStatus> = {
 	A: 'added',
@@ -108,11 +125,12 @@ export function parseNumstat(out: string): DiffStat | null {
 
 export class GitHost implements RemoteHost {
 	private readonly o: GitHostOptions;
-	/** Per-clone queue: git takes locks, so commands on one clone run in turn. */
-	private readonly queues = new Map<string, Promise<unknown>>();
+	/** Per-clone queue, by cache folder and source key: git takes locks, so commands on one clone run in turn. */
+	private readonly queues: Map<string, Promise<unknown>>;
 
 	constructor(options: GitHostOptions) {
 		this.o = options;
+		this.queues = options.queues ?? new Map<string, Promise<unknown>>();
 	}
 
 	private dir(repo: string): string {
@@ -120,26 +138,28 @@ export class GitHost implements RemoteHost {
 	}
 
 	private serial<T>(repo: string, job: () => Promise<T>): Promise<T> {
-		const prev = this.queues.get(repo) ?? Promise.resolve();
+		const key = `${this.o.cacheDir}\0${repo}`;
+		const prev = this.queues.get(key) ?? Promise.resolve();
 		const next = prev.then(job, job);
-		this.queues.set(repo, next.catch(() => undefined));
+		const settled = next.catch(() => undefined);
+		this.queues.set(key, settled);
+		// Nothing waiting behind this job: drop the queue, so the map doesn't keep every clone ever used.
+		void settled.then(() => {
+			if (this.queues.get(key) === settled) this.queues.delete(key);
+		});
 		return next;
 	}
 
-	private async git(args: string[], cwd: string | null, ok: number[] = [0]): Promise<GitResult> {
-		const r = await this.o.run(args, cwd);
-		if (!ok.includes(r.code)) {
-			throw new RemoteError('git', `git ${args[0] ?? ''} failed: ${r.stderr.trim() || `exit ${r.code}`}`);
-		}
-		return r;
+	private git(args: string[], cwd: string | null, ok: number[] = [0]): Promise<GitResult> {
+		return gitOrThrow(this.o.run, args, cwd, ok);
 	}
 
-	/** The clone of `repo`, made on first use. Its origin is set to `remote` each time, as a local folder can move. */
+	/** The clone of `repo`, made on first use. A local source's origin is set to `remote` each time, as its folder can move. */
 	private async ensureClone(repo: string): Promise<string> {
 		const dir = this.dir(repo);
 		const remote = this.o.remote ? this.o.remote(repo) : repo;
 		if (await this.o.exists(dir)) {
-			if (this.o.remote) await this.git(['remote', 'set-url', 'origin', remote], dir);
+			if (this.o.remote && isLocalRepo(repo)) await this.git(['remote', 'set-url', 'origin', remote], dir);
 			return dir;
 		}
 		await this.git(['clone', '--bare', '--filter=blob:none', '--quiet', '--', remote, dir], null);
@@ -151,13 +171,19 @@ export class GitHost implements RemoteHost {
 	head(repo: string, branch: string | null): Promise<Head> {
 		return this.serial(repo, async () => {
 			const dir = await this.ensureClone(repo);
-			await this.git(['fetch', '--prune', '--quiet', 'origin'], dir);
 			let name = branch;
+			let current = false;
 			if (name === null) {
+				// The default branch has to be asked for, and the answer says where it is: when the
+				// clone is already there, that was the one round trip, and there is nothing to fetch.
 				const out = (await this.git(['ls-remote', '--symref', 'origin', 'HEAD'], dir)).stdout;
 				name = /^ref: refs\/heads\/(\S+)\tHEAD$/m.exec(out)?.[1] ?? null;
 				if (!name) throw new RemoteError('not-found', `No default branch: ${repo}`);
+				const at = /^([0-9a-f]+)\tHEAD$/m.exec(out)?.[1];
+				const have = await this.o.run(['rev-parse', '--verify', '--quiet', `refs/heads/${name}^{commit}`], dir);
+				current = at !== undefined && have.code === 0 && have.stdout.trim() === at;
 			}
+			if (!current) await this.git(['fetch', '--prune', '--quiet', 'origin'], dir);
 			const ref = `refs/heads/${name}`;
 			// Not --verify: it takes one name. A missing ref exits 128.
 			const r = await this.git(['rev-parse', `${ref}^{commit}`, `${ref}^{tree}`], dir, [0, 128]);
@@ -191,6 +217,20 @@ export class GitHost implements RemoteHost {
 		return this.serial(repo, async () => {
 			// Partial clone: the blob is fetched on demand.
 			return (await this.git(['cat-file', 'blob', sha(blob, 'blob')], this.dir(repo))).stdout;
+		});
+	}
+
+	prefetch(repo: string, blobs: readonly string[]): Promise<void> {
+		return this.serial(repo, async () => {
+			const dir = this.dir(repo);
+			const ids = [...new Set(blobs.map((b) => sha(b, 'blob')))];
+			// As git fetches a missing object itself, but many in one go. Blobs already here cost
+			// nothing to ask for again. Failing is fine: `blob` fetches each on demand.
+			for (let i = 0; i < ids.length; i += PREFETCH_BATCH) {
+				const args = ['-c', 'fetch.negotiationAlgorithm=noop', 'fetch', '--quiet', '--no-tags', '--no-write-fetch-head', '--recurse-submodules=no', '--filter=blob:none', 'origin'];
+				const r = await this.o.run([...args, ...ids.slice(i, i + PREFETCH_BATCH)], dir);
+				if (r.code !== 0) return;
+			}
 		});
 	}
 

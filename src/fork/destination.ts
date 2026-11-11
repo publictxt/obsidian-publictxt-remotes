@@ -90,10 +90,10 @@ export function newFolders(plan: readonly PlannedFork[], folderExists: (folder: 
 }
 
 /** A typed value made clean, or what to tell the user. */
-export type Checked = { ok: true; value: string } | { ok: false; error: string };
+export type TypedValue = { ok: true; value: string } | { ok: false; error: string };
 
 /** A vault folder as typed: slashes at the ends dropped; `''` is the vault root. */
-export function checkFolder(input: string): Checked {
+export function checkFolder(input: string): TypedValue {
 	const value = input.trim().replace(/^\/+|\/+$/g, '');
 	if (value.split('/').some((part) => part === '.' || part === '..' || (part === '' && value !== ''))) {
 		return { ok: false, error: 'Enter a vault folder, like notes/forks.' };
@@ -102,7 +102,7 @@ export function checkFolder(input: string): Checked {
 }
 
 /** A note's name as typed, without `.md`. Folders are chosen apart, so no slashes. */
-export function checkName(input: string): Checked {
+export function checkName(input: string): TypedValue {
 	const value = input.trim().replace(/\.md$/i, '').trim();
 	if (!value) return { ok: false, error: 'Enter a name.' };
 	if (/[\\/]/.test(value)) return { ok: false, error: 'A name can\'t contain / or \\. Choose the folder above.' };

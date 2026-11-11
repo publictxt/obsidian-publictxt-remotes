@@ -1,16 +1,10 @@
 // One check of one source: what's new, watched, forks (docs/spec.md → Check). Pure: the remote
 // host is passed in, so tests use a fake one.
 
-import { SEEN_GONE, type ForkMeta } from '../sources/fork-meta.ts';
+import { SEEN_GONE, type Fork, type ForkMeta } from '../sources/fork-meta.ts';
 import type { Source, SourceState } from '../sources/schema.ts';
 import type { Change, Head, RemoteHost } from '../remote/host.ts';
 import { isForkOf, type Remote } from '../fork/fork.ts';
-
-/** A fork note and its provenance. */
-export interface Fork {
-	path: string;
-	meta: ForkMeta;
-}
 
 /** Why "what's new" lists every file instead of the changes. */
 export type NewReason = 'first-check' | 'history-rewritten';
@@ -34,19 +28,20 @@ export interface ForkChange {
 	copies: Fork[];
 }
 
+/** What one check of a source found. Never changed in place. */
 export interface SourceCheck {
-	url: string;
-	head: Head;
+	readonly url: string;
+	readonly head: Head;
 	/** Changes since `seenCommit`, within `include`. */
-	changes: Change[];
+	readonly changes: readonly Change[];
 	/** Set when `changes` lists every file in `include`. */
-	reason: NewReason | null;
-	watched: WatchedChange[];
-	forks: ForkChange[];
+	readonly reason: NewReason | null;
+	readonly watched: readonly WatchedChange[];
+	readonly forks: readonly ForkChange[];
 	/** Every upstream path the user has a fork of, changed or not: the view marks those files. */
-	forked: ReadonlySet<string>;
+	readonly forked: ReadonlySet<string>;
 	/** Blob at head per watched path that exists there: what acknowledging stores. */
-	watchedBlobs: Record<string, string>;
+	readonly watchedBlobs: Readonly<Record<string, string>>;
 }
 
 /** A path within `include` prefixes; empty `include`: the whole repo. */
@@ -133,6 +128,22 @@ export function latestFirst(forks: readonly Fork[]): Fork[] {
 /** State after a check, before it is acknowledged: only `checkedAt` moves. */
 export function checked(state: SourceState | undefined, at: string): SourceState {
 	return { seenCommit: state?.seenCommit ?? null, watched: { ...(state?.watched ?? {}) }, checkedAt: at };
+}
+
+/**
+ * Every source's state after a run that started at `at`, from the state as it is now (`state`):
+ * `checkedAt` moves for each source checked (`ok`), one that failed keeps what it has, and one
+ * not in `sources` (no longer followed) is dropped. From the state now, not as it was when the
+ * run started: what the user acknowledged while it ran stays.
+ */
+export function checkedAll(state: Readonly<Record<string, SourceState>>, sources: readonly { url: string; ok: boolean }[], at: string): Record<string, SourceState> {
+	const out: Record<string, SourceState> = {};
+	for (const s of sources) {
+		const now = state[s.url];
+		if (s.ok) out[s.url] = checked(now, at);
+		else if (now) out[s.url] = now;
+	}
+	return out;
 }
 
 /** State after acknowledging a check: `seenCommit` and `watched` move to head. */

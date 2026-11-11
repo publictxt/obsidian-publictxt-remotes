@@ -4,7 +4,7 @@
 import type { DiffStat, Head } from '../remote/host.ts';
 import { FORK_KEYS, type ForkMeta } from '../sources/fork-meta.ts';
 import { isRecord, isSha, repoPath, str } from '../util/validate.ts';
-import { localIso } from './fork.ts';
+import { localIso } from '../util/time.ts';
 
 /** What a compare shows: an upstream file as it is at a head, beside one note forked from it. */
 export interface Compare {

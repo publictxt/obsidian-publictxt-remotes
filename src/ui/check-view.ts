@@ -12,7 +12,7 @@ import { startFork, type ForkSource } from '../fork/run.ts';
 import { detach, keepGone } from '../fork/update-run.ts';
 import { errorText } from '../remote/vault-host.ts';
 import { ConfirmModal } from './confirm-modal.ts';
-import { folderOpen, newSourceUi, renderSource, sourceOpen, type SourceUi } from './check-source.ts';
+import { actionAttrs, checkAction, folderOpen, newSourceUi, renderSource, sourceOpen, type CheckAction, type SourceUi } from './check-source.ts';
 
 export const VIEW_TYPE_CHECK = 'publictxt-check';
 
@@ -53,7 +53,7 @@ export class CheckView extends ItemView {
 		const { lastRun, checking } = this.plugin;
 
 		const bar = el.createDiv({ cls: 'publictxt-check-bar' });
-		bar.createEl('button', { text: checking ? 'Checking…' : 'Check now', cls: 'mod-cta', attr: { 'data-action': 'check', ...(checking ? { disabled: 'true' } : {}) } });
+		bar.createEl('button', { text: checking ? 'Checking…' : 'Check now', cls: 'mod-cta', attr: { ...actionAttrs('check'), ...(checking ? { disabled: 'true' } : {}) } });
 		bar.createSpan({ cls: 'publictxt-status', text: checking ?? (lastRun ? `Checked ${new Date(lastRun.at).toLocaleString()}` : 'Not checked yet') });
 
 		if (!lastRun) return;
@@ -78,7 +78,9 @@ export class CheckView extends ItemView {
 		}
 		const el = target?.closest<HTMLElement>('[data-action]');
 		if (!el) return;
-		const { action, path } = el.dataset;
+		const action = checkAction(el.dataset.action);
+		const { path } = el.dataset;
+		if (!action) return;
 		if (action === 'check') {
 			void this.plugin.check();
 			return;
@@ -88,7 +90,7 @@ export class CheckView extends ItemView {
 	}
 
 	/** Runs `action` on the source `url`; `path` is the file it is about, if any. */
-	private act(action: string | undefined, url: string, path: string | undefined): void {
+	private act(action: Exclude<CheckAction, 'check'>, url: string, path: string | undefined): void {
 		switch (action) {
 			case 'snapshot':
 				void this.plugin.snapshot(url);
@@ -119,6 +121,9 @@ export class CheckView extends ItemView {
 			case 'keep-gone':
 				if (path) this.forkChanged(action, url, path);
 				break;
+			default:
+				// A new action without a case here doesn't compile.
+				action satisfies never;
 		}
 	}
 

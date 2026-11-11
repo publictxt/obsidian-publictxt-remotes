@@ -3,8 +3,8 @@
 
 import { App, debounce, Notice, TFile, type TAbstractFile } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
-import { scanForks } from '../check/run.ts';
-import { readForkMeta } from '../sources/fork-meta.ts';
+import { scanForks } from '../sources/forks.ts';
+import { readForkMeta, type ForkMeta } from '../sources/fork-meta.ts';
 import { isFollowPath, type Follow } from '../sources/follow-note.ts';
 import { scanFollows } from '../sources/follows.ts';
 import { errorText } from '../remote/vault-host.ts';
@@ -16,8 +16,14 @@ export interface SyncResult {
 	written: string[];
 	/** Follow notes left alone: the heading appears more than once. */
 	skipped: string[];
-	/** Every fork note seen. */
-	forks: Set<string>;
+}
+
+/**
+ * What the fork lists say of a note: which source it is a fork of (`null`: not a fork). A list
+ * changes only when this does, or the note moves; not when its text or other keys do.
+ */
+export function listedAs(meta: ForkMeta | null): string | null {
+	return meta ? `${meta.remote ?? ''}\0${meta.repo ?? ''}` : null;
 }
 
 /** Whether a follow note keeps a fork list: its `list_forks`, else the setting. */
@@ -29,7 +35,7 @@ export function wantsForkList(follow: Follow, setting: boolean): boolean {
 export async function syncForkLists(app: App, wanted: (follow: Follow) => boolean): Promise<SyncResult> {
 	const follows = scanFollows(app).follows.filter(wanted);
 	const forks = follows.length ? scanForks(app) : [];
-	const out: SyncResult = { written: [], skipped: [], forks: new Set(forks.map((f) => f.path)) };
+	const out: SyncResult = { written: [], skipped: [] };
 	for (const follow of follows) {
 		const note = app.vault.getFileByPath(follow.path);
 		if (!note) continue;
@@ -39,7 +45,8 @@ export async function syncForkLists(app: App, wanted: (follow: Follow) => boolea
 			if (file) links.push(app.fileManager.generateMarkdownLink(file, follow.path));
 		}
 		const section = renderForkList(links);
-		const text = await app.vault.read(note);
+		// The cached text is enough to tell whether to write: `process` reads the file itself.
+		const text = await app.vault.cachedRead(note);
 		const next = withForkList(text, section);
 		if (next === null) out.skipped.push(follow.path);
 		else if (next !== text) {
@@ -53,8 +60,8 @@ export async function syncForkLists(app: App, wanted: (follow: Follow) => boolea
 /** Updates fork lists after vault changes, for the follow notes that keep one. */
 export class ForkLists {
 	private readonly plugin: PublicTxtPlugin;
-	/** Fork notes at the last sync: a note that stops being a fork still counts as a change. */
-	private known = new Set<string>();
+	/** Each fork note and what the lists say of it (`listedAs`), kept current: a sync is due only when this changes. */
+	private known = new Map<string, string>();
 	private running = false;
 	private again = false;
 	private readonly soon = debounce(() => void this.update(false), 2000, true);
@@ -67,20 +74,39 @@ export class ForkLists {
 		const { plugin } = this;
 		const { app } = plugin;
 		plugin.register(() => this.soon.cancel());
-		// Read-only: which notes are forks, so one that loses its keys counts as a change.
+		// Read-only: which notes are forks, and of what.
 		app.workspace.onLayoutReady(() => {
-			this.known = new Set(scanForks(app).map((f) => f.path));
+			this.known = new Map(scanForks(app).map((f) => [f.path, listedAs(f.meta) ?? '']));
 		});
+		// Most changes to a fork note are to its text, which no list shows: only a note that
+		// becomes a fork, stops being one or changes source is synced. A follow note always is:
+		// its list may have been edited, or turned on or off.
 		plugin.registerEvent(
 			app.metadataCache.on('changed', (f, _data, cache) => {
-				if (readForkMeta(cache.frontmatter) || this.known.has(f.path) || isFollowPath(f.path)) this.changed();
+				const now = listedAs(readForkMeta(cache.frontmatter));
+				const was = this.known.get(f.path) ?? null;
+				if (now === null) this.known.delete(f.path);
+				else this.known.set(f.path, now);
+				if (now !== was || isFollowPath(f.path)) this.changed();
 			}),
 		);
-		const moved = (f: TAbstractFile) => {
-			if (f instanceof TFile && f.extension === 'md') this.changed();
-		};
-		plugin.registerEvent(app.vault.on('delete', (f) => moved(f)));
-		plugin.registerEvent(app.vault.on('rename', (f) => moved(f)));
+		plugin.registerEvent(
+			app.vault.on('delete', (f) => {
+				if (this.known.delete(f.path) || isFollowPath(f.path)) this.changed();
+			}),
+		);
+		plugin.registerEvent(app.vault.on('rename', (f, oldPath) => this.renamed(f, oldPath)));
+	}
+
+	/** A fork note that moved is linked by its new path; a follow note that moved has another name, so other forks. */
+	private renamed(f: TAbstractFile, oldPath: string): void {
+		if (!(f instanceof TFile)) return;
+		const was = this.known.get(oldPath);
+		if (was !== undefined) {
+			this.known.delete(oldPath);
+			this.known.set(f.path, was);
+		}
+		if (was !== undefined || isFollowPath(f.path) || isFollowPath(oldPath)) this.changed();
 	}
 
 	/**
@@ -98,7 +124,6 @@ export class ForkLists {
 		this.running = true;
 		try {
 			const r = await syncForkLists(app, wanted);
-			if (r.forks.size) this.known = r.forks;
 			if (r.skipped.length) new Notice(`Fork list not updated in ${r.skipped.join(', ')}: it has more than one "Forked pages" heading.`);
 			if (manual) new Notice(r.written.length ? `Updated the fork list in ${r.written.length} follow notes.` : 'Fork lists are up to date.');
 		} catch (e) {
@@ -112,7 +137,7 @@ export class ForkLists {
 		}
 	}
 
-	/** Any follow note may keep a list, so every relevant change is synced; the sync filters. */
+	/** Any follow note may keep a list, so every change that counts is synced; the sync filters. */
 	private changed(): void {
 		this.soon();
 	}

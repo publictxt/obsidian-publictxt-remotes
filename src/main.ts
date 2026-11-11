@@ -1,8 +1,9 @@
-import { Notice, Plugin, type TAbstractFile } from 'obsidian';
+import { debounce, Notice, Plugin, type TAbstractFile } from 'obsidian';
 import { normalizeData, type PublicTxtData } from './sources/schema.ts';
 import { isFollowPath } from './sources/follow-note.ts';
-import { acknowledged } from './check/check.ts';
+import { acknowledged, checkedAll, type SourceCheck } from './check/check.ts';
 import { runCheck, type CheckRun } from './check/run.ts';
+import { errorText } from './remote/vault-host.ts';
 import { PublicTxtSettingTab } from './settings.ts';
 import { CheckView, VIEW_TYPE_CHECK } from './ui/check-view.ts';
 import { UpstreamView } from './ui/upstream-view.ts';
@@ -54,20 +55,41 @@ export default class PublicTxtPlugin extends Plugin {
 		await this.saveData(this.data);
 	}
 
+	/**
+	 * Normalizes `next` and keeps it now, and writes data.json once the calls stop: for a field
+	 * being typed in, where `save` would write the file at every key.
+	 */
+	saveSoon(next: PublicTxtData): void {
+		this.data = normalizeData(next);
+		this.writeSoon();
+	}
+
+	private readonly writeSoon = debounce(() => void this.saveData(this.data), 500, true);
+
+	onunload(): void {
+		// Anything typed and not yet written.
+		this.writeSoon.run();
+	}
+
 	/** Checks every source; saves `checkedAt`, keeps the results for the view. */
 	async check(): Promise<void> {
 		if (this.checking !== null) return;
 		this.checking = 'Checking…';
 		this.renderViews();
 		try {
-			const { run, state } = await runCheck(this.app, this.data, (done, total) => {
+			// Not as Obsidian starts: with the metadata cache half loaded, follow notes read as
+			// invalid, and the state of every source would be dropped as no longer followed.
+			await new Promise<void>((ready) => this.app.workspace.onLayoutReady(ready));
+			const run = await runCheck(this.app, this.data, (done, total) => {
 				this.checking = `Checking ${Math.min(done + 1, total)} of ${total}…`;
 				this.renderViews();
 			});
 			this.lastRun = run;
-			await this.save({ ...this.data, state });
+			// From the state as it is now: a source acknowledged while this ran keeps that.
+			const sources = run.results.map((r) => ({ url: r.follow.url, ok: r.check !== null }));
+			await this.save({ ...this.data, state: checkedAll(this.data.state, sources, run.at) });
 		} catch (e) {
-			new Notice(e instanceof Error ? e.message : String(e));
+			new Notice(errorText(e));
 		} finally {
 			this.checking = null;
 			this.renderViews();
@@ -76,20 +98,33 @@ export default class PublicTxtPlugin extends Plugin {
 
 	/** Moves a source's `seenCommit` and `watched` to the last check's head. */
 	async acknowledge(url: string): Promise<void> {
-		const r = this.lastRun?.results.find((x) => x.check?.url === url);
-		if (!r?.check) return;
-		const c = r.check;
+		const c = this.checkOf(url);
+		if (!c) return;
 		await this.save({ ...this.data, state: { ...this.data.state, [url]: acknowledged(c, new Date().toISOString()) } });
 		// Forks stay: each is dealt with on its own (docs/spec.md → Fork update).
-		r.check = { ...c, changes: [], reason: null, watched: [] };
-		this.renderViews();
+		this.replaceCheck(c, { ...c, changes: [], reason: null, watched: [] });
 	}
 
 	/** Drops an upstream file from the last check's forks: every note forked from it is settled. */
 	forkSettled(url: string, path: string): void {
-		const c = this.lastRun?.results.find((x) => x.check?.url === url)?.check;
-		if (!c) return;
-		c.forks = c.forks.filter((f) => f.path !== path);
+		const c = this.checkOf(url);
+		if (c) this.replaceCheck(c, { ...c, forks: c.forks.filter((f) => f.path !== path) });
+	}
+
+	/** The last check of the source `url`, if it was checked without an error. */
+	private checkOf(url: string): SourceCheck | null {
+		return this.lastRun?.results.find((r) => r.check?.url === url)?.check ?? null;
+	}
+
+	/**
+	 * Puts `next` in place of `old` in the last run and draws it. A run and its checks are never
+	 * changed in place: a new run, with new results. Nothing happens if `old` isn't in the last
+	 * run any more (a new check finished meanwhile).
+	 */
+	private replaceCheck(old: SourceCheck, next: SourceCheck): void {
+		const run = this.lastRun;
+		if (!run?.results.some((r) => r.check === old)) return;
+		this.lastRun = { ...run, results: run.results.map((r) => (r.check === old ? { ...r, check: next } : r)) };
 		this.renderViews();
 	}
 

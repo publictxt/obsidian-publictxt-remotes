@@ -143,7 +143,9 @@ without a valid date after any with; ties by path, in byte order. A file that is
 **Check sources** (command and ribbon) opens the view in the right sidebar and checks every
 source, one at a time. **Open check view** opens it without checking. The last run is kept in
 memory only; `checkedAt` is saved for each source checked, and state for sources no longer
-followed is dropped.
+followed is dropped. The state saved is built from the state when the run ends, so a source
+acknowledged while it ran stays acknowledged. A check asked for as Obsidian starts waits for the
+workspace to be ready, so a half-loaded metadata cache can't make sources look unfollowed.
 
 Per source, a header: its remote name (opens the follow note), branch, and a summary (`New 4 ·
 Watched 1 · Forks 2`, "Nothing new" or "Error"). Selecting the header opens or closes the
@@ -185,15 +187,18 @@ local source (`<hash>`: 32-bit FNV-1a of the key, so names that clean up the sam
 clone). git fetches a local source from `fileUrl()` of its folder in `localPaths`, and the
 clone's origin is set to it before each fetch (`remote set-url`), so a moved folder is followed;
 no folder here is a `not-found` error. Commands run without a shell, with
-`GIT_TERMINAL_PROMPT=0`, one at a time per clone.
+`GIT_TERMINAL_PROMPT=0`, one at a time per clone: every host the plugin makes shares the
+queues, so a check, a fork and a compare take turns. A command still running after five minutes
+is stopped, and fails as a `git` error.
 
 | Method | git |
 |---|---|
 | (first use) | `clone --bare --filter=blob:none`, then `remote.origin.fetch = +refs/heads/*:refs/heads/*` |
-| `head` | `fetch --prune`; `ls-remote --symref origin HEAD` when `branch` is null; `rev-parse` the commit and tree |
+| `head` | When `branch` is null, `ls-remote --symref origin HEAD` for the default branch and its commit; `fetch --prune`, unless that commit is the clone's already; `rev-parse` the commit and tree |
 | `tree` | `ls-tree -r -z`, blobs only (submodules skipped) |
 | `changes` | `null` if `base` is unknown or not an ancestor (`cat-file -e`, `merge-base --is-ancestor`); else `diff --name-status -z -M` |
 | `blob` | `cat-file blob`; a partial clone fetches it on demand |
+| `prefetch` | Several blobs in one `fetch`, before forking several files; failing is no error, as `blob` fetches each on demand |
 | `diffStat` | Lines added and removed between two blobs: `diff --numstat <from> <to>`. `null` when git fails (a blob gone upstream can't be fetched) or the diff is binary |
 
 Errors are a `RemoteError` by `kind`: `no-git` (git can't start), `git` (a command failed),
@@ -387,8 +392,9 @@ settings, sorted. A source with no forks has no section: it is added at the end 
 fork and removed with the last. A note with the heading more than once is left alone, with a
 notice.
 
-Updated, debounced, after a fork note is created, renamed, deleted or has its `fork_*` keys
-changed, after a follow note changes, and when the setting is turned on; not before the
+Updated, debounced, after a fork note is created, renamed, deleted or changes the source it is
+a fork of (`fork_remote`, `fork_repo`; its text and other keys are in no list), after a follow
+note changes, and when the setting is turned on; not before the
 workspace is ready, so a half-loaded metadata cache can't empty a list. A note is written only if
 its list changed. A note that stops keeping a list (the setting off, or `list_forks: false`) is
 left as it is. **Update fork lists in follow notes** (`update-fork-lists`) syncs every follow note

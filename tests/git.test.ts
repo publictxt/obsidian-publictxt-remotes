@@ -5,6 +5,7 @@ import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { setTimeout as wait } from 'node:timers/promises';
 import { GitHost, cachePath, parseLsTree, parseNameStatus, parseNumstat } from '../src/remote/git.ts';
 import { gitRunner, pathExists } from '../src/remote/git-process.ts';
 import { RemoteError } from '../src/remote/host.ts';
@@ -146,4 +147,74 @@ test('errors: missing branch, bad SHA, no git', async () => {
 	await assert.rejects(h.blob(REPO, 'abc'), (e) => e instanceof RemoteError && e.kind === 'bad-input');
 	const none = new GitHost({ run: gitRunner('/no/such/git'), cacheDir: join(root, 'x'), join, exists: pathExists });
 	await assert.rejects(none.head(REPO, null), (e) => e instanceof RemoteError && e.kind === 'no-git');
+});
+
+test('queues: hosts sharing them take turns on a clone; a clone with nothing waiting leaves no queue', async () => {
+	const queues = new Map<string, Promise<unknown>>();
+	const log: string[] = [];
+	// A fake git that takes a while: overlapping commands would interleave in the log.
+	const run = (name: string) => async (args: string[]) => {
+		log.push(`${name} start`);
+		await wait(20);
+		log.push(`${name} end`);
+		return { code: 0, stdout: args[0] === 'cat-file' ? name : '', stderr: '' };
+	};
+	const make = (name: string) => new GitHost({ run: run(name), cacheDir: '/cache', join, exists: async () => true, queues });
+	const blob = 'a'.repeat(40);
+	const jobs = [make('one').blob(REPO, blob), make('two').blob(REPO, blob)];
+	assert.equal(queues.size, 1);
+	assert.deepEqual(await Promise.all(jobs), ['one', 'two']);
+	assert.deepEqual(log, ['one start', 'one end', 'two start', 'two end']);
+	await wait(0);
+	assert.equal(queues.size, 0);
+});
+
+test('a command that outlasts the timeout is stopped, and is not a missing git', async () => {
+	const run = gitRunner(process.execPath, 200);
+	await assert.rejects(
+		() => run(['-e', 'setTimeout(() => {}, 10000)'], null),
+		(e: unknown) => e instanceof RemoteError && e.kind === 'git' && /stopped after/.test(e.message),
+	);
+});
+
+test('prefetch: several blobs of a partial clone in one go; a blob it can\'t get is no error', async () => {
+	const key = 'https://example.com/a/pre';
+	const up2 = join(root, 'up2');
+	mkdirSync(up2);
+	const g2 = (...args: string[]) => execFileSync('git', args, { cwd: up2, encoding: 'utf8' }).trim();
+	g2('init', '-q', '-b', 'main');
+	g2('config', 'uploadpack.allowFilter', 'true');
+	for (const n of ['a', 'b', 'c']) writeFileSync(join(up2, `${n}.md`), `${n}\n`);
+	g2('add', '-A');
+	g2('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'one');
+
+	const h = new GitHost({ run: gitRunner(), cacheDir: join(root, 'remotes'), join, exists: pathExists, remote: () => fileUrl(up2) });
+	const head = await h.head(key, null);
+	const { files } = await h.tree(key, head.tree);
+	const clone = join(root, 'remotes', ...cachePath(key));
+	const missing = () => execFileSync('git', ['rev-list', '--objects', '--missing=print', 'main'], { cwd: clone, encoding: 'utf8' }).split('\n').filter((l) => l.startsWith('?')).length;
+	assert.equal(missing(), 3);
+	await h.prefetch(key, [files.get('a.md') ?? '', files.get('b.md') ?? '']);
+	assert.equal(missing(), 1);
+	await h.prefetch(key, ['f'.repeat(40)]);
+	assert.equal(await h.blob(key, files.get('c.md') ?? ''), 'c\n');
+});
+
+test('head of the default branch: no fetch when the clone is already there, one when upstream moved', async () => {
+	const key = 'https://example.com/a/quiet';
+	const ran: string[] = [];
+	const real = gitRunner();
+	const h = new GitHost({ run: (args, cwd) => (ran.push(args[0] ?? ''), real(args, cwd)), cacheDir: join(root, 'remotes'), join, exists: pathExists, remote: () => up });
+	const first = await h.head(key, null);
+	assert.equal(first.commit, g('rev-parse', 'HEAD'));
+
+	ran.length = 0;
+	assert.deepEqual(await h.head(key, null), first);
+	assert.ok(!ran.includes('fetch'), ran.join(' '));
+
+	write('quiet.md', 'q\n');
+	const next = commit('quiet');
+	ran.length = 0;
+	assert.equal((await h.head(key, null)).commit, next);
+	assert.ok(ran.includes('fetch'));
 });

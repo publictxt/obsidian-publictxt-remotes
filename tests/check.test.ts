@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { acknowledged, checkSource, checked, inInclude, isSettled, latestFirst, type Fork } from '../src/check/check.ts';
+import { acknowledged, checkSource, checked, checkedAll, inInclude, isSettled, latestFirst } from '../src/check/check.ts';
+import type { Fork } from '../src/sources/fork-meta.ts';
 import type { Change, Head, RemoteHost } from '../src/remote/host.ts';
 import type { Source, SourceState } from '../src/sources/schema.ts';
 import type { Remote } from '../src/fork/fork.ts';
@@ -136,4 +137,15 @@ test('checked moves checkedAt only; acknowledged moves seenCommit and watched', 
 	assert.deepEqual(checked(st, 'T'), { ...st, checkedAt: 'T' });
 	const c = await checkSource(fakeHost({ 'w.md': sha('1') }), source({ watch: ['w.md'] }), st, []);
 	assert.deepEqual(acknowledged(c, 'T'), { seenCommit: HEAD.commit, checkedAt: 'T', watched: { 'w.md': sha('1') } });
+});
+
+test('checkedAll: from the state now; failed sources keep theirs, unfollowed are dropped', () => {
+	const at = '2026-11-11T10:00:00+02:00';
+	// Acknowledged while the run was going: seenCommit already at the new head.
+	const now = { [URL_]: state({ seenCommit: sha('c') }), 'https://github.com/x/failed': state(), 'https://github.com/x/gone': state() };
+	const next = checkedAll(now, [{ url: URL_, ok: true }, { url: 'https://github.com/x/failed', ok: false }, { url: 'https://github.com/x/new', ok: true }, { url: 'https://github.com/x/new-failed', ok: false }], at);
+	assert.deepEqual(next[URL_], state({ seenCommit: sha('c'), checkedAt: at }));
+	assert.deepEqual(next['https://github.com/x/failed'], state());
+	assert.deepEqual(next['https://github.com/x/new'], { seenCommit: null, watched: {}, checkedAt: at });
+	assert.deepEqual(Object.keys(next).sort(), [URL_, 'https://github.com/x/failed', 'https://github.com/x/new']);
 });

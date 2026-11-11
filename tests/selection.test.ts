@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { SourceCheck } from '../src/check/check.ts';
-import { canFork, forkablePaths, forkableUnder, selectedPaths, ticked, toggleAll } from '../src/check/selection.ts';
+import { canFork, forkableByFolder, forkablePaths, forkableUnder, selectedPaths, ticked, toggleAll } from '../src/check/selection.ts';
 import type { Change } from '../src/remote/host.ts';
 
 const change = (path: string, status: Change['status'] = 'modified'): Change => ({ path, status, from: null });
@@ -60,4 +60,12 @@ test('forkableUnder: a file already forked is left out of its folder\'s box, but
 	const c = check([change('wiki/a.md'), change('wiki/b.md')], [], ['wiki/a.md']);
 	assert.deepEqual(forkableUnder(c, 'wiki'), ['wiki/b.md']);
 	assert.deepEqual(selectedPaths(c, new Set(['wiki/a.md'])), ['wiki/a.md']);
+});
+
+test('forkableByFolder: forkableUnder, for every folder that has any', () => {
+	const by = forkableByFolder(C);
+	for (const [folder, paths] of by) assert.deepEqual(paths, forkableUnder(C, folder), folder);
+	const folders = new Set(C.changes.flatMap((ch) => ch.path.split('/').slice(0, -1).map((_, i, parts) => parts.slice(0, i + 1).join('/'))));
+	for (const folder of folders) assert.deepEqual(by.get(folder) ?? [], forkableUnder(C, folder), folder);
+	assert.ok(by.size > 0);
 });

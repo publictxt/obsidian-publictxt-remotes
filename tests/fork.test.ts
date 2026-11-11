@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { forkPath, forksOf, freePath, isForkable, localIso, newForkMeta } from '../src/fork/fork.ts';
-import type { Fork } from '../src/check/check.ts';
+import { forkPath, forksOf, freePath, isForkable, newForkMeta } from '../src/fork/fork.ts';
+import type { Fork } from '../src/sources/fork-meta.ts';
+import { localIso } from '../src/util/time.ts';
 import { readForkMeta, forkMetaProps } from '../src/sources/fork-meta.ts';
 
 const sha = (c: string) => c.repeat(40);

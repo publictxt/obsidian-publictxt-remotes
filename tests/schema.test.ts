@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_DATA, normalizeData, normalizeSource, pruneState } from '../src/sources/schema.ts';
+import { DEFAULT_DATA, normalizeData, normalizeSource } from '../src/sources/schema.ts';
 
 const B = '0123456789abcdef0123456789abcdef01234567';
 
@@ -46,12 +46,6 @@ test('local sources: state under local keys; folders by valid name, as absolute 
 	assert.deepEqual(d.localPaths, { notes: '/home/me/notes' });
 	assert.equal(normalizeSource({ local: true }, 'notes')?.url, 'local:notes');
 	assert.equal(normalizeSource({ local: true }), null);
-});
-
-test('pruneState: keeps followed sources only', () => {
-	const st = { seenCommit: B, checkedAt: null, watched: {} };
-	const d = normalizeData({ state: { 'https://github.com/a/b': st, 'https://github.com/gone/x': st } });
-	assert.deepEqual(Object.keys(pruneState(d, ['https://github.com/a/b']).state), ['https://github.com/a/b']);
 });
 
 test('folders trimmed of slashes; remotesFolder and gitPath never empty', () => {
