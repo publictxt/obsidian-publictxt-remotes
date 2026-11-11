@@ -60,6 +60,9 @@ export default class PublicTxtPlugin extends Plugin {
 		this.checking = 'Checking…';
 		this.renderViews();
 		try {
+			// Not as Obsidian starts: with the metadata cache half loaded, follow notes read as
+			// invalid, and the state of every source would be dropped as no longer followed.
+			await new Promise<void>((ready) => this.app.workspace.onLayoutReady(ready));
 			const run = await runCheck(this.app, this.data, (done, total) => {
 				this.checking = `Checking ${Math.min(done + 1, total)} of ${total}…`;
 				this.renderViews();

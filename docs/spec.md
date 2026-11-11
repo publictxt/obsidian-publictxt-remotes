@@ -144,7 +144,8 @@ without a valid date after any with; ties by path, in byte order. A file that is
 source, one at a time. **Open check view** opens it without checking. The last run is kept in
 memory only; `checkedAt` is saved for each source checked, and state for sources no longer
 followed is dropped. The state saved is built from the state when the run ends, so a source
-acknowledged while it ran stays acknowledged.
+acknowledged while it ran stays acknowledged. A check asked for as Obsidian starts waits for the
+workspace to be ready, so a half-loaded metadata cache can't make sources look unfollowed.
 
 Per source, a header: its remote name (opens the follow note), branch, and a summary (`New 4 ·
 Watched 1 · Forks 2`, "Nothing new" or "Error"). Selecting the header opens or closes the
