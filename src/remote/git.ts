@@ -44,6 +44,9 @@ export interface GitHostOptions {
 	queues?: Map<string, Promise<unknown>>;
 }
 
+/** Blobs asked for in one fetch: well under any limit on a command line's length. */
+const PREFETCH_BATCH = 200;
+
 const STATUS: Record<string, ChangeStatus> = {
 	A: 'added',
 	C: 'added',
@@ -151,12 +154,12 @@ export class GitHost implements RemoteHost {
 		return gitOrThrow(this.o.run, args, cwd, ok);
 	}
 
-	/** The clone of `repo`, made on first use. Its origin is set to `remote` each time, as a local folder can move. */
+	/** The clone of `repo`, made on first use. A local source's origin is set to `remote` each time, as its folder can move. */
 	private async ensureClone(repo: string): Promise<string> {
 		const dir = this.dir(repo);
 		const remote = this.o.remote ? this.o.remote(repo) : repo;
 		if (await this.o.exists(dir)) {
-			if (this.o.remote) await this.git(['remote', 'set-url', 'origin', remote], dir);
+			if (this.o.remote && isLocalRepo(repo)) await this.git(['remote', 'set-url', 'origin', remote], dir);
 			return dir;
 		}
 		await this.git(['clone', '--bare', '--filter=blob:none', '--quiet', '--', remote, dir], null);
@@ -208,6 +211,20 @@ export class GitHost implements RemoteHost {
 		return this.serial(repo, async () => {
 			// Partial clone: the blob is fetched on demand.
 			return (await this.git(['cat-file', 'blob', sha(blob, 'blob')], this.dir(repo))).stdout;
+		});
+	}
+
+	prefetch(repo: string, blobs: readonly string[]): Promise<void> {
+		return this.serial(repo, async () => {
+			const dir = this.dir(repo);
+			const ids = [...new Set(blobs.map((b) => sha(b, 'blob')))];
+			// As git fetches a missing object itself, but many in one go. Blobs already here cost
+			// nothing to ask for again. Failing is fine: `blob` fetches each on demand.
+			for (let i = 0; i < ids.length; i += PREFETCH_BATCH) {
+				const args = ['-c', 'fetch.negotiationAlgorithm=noop', 'fetch', '--quiet', '--no-tags', '--no-write-fetch-head', '--recurse-submodules=no', '--filter=blob:none', 'origin'];
+				const r = await this.o.run([...args, ...ids.slice(i, i + PREFETCH_BATCH)], dir);
+				if (r.code !== 0) return;
+			}
 		});
 	}
 

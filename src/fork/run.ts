@@ -77,6 +77,9 @@ async function forkOne(app: App, host: RemoteHost, from: ForkSource, files: Tree
 /** Forks each file in turn, going on past one that fails; one notice says how it went. */
 async function forkSeveral(app: App, host: RemoteHost, from: ForkSource, files: Tree['files'], plan: readonly PlannedFork[]): Promise<void> {
 	const failed: string[] = [];
+	// One fetch for them all, not one each.
+	const blobs = plan.map((f) => files.get(f.path)).filter((b): b is string => b !== undefined);
+	await host.prefetch?.(from.url, blobs);
 	for (const fork of plan) {
 		try {
 			await forkTo(app, host, from, files, fork);

@@ -198,6 +198,7 @@ is stopped, and fails as a `git` error.
 | `tree` | `ls-tree -r -z`, blobs only (submodules skipped) |
 | `changes` | `null` if `base` is unknown or not an ancestor (`cat-file -e`, `merge-base --is-ancestor`); else `diff --name-status -z -M` |
 | `blob` | `cat-file blob`; a partial clone fetches it on demand |
+| `prefetch` | Several blobs in one `fetch`, before forking several files; failing is no error, as `blob` fetches each on demand |
 | `diffStat` | Lines added and removed between two blobs: `diff --numstat <from> <to>`. `null` when git fails (a blob gone upstream can't be fetched) or the diff is binary |
 
 Errors are a `RemoteError` by `kind`: `no-git` (git can't start), `git` (a command failed),

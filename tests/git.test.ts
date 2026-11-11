@@ -176,3 +176,26 @@ test('a command that outlasts the timeout is stopped, and is not a missing git',
 		(e: unknown) => e instanceof RemoteError && e.kind === 'git' && /stopped after/.test(e.message),
 	);
 });
+
+test('prefetch: several blobs of a partial clone in one go; a blob it can\'t get is no error', async () => {
+	const key = 'https://example.com/a/pre';
+	const up2 = join(root, 'up2');
+	mkdirSync(up2);
+	const g2 = (...args: string[]) => execFileSync('git', args, { cwd: up2, encoding: 'utf8' }).trim();
+	g2('init', '-q', '-b', 'main');
+	g2('config', 'uploadpack.allowFilter', 'true');
+	for (const n of ['a', 'b', 'c']) writeFileSync(join(up2, `${n}.md`), `${n}\n`);
+	g2('add', '-A');
+	g2('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'one');
+
+	const h = new GitHost({ run: gitRunner(), cacheDir: join(root, 'remotes'), join, exists: pathExists, remote: () => fileUrl(up2) });
+	const head = await h.head(key, null);
+	const { files } = await h.tree(key, head.tree);
+	const clone = join(root, 'remotes', ...cachePath(key));
+	const missing = () => execFileSync('git', ['rev-list', '--objects', '--missing=print', 'main'], { cwd: clone, encoding: 'utf8' }).split('\n').filter((l) => l.startsWith('?')).length;
+	assert.equal(missing(), 3);
+	await h.prefetch(key, [files.get('a.md') ?? '', files.get('b.md') ?? '']);
+	assert.equal(missing(), 1);
+	await h.prefetch(key, ['f'.repeat(40)]);
+	assert.equal(await h.blob(key, files.get('c.md') ?? ''), 'c\n');
+});
