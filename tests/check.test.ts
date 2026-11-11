@@ -118,6 +118,9 @@ test('forks: one row per upstream file, its copies latest first, listed while an
 	assert.deepEqual(listed.forks.map((f) => [f.path, f.copies.map((x) => x.path)]), [['a.md', ['a (up-01).md', 'a.md']]]);
 	const settled = await checkSource(host, source(), st, [copy('a.md', { seen: sha('1') }), alongside]);
 	assert.deepEqual(settled.forks, []);
+	// Forked paths are kept either way, for the view to mark.
+	assert.deepEqual([...listed.forked].sort(), ['a.md', 'b.md']);
+	assert.deepEqual([...settled.forked], ['a.md']);
 });
 
 test('forks: gone upstream is quiet once kept, and listed again when the file is back and differs', async () => {

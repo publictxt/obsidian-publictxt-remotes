@@ -163,7 +163,10 @@ open header: the error, or "nothing new", or the two actions and then the lists:
 - A file that can be forked (Markdown, not removed), in either list, has a tick box and
   **Fork**. A folder holding any has a tick box for them all: ticked, half ticked or clear;
   selecting it ticks them all, or clears them if all were ticked. Ticks stay like what's open;
-  one whose file a later check doesn't list isn't counted.
+  one whose file a later check doesn't list isn't counted. A file the user has already forked
+  also has **Compare** (as under Forks changed upstream) while its copies aren't settled, else
+  the word "forked"; it keeps its own tick box and **Fork**, but a folder's tick box leaves it
+  out, so ticking a folder never forks it again.
 - **Forks changed upstream**: a row per upstream file (its `fork_path`), then a row per copy,
   latest first (opens the note; with several, the first says "latest"). A changed file has
   **Compare**, for the latest copy. A file gone upstream has **Detach** and **Keep** (Fork

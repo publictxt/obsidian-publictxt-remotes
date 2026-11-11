@@ -43,6 +43,8 @@ export interface SourceCheck {
 	reason: NewReason | null;
 	watched: WatchedChange[];
 	forks: ForkChange[];
+	/** Every upstream path the user has a fork of, changed or not: the view marks those files. */
+	forked: ReadonlySet<string>;
 	/** Blob at head per watched path that exists there: what acknowledging stores. */
 	watchedBlobs: Record<string, string>;
 }
@@ -78,14 +80,12 @@ export async function checkSource(host: RemoteHost, source: Source & Remote, sta
 		else if (before !== blob) watched.push({ path, status: 'modified', blob });
 	}
 
-	return { url: source.url, head, changes: inScope, reason, watched, forks: forkChanges(source, files, forks), watchedBlobs };
+	const byPath = copiesByPath(source, forks);
+	return { url: source.url, head, changes: inScope, reason, watched, forks: forkChanges(byPath, files), forked: new Set(byPath.keys()), watchedBlobs };
 }
 
-/**
- * The upstream files that changed under this source's forks, by path. The notes forked from one
- * file are its copies; the file is listed while any of them isn't settled for what is at head.
- */
-function forkChanges(source: Remote, files: ReadonlyMap<string, string>, forks: readonly Fork[]): ForkChange[] {
+/** This source's forks by the upstream file they came from: that file's copies. */
+function copiesByPath(source: Remote, forks: readonly Fork[]): Map<string, Fork[]> {
 	const byPath = new Map<string, Fork[]>();
 	for (const fork of forks) {
 		if (!isForkOf(fork.meta, source)) continue;
@@ -93,6 +93,11 @@ function forkChanges(source: Remote, files: ReadonlyMap<string, string>, forks: 
 		if (copies) copies.push(fork);
 		else byPath.set(fork.meta.path, [fork]);
 	}
+	return byPath;
+}
+
+/** The upstream files that changed under their copies, by path: listed while any copy isn't settled for what is at head. */
+function forkChanges(byPath: ReadonlyMap<string, Fork[]>, files: ReadonlyMap<string, string>): ForkChange[] {
 	const out: ForkChange[] = [];
 	for (const path of [...byPath.keys()].sort()) {
 		const copies = byPath.get(path) ?? [];

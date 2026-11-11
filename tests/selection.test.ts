@@ -6,8 +6,8 @@ import type { Change } from '../src/remote/host.ts';
 
 const change = (path: string, status: Change['status'] = 'modified'): Change => ({ path, status, from: null });
 
-function check(changes: Change[], watched: SourceCheck['watched'] = []): SourceCheck {
-	return { url: 'https://github.com/a/b', head: { branch: 'main', commit: '', tree: '' }, changes, reason: null, watched, forks: [], watchedBlobs: {} };
+function check(changes: Change[], watched: SourceCheck['watched'] = [], forked: string[] = []): SourceCheck {
+	return { url: 'https://github.com/a/b', head: { branch: 'main', commit: '', tree: '' }, changes, reason: null, watched, forks: [], forked: new Set(forked), watchedBlobs: {} };
 }
 
 const C = check(
@@ -54,4 +54,10 @@ test('toggleAll: ticks all unless all were ticked, then clears them; others unto
 	assert.deepEqual([...sel].sort(), ['a', 'b', 'z']);
 	toggleAll(sel, ['a', 'b']);
 	assert.deepEqual([...sel], ['z']);
+});
+
+test('forkableUnder: a file already forked is left out of its folder\'s box, but can still be ticked', () => {
+	const c = check([change('wiki/a.md'), change('wiki/b.md')], [], ['wiki/a.md']);
+	assert.deepEqual(forkableUnder(c, 'wiki'), ['wiki/b.md']);
+	assert.deepEqual(selectedPaths(c, new Set(['wiki/a.md'])), ['wiki/a.md']);
 });
