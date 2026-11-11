@@ -6,12 +6,14 @@ import type PublicTxtPlugin from '../main.ts';
 import type { SourceResult } from '../check/run.ts';
 import { FOLLOWS_FOLDER } from '../sources/follow-note.ts';
 import { startFork } from '../fork/run.ts';
-import { renderSource } from './check-source.ts';
+import { newSourceUi, renderSource, sourceOpen, type SourceUi } from './check-source.ts';
 
 export const VIEW_TYPE_CHECK = 'publictxt-check';
 
 export class CheckView extends ItemView {
 	private readonly plugin: PublicTxtPlugin;
+	/** What the user opened and closed, per source key. Kept across checks, gone with the view. */
+	private readonly ui = new Map<string, SourceUi>();
 
 	constructor(leaf: WorkspaceLeaf, plugin: PublicTxtPlugin) {
 		super(leaf);
@@ -39,6 +41,8 @@ export class CheckView extends ItemView {
 	/** Draws the last run, or the prompt to run one. */
 	render(): void {
 		const el = this.contentEl;
+		// Drawing again (a row opened, a check's progress) must not jump back to the top.
+		const scrolled = el.scrollTop;
 		el.empty();
 		const { lastRun, checking } = this.plugin;
 
@@ -53,7 +57,8 @@ export class CheckView extends ItemView {
 		if (lastRun.ignored) {
 			el.createEl('p', { cls: 'publictxt-warning', text: `${lastRun.ignored} follow notes ignored: see settings.` });
 		}
-		for (const r of lastRun.results) renderSource(el, r);
+		for (const r of lastRun.results) renderSource(el, r, this.uiOf(r.follow.url));
+		el.scrollTop = scrolled;
 	}
 
 	/** The one click handler: `data-open` opens a note, `data-action` runs one. */
@@ -88,7 +93,24 @@ export class CheckView extends ItemView {
 			case 'fork':
 				if (path) this.fork(url, path);
 				break;
+			case 'toggle-source':
+				this.toggleSource(url);
+				break;
 		}
+	}
+
+	private uiOf(url: string): SourceUi {
+		let ui = this.ui.get(url);
+		if (!ui) this.ui.set(url, (ui = newSourceUi()));
+		return ui;
+	}
+
+	private toggleSource(url: string): void {
+		const r = this.result(url);
+		if (!r) return;
+		const ui = this.uiOf(url);
+		ui.open = !sourceOpen(r, ui);
+		this.render();
 	}
 
 	/** The last check's result for the source `url`. */

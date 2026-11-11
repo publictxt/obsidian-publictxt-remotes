@@ -25,8 +25,17 @@
 	margin-bottom: var(--size-4-3);
 }
 
-.publictxt-check .publictxt-source h4 a {
-	cursor: pointer;
+.publictxt-check .publictxt-source-head {
+	font-weight: var(--font-semibold);
+	align-items: center;
+}
+
+.publictxt-check .publictxt-source-head .publictxt-branch {
+	font-weight: var(--font-normal);
+}
+
+.publictxt-check .publictxt-source-head button {
+	margin-left: var(--size-4-2);
 }
 
 .publictxt-check [class^='publictxt-status-'] {
