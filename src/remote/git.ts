@@ -4,7 +4,7 @@
 
 import { isLocalRepo, localName } from '../sources/repo-url.ts';
 import { isSha } from '../util/validate.ts';
-import { RemoteError, type Change, type ChangeStatus, type Head, type RemoteHost, type Tree } from './host.ts';
+import { RemoteError, type Change, type ChangeStatus, type DiffStat, type Head, type RemoteHost, type Tree } from './host.ts';
 
 export interface GitResult {
 	code: number;
@@ -98,6 +98,14 @@ export function parseLsTree(out: string): Map<string, string> {
 	return files;
 }
 
+/** Parses `git diff --numstat` output for one pair of blobs; `null` for a binary one. No output: no difference. */
+export function parseNumstat(out: string): DiffStat | null {
+	const line = out.trim();
+	if (!line) return { added: 0, removed: 0 };
+	const m = /^(\d+)\t(\d+)\t/.exec(line);
+	return m ? { added: Number(m[1]), removed: Number(m[2]) } : null;
+}
+
 export class GitHost implements RemoteHost {
 	private readonly o: GitHostOptions;
 	/** Per-clone queue: git takes locks, so commands on one clone run in turn. */
@@ -183,6 +191,15 @@ export class GitHost implements RemoteHost {
 		return this.serial(repo, async () => {
 			// Partial clone: the blob is fetched on demand.
 			return (await this.git(['cat-file', 'blob', sha(blob, 'blob')], this.dir(repo))).stdout;
+		});
+	}
+
+	diffStat(repo: string, from: string, to: string): Promise<DiffStat | null> {
+		return this.serial(repo, async () => {
+			// Partial clone: a missing blob is fetched on demand. One that is gone upstream (history
+			// rewritten) fails, and then there is nothing to count.
+			const r = await this.o.run(['diff', '--numstat', sha(from, 'blob'), sha(to, 'blob')], this.dir(repo));
+			return r.code === 0 ? parseNumstat(r.stdout) : null;
 		});
 	}
 }
