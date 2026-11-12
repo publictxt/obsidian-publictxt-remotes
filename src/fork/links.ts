@@ -164,23 +164,69 @@ export function linkShows(original: string): string {
 	return MARKDOWN.exec(original)?.[1] ?? original;
 }
 
-/** What `convertLinks` did: links rewritten, and those left, by why. */
+/** What wikilinks can't hold in their name. */
+const NOT_IN_WIKILINK = /[[\]|#^]/;
+
+/**
+ * The shortest name for a wikilink to the upstream note `path` that has no copy in the vault:
+ * the end of its path (`b`, `cs/b`, `wiki/cs/b`) that upstream reads back as `path` from the note
+ * forked from `forkPath`. So once the note is forked, the link converts to the copy. Until then
+ * it dangles, or lands on a vault note of that name: the wiki way. `null`: not a note.
+ */
+export function danglingName(path: string, forkPath: string, files: UpstreamFiles): string | null {
+	const stem = path.replace(/\.md$/i, '');
+	if (stem === path || NOT_IN_WIKILINK.test(stem)) return null;
+	const parts = stem.split('/');
+	for (let i = parts.length - 1; i >= 0; i--) {
+		const name = parts.slice(i).join('/');
+		const back = upstreamTarget({ original: `[[${name}]]`, link: name }, forkPath, files);
+		if (back && 'path' in back && back.path === path) return name;
+	}
+	return null;
+}
+
+/** `[[name#subpath]]`, with `shows` as its alias when it would show something else. `null`: `shows` can't be an alias. */
+export function wikilink(name: string, subpath: string, shows: string): string | null {
+	const plain = `[[${name}${subpath}]]`;
+	if (linkShows(plain) === shows) return plain;
+	return /\||\]\]|\n/.test(shows) ? null : `[[${name}${subpath}|${shows}]]`;
+}
+
+/**
+ * A link to the upstream note `path`, which has no copy in the vault, as a wikilink by name
+ * (`danglingName`) showing what it showed. `null`: it already is a wikilink, which upstream reads
+ * as that note. Left as it is when no wikilink will do (not a note, or its words can't be an alias).
+ */
+export function danglingLink(ref: Pick<LinkRef, 'original' | 'link'>, path: string, forkPath: string, files: UpstreamFiles): { dangling: string } | { left: 'unforked' } | null {
+	if (isWikilink(ref.original)) return null;
+	const name = danglingName(path, forkPath, files);
+	const { subpath } = splitLink(ref.link);
+	const link = name === null ? null : wikilink(name, decoded(subpath), linkShows(ref.original));
+	return link === null ? { left: 'unforked' } : { dangling: link };
+}
+
+/** What becomes of a link: its new text, a dangling wikilink, why it is left, or `null`: right as it is. */
+export type LinkPlan = string | { dangling: string } | { left: Left } | null;
+
+/** What `convertLinks` did: links rewritten (`dangling` of them to notes not forked), and those left, by why. */
 export interface Converted {
 	text: string;
 	converted: number;
+	dangling: number;
 	left: Record<Left, number>;
 }
 
 /** Over several notes: what `convertLinks` did, the notes it changed, and those whose cache was stale. */
 export interface LinkTally {
 	converted: number;
+	dangling: number;
 	left: Record<Left, number>;
 	notes: number;
 	stale: string[];
 }
 
 export function emptyTally(): LinkTally {
-	return { converted: 0, left: { unforked: 0, missing: 0, unclear: 0 }, notes: 0, stale: [] };
+	return { converted: 0, dangling: 0, left: { unforked: 0, missing: 0, unclear: 0 }, notes: 0, stale: [] };
 }
 
 /** Adds one note's result to `t`. `null`: its cache was stale. */
@@ -190,6 +236,7 @@ export function addToTally(t: LinkTally, note: string, c: Converted | null): voi
 		return;
 	}
 	t.converted += c.converted;
+	t.dangling += c.dangling;
 	if (c.converted > 0) t.notes++;
 	for (const k of Object.keys(t.left) as Left[]) t.left[k] += c.left[k];
 }
@@ -199,7 +246,10 @@ export function tallyText(t: LinkTally, many: boolean): string {
 	const n = (k: number, one: string, more = `${one}s`) => `${k} ${k === 1 ? one : more}`;
 	const lines: string[] = [];
 	if (t.converted === 0) lines.push('No links to convert.');
-	else lines.push(`Converted ${n(t.converted, 'link')}${many ? ` in ${n(t.notes, 'note')}` : ''}.`);
+	else {
+		const dangling = t.dangling ? `, ${t.dangling} to notes not forked yet` : '';
+		lines.push(`Converted ${n(t.converted, 'link')}${many ? ` in ${n(t.notes, 'note')}` : ''}${dangling}.`);
+	}
 	const left = [
 		t.left.unforked ? `${t.left.unforked} not forked` : '',
 		t.left.missing ? `${t.left.missing} not in the source` : '',
@@ -211,28 +261,31 @@ export function tallyText(t: LinkTally, many: boolean): string {
 }
 
 /**
- * Rewrites the links `refs` in `text`. `plan(ref)` gives a link's new text, why it is left, or
- * `null` when it is right as it is. A new text equal to the old isn't counted. An embed stays an
+ * Rewrites the links `refs` in `text`. `plan(ref)` gives a link's new text (to a copy, or
+ * dangling), why it is left, or `null` when it is right as it is. A new text equal to the old isn't counted. An embed stays an
  * embed. `null` when a ref's offsets don't hold its `original`: the cache is stale.
  */
-export function convertLinks(text: string, refs: readonly LinkRef[], plan: (ref: LinkRef) => string | { left: Left } | null): Converted | null {
+export function convertLinks(text: string, refs: readonly LinkRef[], plan: (ref: LinkRef) => LinkPlan): Converted | null {
 	if (refs.some((r) => text.slice(r.start, r.end) !== r.original)) return null;
 	const left: Record<Left, number> = { unforked: 0, missing: 0, unclear: 0 };
 	let converted = 0;
+	let dangling = 0;
 	let out = text;
 	for (const ref of [...refs].sort((a, b) => b.start - a.start)) {
 		const p = plan(ref);
 		if (p === null) continue;
-		if (typeof p !== 'string') {
+		if (typeof p !== 'string' && 'left' in p) {
 			left[p.left]++;
 			continue;
 		}
-		const next = ref.embed && !p.startsWith('!') ? `!${p}` : p;
+		const link = typeof p === 'string' ? p : p.dangling;
+		const next = ref.embed && !link.startsWith('!') ? `!${link}` : link;
 		if (next === ref.original) continue;
 		out = out.slice(0, ref.start) + next + out.slice(ref.end);
 		converted++;
+		if (typeof p !== 'string') dangling++;
 	}
-	return { text: out, converted, left };
+	return { text: out, converted, dangling, left };
 }
 
 /** Every `[[…]]` and `[…](…)`, embedded or not. Read the same way on both sides of a compare. */

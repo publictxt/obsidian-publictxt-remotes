@@ -11,7 +11,7 @@ import { scanFollows } from '../sources/follows.ts';
 import { scanForks } from '../sources/forks.ts';
 import type { PublicTxtData } from '../sources/schema.ts';
 import { forksOf, isForkOf, type Remote } from './fork.ts';
-import { addToTally, convertLinks, emptyTally, linkShows, splitLink, tallyText, upstreamFiles, upstreamTarget, type Converted, type Left, type LinkRef, type LinkTally, type UpstreamFiles } from './links.ts';
+import { addToTally, convertLinks, danglingLink, emptyTally, linkShows, splitLink, tallyText, upstreamFiles, upstreamTarget, type Converted, type LinkPlan, type LinkRef, type LinkTally, type UpstreamFiles } from './links.ts';
 
 /** One source's forks, and its files at each commit they were forked at, read once. */
 class SourceLinks {
@@ -62,7 +62,7 @@ class SourceLinks {
 	async convertNote(file: TFile, meta: ForkMeta, write: boolean): Promise<Converted | null> {
 		const cache = this.app.metadataCache.getFileCache(file);
 		const refs = refsOf(cache);
-		if (refs.length === 0) return { text: '', converted: 0, left: { unforked: 0, missing: 0, unclear: 0 } };
+		if (refs.length === 0) return { text: '', converted: 0, dangling: 0, left: { unforked: 0, missing: 0, unclear: 0 } };
 		const files = await this.filesAt(meta.commit);
 		const plan = (ref: LinkRef) => this.planLink(ref, file, meta, files);
 		const counted = convertLinks(await this.app.vault.cachedRead(file), refs, plan);
@@ -76,8 +76,8 @@ class SourceLinks {
 		return result;
 	}
 
-	/** A link's new text, why it is left, or `null` when it isn't a link to a file. */
-	private planLink(ref: LinkRef, file: TFile, meta: ForkMeta, files: UpstreamFiles): string | { left: Left } | null {
+	/** A link's new text, why it is left, or `null` when it isn't a link to a file or is right as it is. */
+	private planLink(ref: LinkRef, file: TFile, meta: ForkMeta, files: UpstreamFiles): LinkPlan {
 		const upstream = upstreamTarget(ref, meta.path, files);
 		if (upstream === null) return null;
 		const { path, subpath } = splitLink(ref.link);
@@ -92,7 +92,8 @@ class SourceLinks {
 		} else {
 			if ('left' in upstream) return upstream;
 			target = upstream.path === meta.path ? file : this.copyOf(upstream.path);
-			if (!target) return { left: 'unforked' };
+			// Not forked: a wikilink by name, which converts to the copy once it is forked.
+			if (!target) return danglingLink(ref, upstream.path, meta.path, files);
 		}
 		return this.linkTo(target, file.path, subpath, ref.original);
 	}
@@ -183,7 +184,7 @@ export async function offerConvert(app: App, host: RemoteHost, remote: Remote, w
 		if (count.converted === 0) return;
 		const n = count.converted;
 		const message = createFragment();
-		message.createDiv({ text: `${n} ${n === 1 ? 'link' : 'links'} in your forks of ${remote.name} can now point to your copies.` });
+		message.createDiv({ text: `${n} ${n === 1 ? 'link' : 'links'} in your forks of ${remote.name} can be converted.` });
 		const button = message.createEl('button', { text: 'Convert', cls: 'mod-cta' });
 		const notice = new Notice(message, 0);
 		button.addEventListener('click', (e) => {

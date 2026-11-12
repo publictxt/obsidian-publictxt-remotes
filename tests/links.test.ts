@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addToTally, convertLinks, emptyTally, isWikilink, linkShows, matchesExceptLinks, splitLink, tallyText, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
+import { addToTally, convertLinks, danglingLink, danglingName, emptyTally, wikilink, isWikilink, linkShows, matchesExceptLinks, splitLink, tallyText, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
 
 const FILES = upstreamFiles(['wiki/a.md', 'wiki/cs/b.md', 'wiki/c.md', 'cs/b.md', 'top.md', 'wiki/v1.2 notes.md', 'wiki/My Note.md', 'x/dup.md', 'y/dup.md', 'img/p.png']);
 const FROM = 'wiki/a.md';
@@ -99,6 +99,7 @@ test('convertLinks: rewrites from the end, keeps embeds, counts what is left', (
 	assert.deepEqual(r, {
 		text: 'See [[b]] and [[c 1|c]].\n\n![[c 1|c]]\n\n[[gone]] [[dup]] [[x]]\n',
 		converted: 3,
+		dangling: 0,
 		left: { unforked: 1, missing: 1, unclear: 1 },
 	});
 });
@@ -106,7 +107,7 @@ test('convertLinks: rewrites from the end, keeps embeds, counts what is left', (
 test('convertLinks: the same text or null is no change; a second run changes nothing', () => {
 	const text = 'a [[b]] c';
 	const once = convertLinks(text, refsOf(text), () => '[[b]]');
-	assert.deepEqual(once, { text, converted: 0, left: { unforked: 0, missing: 0, unclear: 0 } });
+	assert.deepEqual(once, { text, converted: 0, dangling: 0, left: { unforked: 0, missing: 0, unclear: 0 } });
 	assert.equal(convertLinks(text, refsOf(text), () => null)?.converted, 0);
 });
 
@@ -119,11 +120,11 @@ test('convertLinks: a stale position writes nothing', () => {
 test('tallyText: what was converted, what was left, what to try again', () => {
 	const t = emptyTally();
 	assert.equal(tallyText(t, false), 'No links to convert.');
-	addToTally(t, 'a.md', { text: '', converted: 3, left: { unforked: 2, missing: 1, unclear: 0 } });
-	addToTally(t, 'b.md', { text: '', converted: 0, left: { unforked: 0, missing: 0, unclear: 1 } });
-	addToTally(t, 'c.md', { text: '', converted: 1, left: { unforked: 0, missing: 0, unclear: 0 } });
+	addToTally(t, 'a.md', { text: '', converted: 3, dangling: 2, left: { unforked: 2, missing: 1, unclear: 0 } });
+	addToTally(t, 'b.md', { text: '', converted: 0, dangling: 0, left: { unforked: 0, missing: 0, unclear: 1 } });
+	addToTally(t, 'c.md', { text: '', converted: 1, dangling: 0, left: { unforked: 0, missing: 0, unclear: 0 } });
 	addToTally(t, 'd.md', null);
-	assert.equal(tallyText(t, false), 'Converted 4 links. Left: 2 not forked, 1 not in the source, 1 unclear. Changed while converting, try again: d.md.');
+	assert.equal(tallyText(t, false), 'Converted 4 links, 2 to notes not forked yet. Left: 2 not forked, 1 not in the source, 1 unclear. Changed while converting, try again: d.md.');
 	assert.equal(tallyText({ ...emptyTally(), converted: 1, notes: 1 }, true), 'Converted 1 link in 1 note.');
 });
 
@@ -142,4 +143,36 @@ test('matchesExceptLinks: changed words, subpath, embed, links or text are edits
 	assert.ok(!matchesExceptLinks('See [[a#H|sorting]] and ![[c]] [[d]].\n', forked));
 	assert.ok(!matchesExceptLinks('See [[a#H|sorting]], and ![[c]].\n', forked));
 	assert.ok(!matchesExceptLinks('See [sorting](cs/a.md#H) and ![[c]].\nMore.\n', forked));
+});
+
+test('danglingName: the shortest name upstream reads back as the note', () => {
+	assert.equal(danglingName('wiki/c.md', FROM, FILES), 'c');
+	// `b` is two files upstream: the shortest that is only this one.
+	assert.equal(danglingName('wiki/cs/b.md', FROM, FILES), 'wiki/cs/b');
+	assert.equal(danglingName('cs/b.md', FROM, FILES), 'cs/b');
+	assert.equal(danglingName('img/p.png', FROM, FILES), null);
+});
+
+test('wikilink: alias only when it would show something else', () => {
+	assert.equal(wikilink('c', '', 'c'), '[[c]]');
+	assert.equal(wikilink('cs/b', '#H', 'b > H'), '[[cs/b#H]]');
+	assert.equal(wikilink('c', '', 'see c'), '[[c|see c]]');
+	assert.equal(wikilink('c', '#My Heading', 'x'), '[[c#My Heading|x]]');
+	assert.equal(wikilink('c', '', 'a|b'), null);
+});
+
+test('danglingLink: Markdown to a wikilink by name; a wikilink stays', () => {
+	assert.deepEqual(danglingLink({ original: '[see c](c.md#My%20Heading)', link: 'c.md#My%20Heading' }, 'wiki/c.md', FROM, FILES), { dangling: '[[c#My Heading|see c]]' });
+	assert.deepEqual(danglingLink({ original: '![c](c.md)', link: 'c.md' }, 'wiki/c.md', FROM, FILES), { dangling: '[[c]]' });
+	assert.deepEqual(danglingLink({ original: '[b](cs/b.md)', link: 'cs/b.md' }, 'wiki/cs/b.md', FROM, FILES), { dangling: '[[wiki/cs/b]]' });
+	assert.deepEqual(danglingLink({ original: '[sorting](cs/b.md)', link: 'cs/b.md' }, 'wiki/cs/b.md', FROM, FILES), { dangling: '[[wiki/cs/b|sorting]]' });
+	assert.equal(danglingLink({ original: '[[cs/b]]', link: 'cs/b' }, 'cs/b.md', FROM, FILES), null);
+	assert.deepEqual(danglingLink({ original: '[p](../img/p.png)', link: '../img/p.png' }, 'img/p.png', FROM, FILES), { left: 'unforked' });
+	assert.deepEqual(danglingLink({ original: '[a|b](c.md)', link: 'c.md' }, 'wiki/c.md', FROM, FILES), { left: 'unforked' });
+});
+
+test('convertLinks: counts dangling links among the converted', () => {
+	const text = 'a [b](b.md) [c](c.md)';
+	const r = convertLinks(text, refsOf(text), (ref) => (ref.link === 'b.md' ? '[[b]]' : { dangling: '[[c]]' }));
+	assert.deepEqual(r, { text: 'a [[b]] [[c]]', converted: 2, dangling: 1, left: { unforked: 0, missing: 0, unclear: 0 } });
 });

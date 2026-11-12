@@ -23,9 +23,13 @@ wiki dialects (Gollum's `[[text|Page-Name]]`, MediaWiki, Dendron) are not read.
 
 ## Decisions
 
-1. **Only links whose target is forked are converted.** A link to an upstream file with no
-   copy in the vault is left exactly as it is, and counted. It is converted later, once that
-   file is forked. Nothing is turned into a web URL, and nothing is forked for the user.
+1. **A link to a forked note points to the copy; a link to a note not forked becomes a
+   wikilink by name** (changed 2026-11-12; first, such links were left as they were). The name
+   is the shortest end of the note's upstream path (`b`, `cs/b`, `wiki/cs/b`) that upstream
+   reads back as that note, so once it is forked the link converts to the copy. Until then it
+   dangles, or lands on a vault note of that name: the wiki way. A wikilink is already one, and
+   stays. Links to files that aren't notes (images) are left. Nothing is turned into a web URL,
+   and nothing is forked for the user; offering to fork the targets may come later.
 2. **What a link means comes from the source; where it points comes from the vault.** A link
    is read as upstream would read it: against the source's files at the fork's
    `fork_commit` (a local `ls-tree` in the clone, which holds every tree; no fetch). Its target
@@ -76,7 +80,7 @@ link goes through this, in order:
    A case-insensitive match is taken only when there is no exact one. A target that is no file
    upstream is **missing**.
 3. **Its copy.** The latest copy (`latestFirst()`) of that upstream path from the same source
-   (`forksOf()`). No copy: **unforked**.
+   (`forksOf()`). No copy: a wikilink by name (decision 1), else **unforked**.
 4. **Unclear.** If step 1 found a copy and steps 2–3 find a different upstream file's copy,
    the link is left alone and counted as unclear. The plugin never guesses.
 
@@ -136,7 +140,7 @@ points in the vault (a copy of the upstream file the forked link names) is left 
 
 ### Not in this work
 
-- Links to files that aren't forked: making them web links to the host, or offering to fork.
+- Offering to fork the notes that dangling links name; making them web links to the host.
 - Other wiki dialects; a per-source link style.
 - Images and other non-Markdown targets: they can't be forked, so they never resolve.
 - Converting back to upstream's form, for proposing a change upstream.
@@ -157,7 +161,7 @@ Pure module and Obsidian side, as elsewhere.
 - `linkShows(original)`: what a link shows.
 - `convertLinks(text, refs, plan)`: `plan(ref)` returns the new link text, or why it is left
   (`'unforked'`, `'missing'`, `'unclear'`; `null`: it is right as it is). Returns
-  `{ text, converted, left: { unforked, missing, unclear } }`, or `null` when a position doesn't
+  `{ text, converted, dangling, left: { unforked, missing, unclear } }`, or `null` when a position doesn't
   match. Splices from the last link back so offsets stay true.
 
 Test at least: `../`, `/`-rooted, encoded spaces, no extension, a name with a dot, out of the
