@@ -46,6 +46,12 @@ test('seen is head: nothing new, no diff', async () => {
 	assert.ok(!h.calls.includes('changes'));
 });
 
+test('files: every file at head in include, sorted, whatever was seen', async () => {
+	const h = fakeHost({ 'wiki/b.md': sha('1'), 'wiki/a.md': sha('2'), 'x.md': sha('3') });
+	const c = await checkSource(h, source({ include: ['wiki/'] }), state({ seenCommit: HEAD.commit }), []);
+	assert.deepEqual(c.files, ['wiki/a.md', 'wiki/b.md']);
+});
+
 test('changes filtered by include; a rename into or out of it counts', async () => {
 	const changes: Change[] = [
 		{ path: 'wiki/a.md', status: 'modified', from: null },

@@ -151,9 +151,12 @@ Per source, a header: its remote name (opens the follow note), branch, and a sum
 Watched 1 · Forks 2`, "Nothing new" or "Error"). Selecting the header opens or closes the
 source. It starts open when it has an error or anything new, closed otherwise; once the user
 has opened or closed it, it stays that way until the view is closed, checks included. Under an
-open header: the error, or "nothing new", or the two actions and then the lists:
+open header: the error; or "nothing new" when there is nothing to list; then the actions and
+the lists:
 
-- **Mark as seen**: acknowledges this source. Forks stay listed.
+- **Mark as seen**: acknowledges this source. Forks stay listed. Shown when there is something
+  to acknowledge.
+- **Browse all files** / **Hide all files**: shows or hides All files, below. Always shown.
 - **Fork selected (n)**: shown when files are ticked (Fork, below).
 
 - **What's new**: every changed file, as a folder tree: folders first, each with a count of the
@@ -173,6 +176,12 @@ open header: the error, or "nothing new", or the two actions and then the lists:
   latest first (opens the note; with several, the first says "latest"). A changed file has
   **Compare**, for the latest copy. A file gone upstream has **Detach** and **Keep** (Fork
   update, below).
+- **All files (n)**: last, while browsing. Every file at the head the check saw, within
+  `include`, whatever has been seen: the way back to files after **Mark as seen**. A folder
+  tree as in What's new, with no status; folders start closed and stay as the user left them,
+  apart from What's new's. Tick boxes, **Fork**, **Compare** and "forked" as in What's new; a
+  tick is one tick per file, whichever list it was made in. Browsing changes no state, and
+  stays on across checks until the view is closed.
 - **Snapshot**: local sources only, in the header, so shown whatever the result and when closed
   (Local sources → Snapshot).
 
@@ -278,8 +287,8 @@ them out (`git rm -r --cached .remotes`). The plugin never untracks them itself.
 
 ## Fork
 
-Three ways in: **Fork** after a file in the check view's What's new or Watched (at the head that
-check saw); **Fork selected** there, for the ticked files; or **Fork a file from a source**
+Three ways in: **Fork** after a file in the check view's What's new, Watched or All files (at
+the head that check saw); **Fork selected** there, for the ticked files; or **Fork a file from a source**
 (pick a source, skipped when there is one; its head is fetched; pick a file). Markdown files
 only: front matter is where the provenance goes.
 

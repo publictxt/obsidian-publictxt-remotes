@@ -1,18 +1,17 @@
 // One source in the check view: a header that opens and closes it, then an error, "nothing
-// new", or what's new, watched and forks (docs/spec.md → Check view). Draws only: clicks are
+// new", or what's new, watched and forks; then all files, when asked for (docs/spec.md → Check view). Draws only: clicks are
 // the view's. An element says what a click on it does with `data-open` (a note to open) or
 // `data-action`; the source it belongs to is the nearest `data-source` (the source's key).
 
 import { hasNews, type NewReason, type SourceCheck } from '../check/check.ts';
 import { fileTree, type TreeFolder } from '../check/file-tree.ts';
 import type { SourceResult } from '../check/run.ts';
-import { canFork, forkableByFolder, selectedPaths, ticked, type Ticked } from '../check/selection.ts';
-import type { Change } from '../remote/host.ts';
+import { canFork, forkableByFolder, selectedPaths, ticked, type FileList, type Ticked } from '../check/selection.ts';
 import { isLocalRepo } from '../sources/repo-url.ts';
 import { treeFlair, treeItem, type TreeItem } from './tree.ts';
 
 /** What a click in the view can do: the `data-action` of the element clicked. */
-export const CHECK_ACTIONS = ['check', 'snapshot', 'ack', 'fork', 'fork-selected', 'toggle-source', 'toggle-folder', 'select', 'select-folder', 'compare', 'detach', 'keep-gone'] as const;
+export const CHECK_ACTIONS = ['check', 'snapshot', 'ack', 'fork', 'fork-selected', 'toggle-source', 'toggle-folder', 'select', 'select-folder', 'browse', 'toggle-all-folder', 'select-all-folder', 'compare', 'detach', 'keep-gone'] as const;
 
 export type CheckAction = (typeof CHECK_ACTIONS)[number];
 
@@ -44,10 +43,14 @@ export interface SourceUi {
 	folders: Map<string, boolean>;
 	/** Repo paths of the files ticked for forking. */
 	selected: Set<string>;
+	/** Whether all files are shown. */
+	browse: boolean;
+	/** Folders in all files the user opened (`true`) or closed, by path. */
+	allFolders: Map<string, boolean>;
 }
 
 export function newSourceUi(): SourceUi {
-	return { open: null, folders: new Map(), selected: new Set() };
+	return { open: null, folders: new Map(), selected: new Set(), browse: false, allFolders: new Map() };
 }
 
 /** Whether a source shows what's under its header: as the user left it, else when it has an error or news. */
@@ -59,25 +62,40 @@ export function sourceOpen(r: SourceResult, ui: SourceUi): boolean {
  * Whether a folder in what's new shows what's in it: as the user left it, else open. When every
  * file is listed (`reason`), nothing there is news, so folders start closed.
  */
-export function folderOpen(c: SourceCheck, ui: SourceUi, path: string): boolean {
+export function folderOpen(c: SourceCheck, ui: SourceUi, path: string, list: FileList = 'new'): boolean {
+	if (list === 'all') return ui.allFolders.get(path) ?? false;
 	return ui.folders.get(path) ?? c.reason === null;
 }
 
-/** What drawing a check's "what's new" needs, worked out once per check: the view draws again at every click. */
-interface NewFiles {
-	tree: TreeFolder<Change>;
+/** What drawing one of a check's folder trees needs, worked out once per check: the view draws again at every click. */
+interface ListedFiles {
+	tree: TreeFolder<RemoteFile>;
 	/** Folder → the files under it its tick box stands for (`forkableUnder`). */
 	forkable: Map<string, string[]>;
 }
 
-/** By check: `changes` and `forked` are never changed in place (acknowledging makes a new check). */
-const newFilesOf = new WeakMap<SourceCheck, NewFiles>();
+/**
+ * By check, then list: `changes`, `files` and `forked` are never changed in place (acknowledging
+ * makes a new check, which keeps `files` and `forked`).
+ */
+const listedOf = new WeakMap<SourceCheck, Partial<Record<FileList, ListedFiles>>>();
 
-function newFiles(c: SourceCheck): NewFiles {
-	let n = newFilesOf.get(c);
-	if (!n) newFilesOf.set(c, (n = { tree: fileTree(c.changes, (ch) => ch.path), forkable: forkableByFolder(c) }));
+function listed(c: SourceCheck, list: FileList): ListedFiles {
+	let byList = listedOf.get(c);
+	if (!byList) listedOf.set(c, (byList = {}));
+	let n = byList[list];
+	if (!n) {
+		const files: readonly RemoteFile[] = list === 'new' ? c.changes : c.files.map((path) => ({ path, status: null }));
+		byList[list] = n = { tree: fileTree(files, (f) => f.path), forkable: forkableByFolder(c, list) };
+	}
 	return n;
 }
+
+/** What a click on a folder row, or its tick box, does: in what's new, or in all files. */
+const FOLDER_ACTIONS: Record<FileList, { toggle: CheckAction; select: Extract<CheckAction, 'select-folder' | 'select-all-folder'> }> = {
+	new: { toggle: 'toggle-folder', select: 'select-folder' },
+	all: { toggle: 'toggle-all-folder', select: 'select-all-folder' },
+};
 
 /** A check being drawn. */
 interface Drawing {
@@ -97,24 +115,22 @@ export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi)
 		return;
 	}
 	const c = r.check;
-	if (!hasNews(c)) {
-		el.createEl('p', { cls: 'publictxt-quiet', text: 'Nothing new since you last looked.' });
-		return;
-	}
 	const d: Drawing = { c, ui, unsettled: new Set(c.forks.map((f) => f.path)) };
+	if (!hasNews(c)) el.createEl('p', { cls: 'publictxt-quiet', text: 'Nothing new since you last looked.' });
 	actions(el, c, ui);
 	changes(el, d);
 	watched(el, d);
 	forks(el, c);
+	allFiles(el, d);
 }
 
 /** What can be done with the whole source: before the lists, which can be long. */
 function actions(el: HTMLElement, c: SourceCheck, ui: SourceUi): void {
 	const seeable = c.changes.length > 0 || c.watched.length > 0 || c.reason !== null;
 	const selected = selectedPaths(c, ui.selected).length;
-	if (!seeable && !selected) return;
 	const row = el.createDiv({ cls: 'publictxt-actions' });
 	if (seeable) row.createEl('button', { text: 'Mark as seen', attr: actionAttrs('ack') });
+	row.createEl('button', { text: ui.browse ? 'Hide all files' : 'Browse all files', attr: { ...actionAttrs('browse'), 'aria-label': 'Every file at head, whatever you have seen' } });
 	if (selected) row.createEl('button', { text: `Fork selected (${selected})`, cls: 'mod-cta', attr: actionAttrs('fork-selected') });
 }
 
@@ -150,21 +166,31 @@ function changes(el: HTMLElement, d: Drawing): void {
 	if (!c.changes.length) return;
 	el.createEl('h5', { text: `What's new (${c.changes.length})` });
 	if (c.reason) el.createEl('p', { cls: 'publictxt-quiet', text: REASON[c.reason] });
-	folderRows(el, newFiles(c).tree, d);
+	folderRows(el, listed(c, 'new').tree, d, 'new');
 }
 
-/** What's in `folder`: a row per folder, with its own rows under it when open, then a row per file. */
-function folderRows(parent: HTMLElement, folder: TreeFolder<Change>, d: Drawing): void {
+/** Every file at head, as a tree, when the user asked for it: to fork what was seen long ago. */
+function allFiles(el: HTMLElement, d: Drawing): void {
 	const { c, ui } = d;
-	const { forkable: byFolder } = newFiles(c);
+	if (!ui.browse) return;
+	el.createEl('h5', { text: `All files (${c.files.length})` });
+	if (!c.files.length) el.createEl('p', { cls: 'publictxt-quiet', text: 'No files at head.' });
+	folderRows(el, listed(c, 'all').tree, d, 'all');
+}
+
+/** What's in `folder` of `list`: a row per folder, with its own rows under it when open, then a row per file. */
+function folderRows(parent: HTMLElement, folder: TreeFolder<RemoteFile>, d: Drawing, list: FileList): void {
+	const { c, ui } = d;
+	const { forkable: byFolder } = listed(c, list);
+	const act = FOLDER_ACTIONS[list];
 	for (const f of folder.folders) {
-		const item = treeItem(parent, folderOpen(c, ui, f.path));
-		setAction(item.self, 'toggle-folder', f.path);
+		const item = treeItem(parent, folderOpen(c, ui, f.path, list));
+		setAction(item.self, act.toggle, f.path);
 		item.inner.setText(f.name);
 		treeFlair(item, String(f.count));
 		const forkable = byFolder.get(f.path);
-		if (forkable) tickBox(item, 'select-folder', f.path, ticked(forkable, ui.selected));
-		if (item.children) folderRows(item.children, f, d);
+		if (forkable) tickBox(item, act.select, f.path, ticked(forkable, ui.selected));
+		if (item.children) folderRows(item.children, f, d, list);
 	}
 	for (const file of folder.files) fileRow(parent, file.name, file.item, d);
 }
@@ -204,10 +230,10 @@ function forkAction(inner: HTMLElement, action: Extract<CheckAction, 'compare' |
 	inner.createEl('a', { text, cls: 'publictxt-fork', attr: { ...actionAttrs(action, path), 'aria-label': label } });
 }
 
-/** A remote file, as a change or a watched path. */
+/** A remote file, as a change, a watched path, or a file at head (no status). */
 interface RemoteFile {
 	path: string;
-	status: string;
+	status: string | null;
 	/** A renamed file's old path. */
 	from?: string | null;
 }
@@ -221,10 +247,13 @@ function fileRow(parent: HTMLElement, label: string, file: RemoteFile, d: Drawin
 	const { c, ui } = d;
 	const item = treeItem(parent);
 	const { inner } = item;
-	inner.createSpan({ cls: `publictxt-status-${file.status}`, text: file.status });
-	inner.appendText(` ${label}`);
+	if (file.status !== null) {
+		inner.createSpan({ cls: `publictxt-status-${file.status}`, text: file.status });
+		inner.appendText(' ');
+	}
+	inner.appendText(label);
 	if (file.from) inner.appendText(` (from ${file.from})`);
-	if (!canFork(file)) return;
+	if (!canFork({ path: file.path, status: file.status ?? '' })) return;
 	tickBox(item, 'select', file.path, ui.selected.has(file.path) ? 'all' : 'none');
 	// Already forked: say so, and offer the compare when a copy hasn't seen this version.
 	if (d.unsettled.has(file.path)) forkAction(inner, 'compare', file.path, 'Compare', 'Compare your fork with upstream');
@@ -234,7 +263,7 @@ function fileRow(parent: HTMLElement, label: string, file: RemoteFile, d: Drawin
 }
 
 /** A tick box at the start of a row, for the file or folder `path`: ticked, half ticked or clear. */
-function tickBox(item: TreeItem, action: Extract<CheckAction, 'select' | 'select-folder'>, path: string, state: Ticked): void {
+function tickBox(item: TreeItem, action: Extract<CheckAction, 'select' | 'select-folder' | 'select-all-folder'>, path: string, state: Ticked): void {
 	const box = item.self.createEl('input', { type: 'checkbox', prepend: true, attr: { ...actionAttrs(action, path), 'aria-label': `Select ${path} to fork` } });
 	box.checked = state === 'all';
 	box.indeterminate = state === 'some';
