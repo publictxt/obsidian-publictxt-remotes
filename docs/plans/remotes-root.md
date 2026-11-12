@@ -3,7 +3,8 @@
 A brief for whoever implements it. Read `AGENTS.md`, `docs/spec.md` (→ Data, Sources settings,
 Fork) and `docs/naming.md` first.
 
-> Decisions confirmed 2026-11-13. Building on `feat/remotes-folder-setting`.
+> Decisions confirmed 2026-11-13. Building on `feat/remotes-folder-setting`. Next: following
+> files (below).
 
 ## Context
 
@@ -72,6 +73,44 @@ Existing follow notes with a `folder` now read it under the root. Forks already 
 3. **Docs:** spec (Data, Sources settings, Fork), naming, intent, README.
 
 Each step a commit; `npm run build`, `npm run lint`, `npm test` before each.
+
+## Next: following files
+
+The branch after this one (decided in outline 2026-11-13; details to confirm in its own plan).
+This branch puts forks where followed files will live, so nothing here changes then.
+
+| Action | What it does | The note is |
+|---|---|---|
+| **Follow a repo** (as now) | A follow note in `follows/`; a check shows what's new | — |
+| **Follow files** (new) | Copies the picked files to `<root>/<folder>/`, the source's folders kept, links as upstream wrote them | Upstream's: kept current, searchable in Obsidian, not for editing |
+| **Fork** | Moves a followed file into the user's own notes and offers to convert its links; or forks straight from the source, as now | The user's: updates go through Compare |
+
+- **A followed file is updated by overwriting**, no Compare: it is upstream's copy. That is
+  what makes it more than a fork in another folder. If it was edited anyway, the update asks.
+- **Forking a followed file moves it** (`fileManager.renameFile`, so Obsidian updates links to
+  it), never copies: two notes of one name would split every `[[name]]`. Its own links are
+  then converted (`docs/plans/convert-links.md`): converting belongs where a note leaves
+  upstream's layout, since that is where its relative links break. The convert offer moves
+  from Follow to Fork.
+- **Unfollowing a file** deletes it from the root, after asking: nothing of the user's is lost.
+- **Watch** (a file reported on when it changes, not copied in) stays as it is for now; whether
+  it folds into following a file is open.
+- The check view labels each file's actions **Follow** and **Fork**.
+
+### Front matter for followed files
+
+Open. A followed file needs the same provenance as a fork (source, path, branch, commit, blob,
+date), not `fork_seen` (an update overwrites it). The keys are published with the note, so
+they should say what it is. Options:
+
+1. **`follow_*` keys** (`follow_remote`, `follow_repo`, `follow_path`, `follow_branch`,
+   `follow_commit`, `follow_blob`, `follow_date`). Forking renames them to `fork_*`: the text
+   came from that blob, so `fork_blob` is right. A published note says plainly whether it is a
+   followed copy or the author's fork. The fork-meta reader takes a prefix. Recommended.
+2. **`fork_*` keys, where the note is tells**: under the root, followed; elsewhere, forked. No
+   new keys, but a note moved by hand changes kind silently, and a published note doesn't say.
+3. **`fork_*` keys plus `fork_followed: true`**, removed on forking. Explicit, but a followed
+   note still reads as a fork to anyone who doesn't know the flag.
 
 ## Not in this work
 
