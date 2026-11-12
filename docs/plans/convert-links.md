@@ -145,11 +145,11 @@ Links fixed by hand stay listed until the next conversion. Pure: `src/fork/link-
 Links in forks of this source that converting left as they were. Rewritten each time links are converted.
 
 - [[a]] line 3: `![p](../img/p.png)` not a note
-- [[a]] line 10: `[x](../../out.md)` not in the source
+- [[a]] line 10: `[x](../../out.md)` cannot be converted
 ```
 
 Why a link is left: **no name fits** (a note not forked that no link by name reads back as),
-**not a note** (an image or other file), **not in the source** (a missing note whose name can't
+**not a note** (an image or other file), **cannot be converted** (a note not upstream whose name can't
 be a link's, or whose words can't be its text).
 
 ### The edited test
@@ -190,8 +190,8 @@ Pure module and Obsidian side, as elsewhere.
   (`'missing'`); step 2 of Resolving. `files` is a set of upstream paths.
 - `linkShows(original)`: what a link shows.
 - `convertLinks(text, refs, plan)`: `plan(ref)` returns the new link text, or why it is left
-  (`'unforked'`, `'not-note'`, `'missing'`; `null`: it is right as it is). Returns
-  `{ text, converted, dangling, left: { unforked, not-note, missing }, leftLinks }`, or `null` when a position doesn't
+  (`'unforked'`, `'not-note'`, `'unconvertible'`; `null`: it is right as it is). Returns
+  `{ text, converted, dangling, left: { unforked, not-note, unconvertible }, leftLinks }`, or `null` when a position doesn't
   match. Splices from the last link back so offsets stay true.
 
 Test at least: `../`, `/`-rooted, encoded spaces, no extension, a name with a dot, out of the

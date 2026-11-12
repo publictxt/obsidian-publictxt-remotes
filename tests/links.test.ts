@@ -92,7 +92,7 @@ test('convertLinks: rewrites from the end, keeps embeds, counts what is left', (
 	const plan = (r: LinkRef) => {
 		if (r.link === 'cs/b.md') return '[[b]]';
 		if (r.link === 'c') return '[[c 1|c]]';
-		if (r.link === 'gone') return { left: 'missing' as const };
+		if (r.link === 'gone') return { left: 'unconvertible' as const };
 		if (r.link === 'dup') return { left: 'not-note' as const };
 		return { left: 'unforked' as const };
 	};
@@ -101,9 +101,9 @@ test('convertLinks: rewrites from the end, keeps embeds, counts what is left', (
 		text: 'See [[b]] and [[c 1|c]].\n\n![[c 1|c]]\n\n[[gone]] [[dup]] [[x]]\n',
 		converted: 3,
 		dangling: 0,
-		left: { unforked: 1, 'not-note': 1, missing: 1 },
+		left: { unforked: 1, 'not-note': 1, unconvertible: 1 },
 		leftLinks: [
-			{ line: 4, original: '[[gone]]', why: 'missing' },
+			{ line: 4, original: '[[gone]]', why: 'unconvertible' },
 			{ line: 4, original: '[[dup]]', why: 'not-note' },
 			{ line: 4, original: '[[x]]', why: 'unforked' },
 		],
@@ -127,11 +127,11 @@ test('tallyText: what was converted, what was left, what to try again', () => {
 	const t = emptyTally();
 	assert.equal(tallyText(t, false), 'No links to convert.');
 	const none = nothingConverted('');
-	addToTally(t, 'a.md', { ...none, converted: 3, dangling: 2, left: { unforked: 2, 'not-note': 1, missing: 1 } });
-	addToTally(t, 'b.md', { ...none, left: { unforked: 0, 'not-note': 0, missing: 1 } });
+	addToTally(t, 'a.md', { ...none, converted: 3, dangling: 2, left: { unforked: 2, 'not-note': 1, unconvertible: 1 } });
+	addToTally(t, 'b.md', { ...none, left: { unforked: 0, 'not-note': 0, unconvertible: 1 } });
 	addToTally(t, 'c.md', { ...none, converted: 1 });
 	addToTally(t, 'd.md', null);
-	assert.equal(tallyText(t, false), "Converted 4 links, 2 to notes you don't have yet. Left: 2 no name fits, 1 not a note, 2 not in the source. See \"Links to fix\" in the follow note. Changed while converting, try again: d.md.");
+	assert.equal(tallyText(t, false), "Converted 4 links, 2 to notes you don't have yet. Left: 2 no name fits, 1 not a note, 2 cannot be converted. See \"Links to fix\" in the follow note. Changed while converting, try again: d.md.");
 	assert.equal(tallyText({ ...emptyTally(), converted: 1, notes: 1 }, true), 'Converted 1 link in 1 note.');
 });
 
@@ -216,5 +216,5 @@ test('missingLink: a page not written yet, by its own name in the vault\'s style
 	assert.equal(missingLink({ original: '[x](some-idea.md)', link: 'some-idea.md' }, 'markdown'), null);
 	assert.equal(missingLink({ original: '[[v1.2 notes]]', link: 'v1.2 notes' }, 'wiki'), null);
 	assert.deepEqual(missingLink({ original: '![p](gone.png)', link: 'gone.png' }, 'wiki'), { left: 'not-note' });
-	assert.deepEqual(missingLink({ original: '[a|b](x.md)', link: 'x.md' }, 'wiki'), { left: 'missing' });
+	assert.deepEqual(missingLink({ original: '[a|b](x.md)', link: 'x.md' }, 'wiki'), { left: 'unconvertible' });
 });

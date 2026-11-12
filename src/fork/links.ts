@@ -19,13 +19,13 @@ export interface LinkRef {
  * Why a link is left as it is: its upstream note has no copy and no link by name fits; its target
  * isn't a note (an image); or it is no one file upstream and can't be a link by its own name.
  */
-export type Left = 'unforked' | 'not-note' | 'missing';
+export type Left = 'unforked' | 'not-note' | 'unconvertible';
 
 /** Each reason, as the notice and the report say it. */
 export const LEFT_TEXT: Record<Left, string> = {
 	unforked: 'no name fits',
 	'not-note': 'not a note',
-	missing: 'not in the source',
+	unconvertible: 'cannot be converted',
 };
 
 /** A link left as it is, and why. */
@@ -36,7 +36,7 @@ export interface LeftLink {
 }
 
 function noLeft(): Record<Left, number> {
-	return { unforked: 0, 'not-note': 0, missing: 0 };
+	return { unforked: 0, 'not-note': 0, unconvertible: 0 };
 }
 
 /** `link` cut at its first `#`: the path, and the subpath with its `#` (`''`: none). */
@@ -262,17 +262,17 @@ function inStyleByName(ref: Pick<LinkRef, 'original' | 'link'>, style: LinkStyle
  * the vault's `style`: it lands on the vault's note of that name, or dangles. The wiki way.
  * `null`: it already is one. Left when its target isn't a note, or its words can't be the link's.
  */
-export function missingLink(ref: Pick<LinkRef, 'original' | 'link'>, style: LinkStyle): { dangling: string } | { left: 'missing' | 'not-note' } | null {
+export function missingLink(ref: Pick<LinkRef, 'original' | 'link'>, style: LinkStyle): { dangling: string } | { left: 'unconvertible' | 'not-note' } | null {
 	const { path, subpath } = splitLink(ref.link);
 	const file = baseName(decoded(path).trim());
 	const ext = /\.([a-z0-9]{1,5})$/i.exec(file)?.[1];
 	if (ext !== undefined && ext.toLowerCase() !== 'md') return { left: 'not-note' };
 	if (inStyleByName(ref, style)) return null;
 	const name = file.replace(/\.md$/i, '');
-	if (!name || NOT_IN_NAME.test(name)) return { left: 'missing' };
+	if (!name || NOT_IN_NAME.test(name)) return { left: 'unconvertible' };
 	const shows = linkShows(ref.original);
 	const link = style === 'wiki' ? wikilink(name, decoded(subpath), shows) : markdownLink(name, decoded(subpath), shows);
-	return link === null ? { left: 'missing' } : { dangling: link };
+	return link === null ? { left: 'unconvertible' } : { dangling: link };
 }
 
 /** What becomes of a link: its new text, a dangling wikilink, why it is left, or `null`: right as it is. */
