@@ -13,8 +13,9 @@ import { isLocalRepo } from './sources/repo-url.ts';
 import { prepareLocalFolder } from './snapshot/run.ts';
 import { errorText } from './remote/vault-host.ts';
 import { SourceModal } from './ui/source-modal.ts';
+import { sourceFolderOf } from './fork/destination.ts';
 
-type TextField = 'forkFolder' | 'remotesFolder' | 'gitPath';
+type TextField = 'remotesRoot' | 'remotesFolder' | 'gitPath';
 type ToggleField = 'matchFolders' | 'listForks';
 
 export class PublicTxtSettingTab extends PluginSettingTab {
@@ -29,12 +30,12 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		this.text('forkFolder', 'Fork folder', 'Default vault folder for forked notes. Empty: the vault root.', true);
-		this.toggle('matchFolders', 'Match source folders', 'Offer the same folder as in the source first when your vault has that folder. You can change it at each fork.');
+		this.text('remotesRoot', 'Remotes root', 'Forks from each source go in a folder under it, named for the source unless its fork folder is set, with the source\'s folders kept. Empty: the vault root. If you publish with publictxt-pages, set remotesRoot under [params] in settings/site.toml to match.', true, '');
+		this.toggle('matchFolders', 'Match source folders', 'Offer the same folder as in the source first when your vault has that folder, instead of the remotes root. You can change it at each fork.');
 		this.toggle('listForks', 'List forks in follow notes', 'Keep a list of links to the pages forked from each source at the end of its follow note, under Forked pages. The plugin rewrites that section; the rest of the note is yours.', (on) => {
 			if (on) void this.plugin.forkLists.update(false);
 		});
-		this.text('remotesFolder', 'Remotes folder', 'Vault folder holding the git clones of your sources.');
+		this.text('remotesFolder', 'Clones folder', 'Hidden vault folder holding the git clones of your sources.');
 		this.text('gitPath', 'Git executable', 'Path to git. Set it if Obsidian can\'t find git on your PATH.');
 
 		const scan = scanFollows(this.app);
@@ -68,7 +69,7 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 		const folder = local ? (this.plugin.data.localPaths[f.name] ?? null) : null;
 		const row = new Setting(this.containerEl)
 			.setName(f.name)
-			.setDesc(summary(f, folder))
+			.setDesc(summary(f, folder, this.plugin.data.remotesRoot))
 			.addExtraButton((b) =>
 				b
 					.setIcon('pencil')
@@ -180,13 +181,13 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 	 * A text setting bound to one field. The input keeps what was typed; the saved value is
 	 * normalized. `vaultFolder`: the field offers the vault's folders to pick from.
 	 */
-	private text(field: TextField, name: string, desc: string, vaultFolder = false): void {
+	private text(field: TextField, name: string, desc: string, vaultFolder = false, placeholder: string = DEFAULT_DATA[field]): void {
 		new Setting(this.containerEl)
 			.setName(name)
 			.setDesc(desc)
 			.addText((t) => {
 				if (vaultFolder) suggestFolders(this.app, t.inputEl);
-				t.setPlaceholder(DEFAULT_DATA[field])
+				t.setPlaceholder(placeholder)
 					.setValue(this.plugin.data[field])
 					.onChange((value) => {
 						const next: PublicTxtData = { ...this.plugin.data, [field]: value };
@@ -196,7 +197,7 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 	}
 }
 
-function summary(f: Follow, folder: string | null): string {
+function summary(f: Follow, folder: string | null, root: string): string {
 	const where = isLocalRepo(f.url) ? (folder ? `Local: ${folder}` : 'Local: no folder on this computer, set one with Edit') : f.url;
 	const parts = [
 		where,
@@ -204,7 +205,7 @@ function summary(f: Follow, folder: string | null): string {
 		f.include.length ? `include: ${f.include.join(', ')}` : 'whole repo',
 	];
 	if (f.watch.length) parts.push(`watch: ${f.watch.length}`);
-	if (f.folder) parts.push(`forks to: ${f.folder}`);
+	parts.push(`forks to: ${sourceFolderOf(root, f.folder, f.name)}`);
 	if (f.listForks !== null) parts.push(`fork list: ${f.listForks ? 'on' : 'off'}`);
 	parts.push(f.path);
 	return parts.join(' · ');

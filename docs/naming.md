@@ -26,6 +26,8 @@ and command ids freeze at the first release.
 | latest | The copy with the newest `fork_date`: the one the check view compares |
 | settled | A copy that needs nothing done about an upstream version: its text came from it, or it has seen it (`fork_seen`) |
 | compare | A fork note with the Upstream view beside it |
+| remotes root | The vault folder holding each source's folder of forks (`remotesRoot`, `remotes`) |
+| clones folder | The hidden folder of git clones (`remotesFolder`, `.remotes`) |
 | fork list | The "Forked pages" section the plugin keeps in a follow note |
 | convert links | Point a fork's links at the vault's copies, in the vault's link style |
 | link by name | A link with no path, `[[b]]` or `[b](b.md)`: lands on the vault's note of that name, or dangles |
@@ -45,7 +47,7 @@ and command ids freeze at the first release.
 
 | Name | What |
 |---|---|
-| `PublicTxtData` | Everything in `data.json`: `{ version, forkFolder, matchFolders, listForks, remotesFolder, gitPath, state, localPaths }` |
+| `PublicTxtData` | Everything in `data.json`: `{ version, remotesRoot, matchFolders, listForks, remotesFolder, gitPath, state, localPaths }` |
 | `Source` | One followed repo, read from its follow note |
 | `FOLLOWS_FOLDER` | `follows` |
 | `readFollow()` / `followProps()` | Front matter ↔ `Source` |
@@ -76,6 +78,7 @@ and command ids freeze at the first release.
 | `choose()` | A question with a few answers (`ChoiceModal`) |
 | `vaultHost()` | The `RemoteHost` for this vault's settings. Desktop only |
 | `Destination` | The fork modal's choice: each file's folder as in the source (`same`), or one `folder` |
+| `sourceFolderOf()` | A source's folder for forks: its `folder`, else its name, under the root. Pure |
 | `initialDestination()` | The destination the modal opens with, and which rule chose it (`FolderReason`). Pure |
 | `resolveForks()` | A destination, and a typed name for one file → the plan and its new folders, or the error. Pure |
 | `forkPath()` / `freePath()` | Default vault path for a fork / the first free numbered one. Pure |

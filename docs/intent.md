@@ -79,6 +79,11 @@ source's folder, again only when asked.
   left, and the calls it made, are listed in the follow note, which is public like the forks.
   Offering to fork the notes those links name may come later. Details:
   `docs/plans/convert-links.md`.
+- **Forks live under one remotes root, a folder per source** (decided 2026-11-13). Forks
+  from `txt` open in `remotes/txt/`, the source's folders kept, so sources don't mix and each
+  keeps its layout; the global fork folder went. This is where followed files will live
+  next (`docs/plans/remotes-root.md` → Next: following files). The plugin doesn't write
+  publictxt-pages' `settings/site.toml`: the root rarely changes, so it is set there by hand.
 - **Folder selection reuses the manifest's convention**: repo-relative folder prefixes ending in
   `/` (as `types` and `ignore` in `publictxt.yaml`), not a new glob grammar. Tag filters need
   file contents, so they wait.

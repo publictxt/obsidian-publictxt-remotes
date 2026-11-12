@@ -62,7 +62,7 @@ export class SourceModal extends Modal {
 			.addTextArea((t) => t.setValue(this.form.watch).onChange((v) => (this.form.watch = v)));
 		new Setting(contentEl)
 			.setName('Fork folder')
-			.setDesc('Vault folder for forks from this source. Empty: the default fork folder.')
+			.setDesc('Folder for forks from this source, under the remotes root. Empty: the source\'s name.')
 			.addText((t) => {
 				suggestFolders(this.app, t.inputEl);
 				t.setValue(this.form.folder).onChange((v) => (this.form.folder = v));

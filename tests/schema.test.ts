@@ -49,13 +49,16 @@ test('local sources: state under local keys; folders by valid name, as absolute 
 });
 
 test('folders trimmed of slashes; remotesFolder and gitPath never empty', () => {
-	const d = normalizeData({ forkFolder: '/Forks/', remotesFolder: '/', gitPath: ' /usr/bin/git ' });
-	assert.equal(d.forkFolder, 'Forks');
+	const d = normalizeData({ remotesRoot: '/Remotes/', forkFolder: 'old', remotesFolder: '/', gitPath: ' /usr/bin/git ' });
+	assert.equal(d.remotesRoot, 'Remotes');
+	assert.ok(!('forkFolder' in d));
+	assert.equal(normalizeData({}).remotesRoot, 'remotes');
+	assert.equal(normalizeData({ remotesRoot: '' }).remotesRoot, '');
 	assert.equal(d.remotesFolder, '.remotes');
 	assert.equal(d.gitPath, '/usr/bin/git');
-	assert.equal(d.matchFolders, true);
-	assert.equal(normalizeData({ matchFolders: false }).matchFolders, false);
-	assert.equal(normalizeData({ matchFolders: 'no' }).matchFolders, true);
+	assert.equal(d.matchFolders, false);
+	assert.equal(normalizeData({ matchFolders: true }).matchFolders, true);
+	assert.equal(normalizeData({ matchFolders: 'yes' }).matchFolders, false);
 	assert.equal(d.listForks, false);
 	assert.equal(normalizeData({ listForks: true }).listForks, true);
 	assert.equal(normalizeData({ remotesFolder: 'x/clones/' }).remotesFolder, 'x/clones');

@@ -25,10 +25,10 @@ export interface ForkSource {
 }
 
 const WHY: Record<FolderReason, string> = {
-	source: 'The fork folder set for this source.',
-	// The files go to their own folders; the folder field holds the default, for when that is turned off.
-	matched: 'The default fork folder.',
-	default: 'The default fork folder.',
+	source: 'The fork folder set for this source, under the remotes root.',
+	// The files go to their own folders; the folder field holds the source's, for when that is turned off.
+	matched: 'The source\'s folder under the remotes root.',
+	default: 'The source\'s folder under the remotes root.',
 };
 
 /**
@@ -47,7 +47,7 @@ export async function startFork(app: App, data: PublicTxtData, from: ForkSource,
 		}
 
 		const vault = lookAt(app);
-		const { dest, reason } = initialDestination(paths, { sourceFolder: from.folder, defaultFolder: data.forkFolder, matchFolders: data.matchFolders, folderExists: vault.folderExists });
+		const { dest, reason } = initialDestination(paths, { remotesRoot: data.remotesRoot, sourceFolder: from.folder, sourceName: from.name, matchFolders: data.matchFolders, folderExists: vault.folderExists });
 		const forks = scanForks(app);
 		const earlier = new Map(paths.map((p) => [p, forksOf(forks, from, p).map((f) => f.path)]));
 

@@ -4,14 +4,14 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 
 ## Data
 
-`data.json` holds `{ version, forkFolder, matchFolders, listForks, remotesFolder, gitPath, state, localPaths }`. Sources are notes (below).
+`data.json` holds `{ version, remotesRoot, matchFolders, listForks, remotesFolder, gitPath, state, localPaths }`. Sources are notes (below).
 
 | Field | Default | Meaning |
 |---|---|---|
-| `forkFolder` | `''` | Default vault folder for forks (`''`: the vault root) |
-| `matchFolders` | `true` | The fork modal opens with **Folders** set to **Same folder as in the source** when the vault has that exact folder (Fork, below). The user can change it at each fork |
+| `remotesRoot` | `remotes` | Vault folder holding each source's folder of forks (`''`: the vault root). publictxt-pages reads the same root from `[params] remotesRoot` in `settings/site.toml`, set by hand |
+| `matchFolders` | `false` | The fork modal opens with **Folders** set to **Same folder as in the source** when the vault has that exact folder (Fork, below). The user can change it at each fork |
 | `listForks` | `false` | Keep a fork list in each follow note (Fork list, below) |
-| `remotesFolder` | `.remotes` | Vault folder holding the clones; never empty. Hidden, so Obsidian doesn't index it and Sync skips it |
+| `remotesFolder` | `.remotes` | **Clones folder**: vault folder holding the clones; never empty. Hidden, so Obsidian doesn't index it and Sync skips it |
 | `gitPath` | `git` | The git executable. Set it when Obsidian doesn't see the shell's PATH (macOS apps started from Finder) |
 | `localPaths` | `{}` | Remote name → absolute folder of each local source on this computer (Local sources, below). Never in a note |
 
@@ -34,7 +34,7 @@ contain `\ / : * ? " < > | # ^ [ ]`; names are unique, compared without case.
 | `branch` | string | Branch to track. Absent or blank: the remote's default branch |
 | `include` | string or list | Folder prefixes ending in `/`, repo-relative. Empty: the whole repo. Narrows "what's new" only |
 | `watch` | string or list | Plugin only. Repo-relative file paths to report on whenever they change, even outside `include` |
-| `folder` | string | Plugin only. Default vault folder for forks from this source. Absent: `forkFolder` |
+| `folder` | string | Plugin only. Folder for forks from this source, under `remotesRoot`. Absent: the remote name |
 | `list_forks` | boolean | Plugin only. Keep this note's fork list (`true`) or not (`false`). Absent, or not a boolean: the `listForks` setting |
 
 `url`, `branch` and `include` are the spec's; `local`, `watch`, `folder` and `list_forks` are this
@@ -60,7 +60,8 @@ Anything else is invalid, `file:` URLs included: a local source has no URL in it
 ## Sources settings
 
 The settings tab lists the sources found in `follows/` (name; URL, or a local source's folder
-here, or that it has none; branch, include, watch count, fork folder, fork list when set, note
+here, or that it has none; branch, include, watch count, the folder forks go to (`forks to:
+`remotes/txt`), fork list when set, note
 path), any duplicate or invalid notes, and **Add source**. **Fork folder**, here and in the
 form, offers the vault's folders as the user types. Lists are one path per line in the form; **Fork list** is Default, On or Off
 (`list_forks` absent, `true`, `false`). It redraws when a note in `follows/` changes. Needs Obsidian 1.6.6 (`trashFile`). Pure logic in
@@ -302,9 +303,12 @@ The modal opens as follows, and says which rule filled in the folder until the u
 
 | Case | Folders | Folder |
 |---|---|---|
-| The source has a `folder` | Into the folder | that folder |
-| Else `matchFolders` is on, and every file has a folder in the source that the vault has exactly | Same folder as in the source | `forkFolder` |
-| Otherwise | Into the folder | `forkFolder` |
+| `matchFolders` is on, and every file has a folder in the source that the vault has exactly | Same folder as in the source | the source's folder (below) |
+| Otherwise | Into the folder, keeping source folders | the source's folder |
+
+The source's folder is its `folder`, else its remote name, under `remotesRoot`
+(`sourceFolderOf()`): `wiki/cs/git.md` from `txt` goes to `remotes/txt/wiki/cs/git.md`. Forks
+from different sources stay apart, and each keeps its source's layout.
 
 A partial match doesn't count, and nothing is created for a match: the user picks **Same
 folder as in the source** for that. The folder typed is kept while that is picked, and comes
