@@ -4,11 +4,12 @@ Follow other people's PublicTxt repos, see what changed since you last looked, a
 pages you want into your vault. Each fork records where it came from in its front matter.
 
 > **Status: early development.** Nothing is released. Following sources (hosted or on your
-> computer), checking them, forking files and updating forks from upstream work.
+> computer), checking them, forking files, converting their links and updating forks from
+> upstream work.
 
 ## Requirements
 
-- Obsidian desktop. The plugin uses the git CLI, so it doesn't run on mobile.
+- Obsidian desktop 1.14.4 or later. The plugin uses the git CLI, so it doesn't run on mobile.
 - [git](https://git-scm.com/) installed. If Obsidian can't find it on your `PATH` (common on
   macOS when Obsidian is started from Finder), set **Git executable** in the plugin settings.
 
@@ -39,6 +40,14 @@ pages you want into your vault. Each fork records where it came from in its fron
   Either way that version isn't listed again; the plugin records it as `fork_seen`. Nothing is
   merged. If the original is gone, **Detach** makes your note an ordinary note, and **Keep**
   leaves it a fork.
+- **Converting links.** A fork's links were written for its source: relative to where the file
+  was, in its link style. After a fork, if links in your forks of that source can point at
+  your copies, a notice offers **Convert**. Converted links point at your copies, in your
+  vault's style (wikilinks or Markdown links, both ways). A link to a page you haven't forked
+  becomes a link by name: it lands on your note of that name, or waits until you fork it. The
+  follow note lists **Links to fix** (images, and the rare link that can't be converted) and
+  **Links to check** (where upstream could mean more than one file). Converting doesn't count
+  as editing your copy.
 - **Fork lists.** With **List forks in follow notes** on, each follow note ends with a **Forked
   pages** list of links to the pages forked from it. A follow note's `list_forks: true` or
   `false` overrides the setting for that note. The plugin rewrites that section only.
@@ -72,6 +81,8 @@ A source can be a git repo on your computer, such as another vault. Enter its fo
 | **Open check view** | Opens it without checking |
 | **Fork a file from a source** | Pick a source, then a Markdown file to fork |
 | **Compare this fork with upstream** | For the note you are in, if it is a fork: fetches its source and opens the compare |
+| **Convert links in this fork** | Points the note's links at your copies, in your vault's link style |
+| **Convert links in every fork** | The same for every fork of every source |
 | **Snapshot local sources** | Commits what changed in each local source's folder |
 | **Update fork lists in follow notes** | Rewrites every follow note's **Forked pages** list now |
 

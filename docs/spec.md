@@ -185,7 +185,7 @@ the lists:
 - **Snapshot**: local sources only, in the header, so shown whatever the result and when closed
   (Local sources → Snapshot).
 
-Needs Obsidian 1.7.2 (`revealLeaf` returning a promise).
+Needs Obsidian 1.14.4: the API the plugin is built and linted against.
 
 ## Remote host
 
@@ -334,6 +334,8 @@ is local time with its offset.
 
 After **Fork selected**, the ticks are cleared.
 
+Once the forks are written, the plugin may offer to convert links (→ Convert links).
+
 Pure logic in `src/fork/destination.ts` (where forks go) and `src/fork/fork.ts` (and
 `src/check/selection.ts` for the ticks); the vault side in `src/fork/run.ts`; the modal in
 `src/ui/fork-modal.ts` and `src/ui/fork-preview.ts`; the folder list in
@@ -358,7 +360,8 @@ The view's header says the source, the branch and the note it is beside, then:
 - **Whether the copy is edited** since it was forked, kept current as the note is saved: "Your
   copy is edited." / "Your copy is as you forked it." / "Can't tell whether your copy is
   edited." (the forked blob can't be read). Edited: the body differs from the forked version's
-  (blank lines at its start and the kind of line ending aside), or the front matter does,
+  (blank lines at its start, the kind of line ending, and links written differently but
+  showing the same words aside: converted links are no edit), or the front matter does,
   parsed and without the `fork_*` keys. Parsed, because Obsidian rewrites the YAML when it adds
   the keys.
 
@@ -382,7 +385,8 @@ closes. A copy already settled is not written to.
   is free. It opens where the copy was, and is now the latest copy.
 - **Keep mine** changes no text.
 
-Nothing is overwritten except by **Overwrite**, on the one note it names.
+Nothing is overwritten except by **Overwrite**, on the one note it names. After **Overwrite**
+and **Write alongside**, the plugin may offer to convert links (→ Convert links).
 
 A file gone upstream has nothing to compare. **Detach** removes the `fork_*` keys from every
 copy, after asking; the notes stay. **Keep** sets `fork_seen: gone` on every copy: they stay
@@ -424,6 +428,81 @@ left as it is. **Update fork lists in follow notes** (`update-fork-lists`) syncs
 now except those with `list_forks: false`, whatever the setting. Pure logic in
 `src/fork/fork-list.ts`; the vault side in `src/fork/fork-lists.ts`.
 
+## Convert links
+
+A fork's links were written for upstream: relative to where the file sat there, in upstream's
+link style. Converting points them at the vault's copies, in the vault's style. Sources are
+Obsidian vaults or plain Markdown repos: `[[wikilinks]]` and `[text](path)` links.
+
+**Which links.** Those Obsidian finds in a fork's body (`links` and `embeds` in the metadata
+cache), so links in code, front matter and web links are never touched.
+
+**What a link means.** Read as upstream reads it, against the source's files at the fork's
+`fork_commit` (`ls-tree` in the clone; no fetch; the paths of the source's forks stand in when
+the commit is gone). A Markdown link is tried relative to the note, then from the root, then
+by name; a wikilink from the root, then relative, then by name. `./` and `../` are relative
+only, `/` from the root only; `.md` is added when missing; a case-insensitive match only when
+there is no exact one.
+
+**What it becomes:**
+
+| The link names upstream | Becomes |
+|---|---|
+| A file with a copy in the vault (the latest, by `fork_path`) | A link to that copy, as Obsidian writes it (`generateMarkdownLink`) |
+| A file already linked to one of its copies here | Left on that copy |
+| The note itself | A link to the note |
+| A note with no copy | A link by name in the vault's style: the shortest end of its path that upstream reads back as it (`b`, `cs/b`), so it converts to the copy once forked |
+| No file, or several by name | A link by its own name in the vault's style |
+
+A link by name lands on the vault's note of that name, or dangles: the wiki way. One already in
+the vault's style and by name stays. The `#heading` or `#^block`, the words a link shows (an
+alias only when needed) and embeds are kept. The vault's style is read by asking Obsidian for
+a link to a note: its setting isn't public API.
+
+**Left as they are**, with why: **not a note** (an image or other file), **no name fits** (no
+link by name reads back as the note: rare, in Markdown-link vaults), **cannot be converted** (a
+name a link can't hold, `| # ^ [ ]`, or words that can't be its text).
+
+**When.** **Convert links in this fork** (`convert-links`) converts the active fork;
+**Convert links in every fork** (`convert-links-all`) every fork of every followed source.
+After a fork, **Overwrite** or **Write alongside**, the plugin counts, without writing, what
+would convert in every fork of that source (forking `b` makes links to `b` convertible in
+notes forked earlier). If any would, a notice offers **Convert**; it stays until used or
+dismissed. It waits up to 2 seconds for Obsidian to read the new notes, else there is no
+offer. Never automatic. A notice says what was converted, how many to notes not in the vault,
+what was left and what to check.
+
+A note is written once (`vault.process`), only if a link changed, and not at all when the
+cache no longer matches its text ("Changed while converting, try again"). `fork_*` keys are not
+touched: `fork_blob` stays what the text came from, so the compare still works.
+
+**The report.** Each conversion that writes rewrites two sections in the follow note of each
+source it covered, from every fork of that source (**Convert links in this fork** too). They
+are owned like **Forked pages**, written with it in one pass, and removed when empty:
+
+```markdown
+## Links to fix
+
+Links in forks of this source that converting left as they were. Rewritten each time links are converted.
+
+- [[a]] line 3: `![p](../img/p.png)` not a note
+
+## Links to check
+
+Links in forks of this source that converting made a call on: they may not go where upstream meant. Rewritten each time links are converted.
+
+- [[a]] line 5: `[[dup]]` several by name
+- [[z]] line 2: `[[x]]` kept on your copy
+```
+
+To check: **several by name** (the name is several files upstream, so the link went by name)
+and **kept on your copy** (the link pointed at a copy and upstream reads it as another file).
+They stay listed until the link is given a path by hand. Case-only matches and links by name
+to notes not in the vault are not listed.
+
+Pure logic in `src/fork/links.ts` and `src/fork/link-report.ts`; the vault side in
+`src/fork/links-run.ts`. The design and its reasons: `docs/plans/convert-links.md`.
+
 ## Build order
 
 1. Done. Schema: data types, `normalizeData`, canonical URL, fork provenance read/write. Pure, tested.
@@ -435,4 +514,5 @@ now except those with `list_forks: false`, whatever the setting. Pure logic in
 6. Local sources: snapshot, making a repo, folder checks on add. Done.
 7. Remote names: the note's name is the remote's, `fork_remote`, local folders in `localPaths`. Done.
 8. Fork update: compare with upstream, overwrite, write alongside, keep; `fork_seen`. Done.
-9. Later: merge a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.
+9. Convert links: to the vault's copies, in its style; the offer after forking; the report. Done.
+10. Later: merge a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.

@@ -27,6 +27,10 @@ and command ids freeze at the first release.
 | settled | A copy that needs nothing done about an upstream version: its text came from it, or it has seen it (`fork_seen`) |
 | compare | A fork note with the Upstream view beside it |
 | fork list | The "Forked pages" section the plugin keeps in a follow note |
+| convert links | Point a fork's links at the vault's copies, in the vault's link style |
+| link by name | A link with no path, `[[b]]` or `[b](b.md)`: lands on the vault's note of that name, or dangles |
+| links to fix | The follow note section listing links converting left as they were, and why |
+| links to check | The follow note section listing links converting made a call on |
 | check | One pass over the sources: what's new, watched, forks |
 | head | The tracked branch's latest commit |
 | blob | A file's git blob SHA |
@@ -80,7 +84,9 @@ and command ids freeze at the first release.
 | `renderForkPreview()` | What the fork modal's choices would write, or the error |
 | `suggestFolders()` | The vault's folders under a text field, to pick from while typing |
 | `forkFromSource()` | The fork command: pick a source, then a file |
-| `renderForkList()` / `withForkList()` | A follow note's fork list section / the note with it replaced. Pure |
+| `renderForkList()` | A follow note's fork list section. Pure |
+| `withSection()` / `withSections()` | A note with a plugin-owned `## …` section (or several) replaced. Pure |
+| `writeSections()` | Writes plugin-owned sections into a note, once, only if they changed |
 | `wantsForkList()` | Whether a follow note keeps a fork list: its `list_forks`, else the setting |
 | `syncForkLists()` / `ForkLists` | Rewrites changed fork lists / keeps them current after vault changes |
 | `remoteName()` / `remoteNameProblem()` / `defaultRemoteName()` | A follow note's name / why a name is invalid / the suggested name. Pure |
@@ -101,6 +107,18 @@ and command ids freeze at the first release.
 | `loadCompare()` / `CompareInfo` | What the Upstream view shows |
 | `overwrite()` / `writeAlongside()` / `keepMine()` | The compare's actions; each settles every copy |
 | `detach()` / `keepGone()` | For a file gone upstream: remove the `fork_*` keys / set `fork_seen: gone` |
+| `LinkRef` | A link or embed in a note's body, as the metadata cache gives it |
+| `upstreamTarget()` / `UpstreamFiles` | The upstream path a link names, or `none: 'missing' \| 'several'` / the files it is read against. Pure |
+| `danglingLink()` / `danglingName()` | A link by name to an upstream note with no copy / the shortest name that reads back as it. Pure |
+| `missingLink()` | A link by its own name, for a target that is no one file upstream. Pure |
+| `LinkPlan` / `Left` / `Check` | What becomes of a link, why it is left, the call made on it. Pure |
+| `convertLinks()` / `Converted` | Rewrites a note's links from their plans, from the last back. Pure |
+| `LinkTally` / `tallyText()` | Several notes' results / as a notice. Pure |
+| `matchesExceptLinks()` | Whether two bodies differ only in how their links are written. Pure |
+| `renderLinkReport()` / `renderCheckReport()` | The "Links to fix" / "Links to check" sections. Pure |
+| `convertForks()` | Converts (or counts) the links in some sources' forks and rewrites their reports |
+| `convertActiveFork()` / `convertAllForks()` | The `convert-links` / `convert-links-all` commands |
+| `offerConvert()` | After a fork or overwrite: the notice with **Convert**, when links would convert |
 | `inspectLocal()` / `LocalRepo` | What a local source's folder is: `missing`, `unusable`, `not-repo`, `bare`, `work`. Pure |
 | `initLocal()` / `newRepoGitignore()` | Makes a folder a repo, with a `.gitignore`, and snapshots it. Pure |
 | `snapshot()` / `SnapshotResult` | Commits a working folder's changes, if any. Pure |

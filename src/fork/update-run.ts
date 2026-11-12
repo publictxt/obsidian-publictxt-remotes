@@ -14,6 +14,7 @@ import { scanFollows } from '../sources/follows.ts';
 import { isRecord } from '../util/validate.ts';
 import { leafShowing } from './compare-run.ts';
 import { forksOf, isForkOf, newForkMeta } from './fork.ts';
+import { offerConvert } from './links-run.ts';
 import { needFrontMatter, writeFork } from './run.ts';
 import { alongsidePath, isEdited, updatedMeta, type Compare, type NoteParts } from './update.ts';
 
@@ -98,6 +99,7 @@ export async function overwrite(plugin: PublicTxtPlugin, c: Compare, info: Compa
 	}
 	await settle(plugin, c, info.follow, c.note);
 	new Notice(`Updated ${c.note} from ${info.follow.name}.`);
+	void offerConvert(app, vaultHost(app, plugin.data), info.follow, [file]);
 }
 
 /** Writes upstream beside the copy as a new fork, `name (up-nn).md`, and shows it where the copy was. */
@@ -107,6 +109,7 @@ export async function writeAlongside(plugin: PublicTxtPlugin, c: Compare, info: 
 	const file = await writeFork(app, path, info.text, newForkMeta(info.follow, c.path, c, c.blob, new Date()));
 	await settle(plugin, c, info.follow, file.path);
 	new Notice(`Wrote upstream to ${file.path}.`);
+	void offerConvert(app, vaultHost(app, plugin.data), info.follow, [file]);
 	await (leafShowing(app, c.note) ?? app.workspace.getLeaf('tab')).openFile(file);
 }
 
