@@ -199,7 +199,9 @@ no folder here is a `not-found` error. Every command in a clone runs as that rep
 (`--git-dir=.`): git in a folder that isn't one would otherwise look up the tree and act on the
 vault's own repo. A clone folder that is there but isn't a bare repo (say, emptied by a
 `reset` of a vault that had committed `.remotes/`) is a `git` error saying to delete it; it is
-cloned anew at the next check. Commands run without a shell, with
+cloned anew at the next check. Before each clone or fetch, the cache folder gets a `.gitignore`
+of `*` unless it has one, so the clones never show in a repo the vault is in, whatever commits
+it: the plugin, another plugin, or the user. Commands run without a shell, with
 `GIT_TERMINAL_PROMPT=0`, one at a time per clone: every host the plugin makes shares the
 queues, so a check, a fork and a compare take turns. A command still running after five minutes
 is stopped, and fails as a `git` error.
@@ -248,10 +250,9 @@ Warnings are notices; the source is still added.
 `initLocal()`: `init --initial-branch <branch>` (git's default when the source has none), a
 `.gitignore` unless the folder has one, then a snapshot. The `.gitignore` leaves out a vault's
 app data: this vault's `configDir` (taken as the other vault's too), `.trash/`, `.remotes/` and
-`.DS_Store`. A folder that has a `.gitignore` keeps it, and `.remotes/` is made ignored
-(Ignoring the clones, below). Within another repo, it makes a separate, nested one. If it fails
-partway (a commit hook, no git identity), the error shows and, on add, the source is not added;
-adding again finds a repo with nothing committed and warns.
+`.DS_Store`. Within another repo, it makes a separate, nested one. If it fails partway (a
+commit hook, no git identity), the error shows and, on add, the source is not added; adding
+again finds a repo with nothing committed and warns.
 
 ### Snapshot
 
@@ -272,18 +273,6 @@ Then `status --porcelain -z --untracked-files=all`: empty, nothing to do. Otherw
 (`.gitignore` respected) and, if the index then differs from HEAD (`diff --cached --name-only`),
 `commit -m "Snapshot <local ISO time>"`. A failing commit is a `git` error and leaves the
 changes staged.
-
-### Ignoring the clones
-
-A local source can be a vault with this plugin, whose `.remotes/` holds clones that must never be
-committed. `ignoreRemotes()` asks git whether `.remotes/` is ignored (`check-ignore --no-index`,
-so every rule counts: nested `.gitignore`s, `.git/info/exclude`, a global excludes file, a `!`
-that un-ignores it). If not, it appends `.remotes/` on a line of its own to the folder's
-`.gitignore`, making it if missing. It runs when a repo is made and the folder already has a
-`.gitignore`, and before each snapshot of an existing working repo that has a `.remotes`
-folder. The `.gitignore` change goes into that snapshot. The notice says so; it also says when
-files under `.remotes/` are already committed, which ignoring doesn't undo, and how to take
-them out (`git rm -r --cached .remotes`). The plugin never untracks them itself.
 
 ## Fork
 
