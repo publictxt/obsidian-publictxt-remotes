@@ -22,10 +22,12 @@ export interface Destination {
 export type FolderReason = 'source' | 'matched' | 'default';
 
 export interface ForkFolderOptions {
-	/** The source's `folder`; `null`: none set. */
+	/** `remotesRoot`; `''` is the vault root. */
+	remotesRoot: string;
+	/** The source's `folder`, under the root; `null`: none set. */
 	sourceFolder: string | null;
-	/** `forkFolder`; `''` is the vault root. */
-	defaultFolder: string;
+	/** The source's remote name: its folder when it sets none. */
+	sourceName: string;
 	/** Open with the `same` layout when the vault has every file's folder. */
 	matchFolders: boolean;
 	folderExists: (folder: string) => boolean;
@@ -51,16 +53,21 @@ export function canMatch(paths: readonly string[]): boolean {
 	return paths.some((p) => remoteFolder(p) !== '');
 }
 
+/** A source's folder for forks: its `folder`, else its name, under the remotes root. */
+export function sourceFolderOf(root: string, folder: string | null, name: string): string {
+	return [root, folder || name].filter((f) => f !== '').join('/');
+}
+
 /**
- * The destination the modal opens with: the source's folder; else `same`, if matching is on and
- * every file has a folder in the source that the vault already has; else the default folder.
- * Nothing is created for a match: the user picks a layout for that.
+ * The destination the modal opens with: `same`, if matching is on and every file has a folder in
+ * the source that the vault already has; else the source's folder under the remotes root, the
+ * source's folders kept inside it. Nothing is created for a match: the user picks a layout for that.
  */
 export function initialDestination(paths: readonly string[], o: ForkFolderOptions): { dest: Destination; reason: FolderReason } {
-	if (o.sourceFolder) return { dest: { layout: 'flat', folder: o.sourceFolder }, reason: 'source' };
+	const folder = sourceFolderOf(o.remotesRoot, o.sourceFolder, o.sourceName);
 	const inVault = (p: string) => remoteFolder(p) !== '' && o.folderExists(remoteFolder(p));
-	const matched = o.matchFolders && paths.length > 0 && paths.every(inVault);
-	return { dest: { layout: matched ? 'same' : 'flat', folder: o.defaultFolder }, reason: matched ? 'matched' : 'default' };
+	if (o.matchFolders && paths.length > 0 && paths.every(inVault)) return { dest: { layout: 'same', folder }, reason: 'matched' };
+	return { dest: { layout: 'nested', folder }, reason: o.sourceFolder ? 'source' : 'default' };
 }
 
 /** The vault folder the file `path` goes to. */

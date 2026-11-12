@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canMatch, checkFolder, checkName, folderFor, initialDestination, newFolders, noteName, planForks, remoteFolder, resolveForks, type VaultLook } from '../src/fork/destination.ts';
+import { canMatch, checkFolder, checkName, folderFor, initialDestination, sourceFolderOf, newFolders, noteName, planForks, remoteFolder, resolveForks, type VaultLook } from '../src/fork/destination.ts';
 
 const VAULT_FOLDERS = new Set(['wiki', 'wiki/cs', 'forks']);
-const options = { sourceFolder: null, defaultFolder: 'forks', matchFolders: true, folderExists: (f: string) => VAULT_FOLDERS.has(f) };
+const options = { remotesRoot: 'remotes', sourceFolder: null, sourceName: 'txt', matchFolders: true, folderExists: (f: string) => VAULT_FOLDERS.has(f) };
+const HOME = { layout: 'nested', folder: 'remotes/txt' } as const;
 const SAME = { layout: 'same', folder: 'forks' } as const;
 const ONE = { layout: 'flat', folder: 'forks' } as const;
 const NESTED = { layout: 'nested', folder: 'remotes/research' } as const;
@@ -23,17 +24,29 @@ test('canMatch: any file with a folder in the source', () => {
 	assert.ok(!canMatch([]));
 });
 
-test('initialDestination: the source folder, else same when the vault has every folder, else the default', () => {
-	assert.deepEqual(initialDestination(['wiki/cs/a.md'], { ...options, sourceFolder: 'theirs' }), { dest: { layout: 'flat', folder: 'theirs' }, reason: 'source' });
-	assert.deepEqual(initialDestination(['wiki/cs/a.md'], options), { dest: SAME, reason: 'matched' });
-	assert.deepEqual(initialDestination(['wiki/cs/a.md', 'wiki/b.md'], options), { dest: SAME, reason: 'matched' });
+test('sourceFolderOf: the source\'s folder, else its name, under the root', () => {
+	assert.equal(sourceFolderOf('remotes', null, 'txt'), 'remotes/txt');
+	assert.equal(sourceFolderOf('remotes', 'research/ann', 'txt'), 'remotes/research/ann');
+	assert.equal(sourceFolderOf('', null, 'txt'), 'txt');
+	assert.equal(sourceFolderOf('', 'ann', 'txt'), 'ann');
+});
+
+test('initialDestination: same when matching finds every folder, else the source\'s folder under the root, folders kept', () => {
+	const same = { layout: 'same', folder: 'remotes/txt' } as const;
+	assert.deepEqual(initialDestination(['wiki/cs/a.md'], options), { dest: same, reason: 'matched' });
+	assert.deepEqual(initialDestination(['wiki/cs/a.md', 'wiki/b.md'], options), { dest: same, reason: 'matched' });
 	// Exact folders only, and every one of them.
-	assert.deepEqual(initialDestination(['wiki/cs/se/a.md'], options), { dest: ONE, reason: 'default' });
-	assert.deepEqual(initialDestination(['wiki/a.md', 'blog/b.md'], options), { dest: ONE, reason: 'default' });
-	assert.deepEqual(initialDestination(['wiki/cs/a.md'], { ...options, matchFolders: false }), { dest: ONE, reason: 'default' });
+	assert.deepEqual(initialDestination(['wiki/cs/se/a.md'], options), { dest: HOME, reason: 'default' });
+	assert.deepEqual(initialDestination(['wiki/a.md', 'blog/b.md'], options), { dest: HOME, reason: 'default' });
+	assert.deepEqual(initialDestination(['wiki/cs/a.md'], { ...options, matchFolders: false }), { dest: HOME, reason: 'default' });
 	// A file at the top of the repo has no folder to match.
-	assert.deepEqual(initialDestination(['a.md'], options), { dest: ONE, reason: 'default' });
-	assert.deepEqual(initialDestination(['wiki/a.md', 'b.md'], options), { dest: ONE, reason: 'default' });
+	assert.deepEqual(initialDestination(['a.md'], options), { dest: HOME, reason: 'default' });
+	assert.deepEqual(initialDestination(['wiki/a.md', 'b.md'], options), { dest: HOME, reason: 'default' });
+	// The source's own folder, still under the root; matching still comes first.
+	const theirs = { ...options, sourceFolder: 'ann', matchFolders: false };
+	assert.deepEqual(initialDestination(['wiki/cs/a.md'], theirs), { dest: { layout: 'nested', folder: 'remotes/ann' }, reason: 'source' });
+	assert.deepEqual(initialDestination(['wiki/cs/a.md'], { ...theirs, matchFolders: true }), { dest: { layout: 'same', folder: 'remotes/ann' }, reason: 'matched' });
+	assert.deepEqual(initialDestination(['a.md'], { ...options, remotesRoot: '' }), { dest: { layout: 'nested', folder: 'txt' }, reason: 'default' });
 });
 
 test('folderFor: as in the source, the one folder, or the source\'s folder under the folder', () => {
