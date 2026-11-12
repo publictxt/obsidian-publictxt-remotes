@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addToTally, convertLinks, emptyTally, isWikilink, linkShows, splitLink, tallyText, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
+import { addToTally, convertLinks, emptyTally, isWikilink, linkShows, matchesExceptLinks, splitLink, tallyText, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
 
 const FILES = upstreamFiles(['wiki/a.md', 'wiki/cs/b.md', 'wiki/c.md', 'cs/b.md', 'top.md', 'wiki/v1.2 notes.md', 'wiki/My Note.md', 'x/dup.md', 'y/dup.md', 'img/p.png']);
 const FROM = 'wiki/a.md';
@@ -125,4 +125,21 @@ test('tallyText: what was converted, what was left, what to try again', () => {
 	addToTally(t, 'd.md', null);
 	assert.equal(tallyText(t, false), 'Converted 4 links. Left: 2 not forked, 1 not in the source, 1 unclear. Changed while converting, try again: d.md.');
 	assert.equal(tallyText({ ...emptyTally(), converted: 1, notes: 1 }, true), 'Converted 1 link in 1 note.');
+});
+
+test('matchesExceptLinks: converted links are not edits', () => {
+	const forked = 'See [sorting](../cs/algorithms.md) and [[cs/b]], [[c#H]].\n\n![[c]]\n[x](b.md#My%20Heading)\n';
+	const note = 'See [[algorithms|sorting]] and [[b]], [[c 1#H|c > H]].\n\n![[c 1|c]]\n[[b#My Heading|x]]\n';
+	assert.ok(matchesExceptLinks(note, forked));
+	assert.ok(matchesExceptLinks(forked, forked));
+});
+
+test('matchesExceptLinks: changed words, subpath, embed, links or text are edits', () => {
+	const forked = 'See [sorting](cs/a.md#H) and ![[c]].\n';
+	assert.ok(!matchesExceptLinks('See [[a#H|sorted]] and ![[c]].\n', forked));
+	assert.ok(!matchesExceptLinks('See [[a#I|sorting]] and ![[c]].\n', forked));
+	assert.ok(!matchesExceptLinks('See [[a#H|sorting]] and [[c]].\n', forked));
+	assert.ok(!matchesExceptLinks('See [[a#H|sorting]] and ![[c]] [[d]].\n', forked));
+	assert.ok(!matchesExceptLinks('See [[a#H|sorting]], and ![[c]].\n', forked));
+	assert.ok(!matchesExceptLinks('See [sorting](cs/a.md#H) and ![[c]].\nMore.\n', forked));
 });

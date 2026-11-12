@@ -5,6 +5,7 @@ import type { DiffStat, Head } from '../remote/host.ts';
 import { FORK_KEYS, type ForkMeta } from '../sources/fork-meta.ts';
 import { isRecord, isSha, repoPath, str } from '../util/validate.ts';
 import { localIso } from '../util/time.ts';
+import { matchesExceptLinks } from './links.ts';
 
 /** What a compare shows: an upstream file as it is at a head, beside one note forked from it. */
 export interface Compare {
@@ -40,10 +41,11 @@ export interface NoteParts {
  * Whether `note` was edited since it was forked from `forked`: its body differs, or its front
  * matter does, leaving out the `fork_*` keys. Front matter is compared parsed, as Obsidian
  * rewrites the YAML when it adds the keys; the body without regard to blank lines at its start
- * or the kind of line ending, which the rewrite can also change.
+ * or the kind of line ending, which the rewrite can also change. Links written differently
+ * but showing the same words don't count: converting a fork's links is not an edit.
  */
 export function isEdited(note: NoteParts, forked: NoteParts): boolean {
-	return bodyOf(note) !== bodyOf(forked) || !same(ownKeys(note.front), ownKeys(forked.front));
+	return !matchesExceptLinks(bodyOf(note), bodyOf(forked)) || !same(ownKeys(note.front), ownKeys(forked.front));
 }
 
 function bodyOf(n: NoteParts): string {

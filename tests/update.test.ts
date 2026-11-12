@@ -63,3 +63,9 @@ test('the header\'s sentences', () => {
 	assert.equal(editedText(false), 'Your copy is as you forked it.');
 	assert.match(editedText(null), /^Can't tell/);
 });
+
+test('isEdited: not by converted links; by a link showing other words', () => {
+	const forked = { front: null, body: 'See [sorting](../cs/algorithms.md).\n' };
+	assert.ok(!isEdited({ front: forkMetaProps(META), body: '\nSee [[algorithms|sorting]].\n' }, forked));
+	assert.ok(isEdited({ front: forkMetaProps(META), body: 'See [[algorithms]].\n' }, forked));
+});

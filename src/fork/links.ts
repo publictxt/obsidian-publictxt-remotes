@@ -234,3 +234,48 @@ export function convertLinks(text: string, refs: readonly LinkRef[], plan: (ref:
 	}
 	return { text: out, converted, left };
 }
+
+/** Every `[[…]]` and `[…](…)`, embedded or not. Read the same way on both sides of a compare. */
+const ANY_LINK = /!?\[\[[^\]\n]*\]\]|!?\[[^\]\n]*\]\([^)\n]*\)/g;
+
+/** A link's `#…`, decoded: a wikilink's before its `|`, a Markdown link's in its target. */
+function linkSubpath(original: string): string {
+	const wiki = WIKI.exec(original);
+	const target = wiki ? (wiki[1] ?? '') : (MARKDOWN.exec(original)?.[2] ?? '');
+	return decoded(splitLink(target).subpath);
+}
+
+/** Two links that read the same: embedded alike, showing the same words, to the same `#…`. */
+export function sameWords(a: string, b: string): boolean {
+	return a.startsWith('!') === b.startsWith('!') && linkShows(a) === linkShows(b) && linkSubpath(a) === linkSubpath(b);
+}
+
+/**
+ * Whether `note` is `forked` with only its links written differently: the text between links is
+ * the same piece for piece, there are as many links, and each pair is equal or `sameLink`.
+ */
+export function matchesExceptLinks(note: string, forked: string, sameLink: (noteLink: string, forkedLink: string) => boolean = sameWords): boolean {
+	if (note === forked) return true;
+	const a = cut(note);
+	const b = cut(forked);
+	if (a.links.length !== b.links.length) return false;
+	if (a.text.some((t, i) => t !== b.text[i])) return false;
+	return a.links.every((l, i) => {
+		const f = b.links[i] ?? '';
+		return l === f || sameLink(l, f);
+	});
+}
+
+/** `text` cut at its links: the pieces between them (one more than the links), and the links. */
+function cut(text: string): { text: string[]; links: string[] } {
+	const pieces: string[] = [];
+	const links: string[] = [];
+	let at = 0;
+	for (const m of text.matchAll(ANY_LINK)) {
+		pieces.push(text.slice(at, m.index));
+		links.push(m[0]);
+		at = m.index + m[0].length;
+	}
+	pieces.push(text.slice(at));
+	return { text: pieces, links };
+}
