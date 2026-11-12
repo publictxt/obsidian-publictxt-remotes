@@ -1,16 +1,16 @@
 // Converting forks' links in the vault (docs/plans/convert-links.md): the Obsidian side of
 // links.ts. A link is read as upstream reads it and pointed at the vault's copy of its file.
 
-import { App, Notice, TFile, type CachedMetadata } from 'obsidian';
+import { App, Notice, TFile, type CachedMetadata, type EventRef } from 'obsidian';
 import { latestFirst } from '../check/check.ts';
+import type { RemoteHost } from '../remote/host.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
 import type { Fork, ForkMeta } from '../sources/fork-meta.ts';
 import { readForkMeta } from '../sources/fork-meta.ts';
-import type { Follow } from '../sources/follow-note.ts';
 import { scanFollows } from '../sources/follows.ts';
 import { scanForks } from '../sources/forks.ts';
 import type { PublicTxtData } from '../sources/schema.ts';
-import { forksOf, isForkOf } from './fork.ts';
+import { forksOf, isForkOf, type Remote } from './fork.ts';
 import { addToTally, convertLinks, emptyTally, linkShows, splitLink, tallyText, upstreamFiles, upstreamTarget, type Converted, type Left, type LinkRef, type LinkTally, type UpstreamFiles } from './links.ts';
 
 /** One source's forks, and its files at each commit they were forked at, read once. */
@@ -20,12 +20,12 @@ class SourceLinks {
 	private readonly files = new Map<string, Promise<UpstreamFiles>>();
 
 	private readonly app: App;
-	private readonly data: PublicTxtData;
-	readonly follow: Follow;
+	private readonly host: RemoteHost;
+	readonly follow: Remote;
 
-	constructor(app: App, data: PublicTxtData, follow: Follow, allForks: readonly Fork[]) {
+	constructor(app: App, host: RemoteHost, follow: Remote, allForks: readonly Fork[]) {
 		this.app = app;
-		this.data = data;
+		this.host = host;
 		this.follow = follow;
 		this.forks = allForks.filter((f) => isForkOf(f.meta, follow));
 		this.byPath = new Map(this.forks.map((f) => [f.path, f]));
@@ -49,7 +49,7 @@ class SourceLinks {
 		if (commit) {
 			try {
 				// `ls-tree` takes any tree-ish: a commit lists its tree.
-				const tree = await vaultHost(this.app, this.data).tree(this.follow.url, commit);
+				const tree = await this.host.tree(this.follow.url, commit);
 				return upstreamFiles(tree.files.keys());
 			} catch (e) {
 				console.warn(`PublicTxt Remotes: reading ${this.follow.name} at ${commit}:`, e);
@@ -122,11 +122,11 @@ function refsOf(cache: CachedMetadata | null): LinkRef[] {
 }
 
 /** Converts (or with `write` false, counts) the links in every fork of `follows`. */
-export async function convertForks(app: App, data: PublicTxtData, follows: readonly Follow[], write: boolean, only?: (fork: Fork) => boolean): Promise<LinkTally> {
+export async function convertForks(app: App, host: RemoteHost, follows: readonly Remote[], write: boolean, only?: (fork: Fork) => boolean): Promise<LinkTally> {
 	const tally = emptyTally();
 	const forks = scanForks(app);
 	for (const follow of follows) {
-		const source = new SourceLinks(app, data, follow, forks);
+		const source = new SourceLinks(app, host, follow, forks);
 		for (const fork of source.forks) {
 			if (only && !only(fork)) continue;
 			const file = app.vault.getFileByPath(fork.path);
@@ -150,7 +150,7 @@ export async function convertActiveFork(app: App, data: PublicTxtData): Promise<
 		return;
 	}
 	try {
-		new Notice(tallyText(await convertForks(app, data, [follow], true, (f) => f.path === file.path), false));
+		new Notice(tallyText(await convertForks(app, vaultHost(app, data), [follow], true, (f) => f.path === file.path), false));
 	} catch (e) {
 		new Notice(errorText(e));
 	}
@@ -159,8 +159,83 @@ export async function convertActiveFork(app: App, data: PublicTxtData): Promise<
 /** The "Convert links in every fork" command. */
 export async function convertAllForks(app: App, data: PublicTxtData): Promise<void> {
 	try {
-		new Notice(tallyText(await convertForks(app, data, scanFollows(app).follows, true), true));
+		new Notice(tallyText(await convertForks(app, vaultHost(app, data), scanFollows(app).follows, true), true));
 	} catch (e) {
 		new Notice(errorText(e));
 	}
+}
+
+/** How long to wait for Obsidian to read a note just written before giving up on the offer. */
+const CACHE_WAIT_MS = 2000;
+
+/**
+ * After forking from `remote` (or overwriting a fork), offers to convert the links in its forks
+ * when any can be: the notes `written` may be what other forks link to, or link to them. Waits
+ * for Obsidian to have read the written notes; if it hasn't in time, there is no offer and the
+ * commands remain. Never throws: the fork stands whatever happens here.
+ */
+export async function offerConvert(app: App, host: RemoteHost, remote: Remote, written: readonly TFile[]): Promise<void> {
+	try {
+		for (const file of written) {
+			if (!(await whenCached(app, file, CACHE_WAIT_MS))) return;
+		}
+		const count = await convertForks(app, host, [remote], false);
+		if (count.converted === 0) return;
+		const n = count.converted;
+		const message = createFragment();
+		message.createDiv({ text: `${n} ${n === 1 ? 'link' : 'links'} in your forks of ${remote.name} can now point to your copies.` });
+		const button = message.createEl('button', { text: 'Convert', cls: 'mod-cta' });
+		const notice = new Notice(message, 0);
+		button.addEventListener('click', (e) => {
+			e.stopPropagation();
+			notice.hide();
+			void (async () => {
+				try {
+					new Notice(tallyText(await convertForks(app, host, [remote], true), true));
+				} catch (err) {
+					new Notice(errorText(err));
+				}
+			})();
+		});
+	} catch (e) {
+		console.warn('PublicTxt Remotes: counting links to convert:', e);
+	}
+}
+
+/**
+ * Whether Obsidian's cache of `file` matches its text, waiting up to `ms` for it to: the note
+ * reads as a fork, and every cached link is where the cache says it is. A note just forked is
+ * written twice (text, then front matter), and each write moves the links.
+ */
+async function whenCached(app: App, file: TFile, ms: number): Promise<boolean> {
+	const deadline = Date.now() + ms;
+	for (;;) {
+		if (await isCached(app, file)) return true;
+		const left = deadline - Date.now();
+		if (left <= 0) return false;
+		await nextChange(app, file, left);
+	}
+}
+
+async function isCached(app: App, file: TFile): Promise<boolean> {
+	const cache = app.metadataCache.getFileCache(file);
+	if (!cache || !readForkMeta(cache.frontmatter)) return false;
+	const text = await app.vault.cachedRead(file);
+	return refsOf(cache).every((r) => text.slice(r.start, r.end) === r.original);
+}
+
+/** Resolves when Obsidian next reads `file`, or after `ms`. */
+function nextChange(app: App, file: TFile, ms: number): Promise<void> {
+	return new Promise((done) => {
+		let ref: EventRef | null = null;
+		const finish = () => {
+			window.clearTimeout(timer);
+			if (ref) app.metadataCache.offref(ref);
+			done();
+		};
+		const timer = window.setTimeout(finish, ms);
+		ref = app.metadataCache.on('changed', (f) => {
+			if (f.path === file.path) finish();
+		});
+	});
 }

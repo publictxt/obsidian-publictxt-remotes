@@ -3,7 +3,9 @@
 A brief for whoever implements it. It is self-contained, but read `AGENTS.md`, `docs/spec.md`
 (→ Fork provenance, Fork, Fork update, Fork list) and `docs/naming.md` first.
 
-> Decisions confirmed 2026-11-12. Building on `feat/convert-links`.
+> Decisions confirmed 2026-11-12. Building on `feat/convert-links`. Built: steps 1, 2 and 4.
+> Step 3 is the pure part only (decided 2026-11-12): links count as the same when they show
+> the same words; checking where they point in the vault is left out.
 
 ## Context
 
@@ -128,10 +130,9 @@ regular expression cuts each body into text and links (`[[…]]`, `[…](…)`, 
 and each pair of links is the same text or `sameLink(noteLink, forkedLink)` holds. The same
 pass runs on both sides, so it needn't know about code blocks.
 
-`sameLink`, from the vault side: both show the same words, keep the same `#…`, and the note's
-link resolves in the vault to a copy of the upstream file the forked link names (Resolving,
-above). So a link that was retargeted by hand is still an edit; only a faithful conversion
-passes. With the vault unavailable (tests), `sameLink` defaults to "shows the same".
+`sameLink`: both links show the same words (`linkShows()`). A link retargeted by hand while
+keeping its words passes; the side-by-side compare shows it. Checking where the note's link
+points in the vault (a copy of the upstream file the forked link names) is left for later.
 
 ### Not in this work
 
@@ -166,16 +167,14 @@ run changes nothing.
 
 ### 2. The vault side: `src/fork/links-run.ts`
 
-- `sourceFiles(host, url, commit, forks)`: the upstream paths at `commit` (`host.tree()`, which
+- `SourceLinks`: one source's forks, and its files at each `fork_commit` (`host.tree()`, which
   takes any tree-ish: a commit's SHA lists its tree), or the forks' paths when that fails.
-  One read per source and commit.
-- `convertNote(app, file, meta, files, forks, write)`: refs from the cache, the local
-  resolution (step 1), `generateMarkdownLink`, and with `write` `vault.process`. Returns the
-  counts. Without `write` it is the count for the offer.
-- `convertSource(app, data, remote, write)` and `convertAll(app, data)`: over `scanForks()`,
-  scanned once.
-- `convertActiveFork(app, data)`: the command, with its notices.
-- `offerConvert(app, data, remote, written)`: waits for `written` to be cached (`whenCached`),
+  One read per source and commit. `convertNote(file, meta, write)`: refs from the cache, the
+  local resolution (step 1), `generateMarkdownLink`, and with `write` `vault.process`. Without
+  `write` it is the count for the offer.
+- `convertForks(app, host, remotes, write, only?)`: over `scanForks()`, scanned once.
+- `convertActiveFork(app, data)`, `convertAllForks(app, data)`: the commands, with their notices.
+- `offerConvert(app, host, remote, written)`: waits for `written` to be cached (`whenCached`),
   counts, and shows the notice with **Convert**.
 
 Register both commands in `src/main.ts`.
@@ -184,8 +183,8 @@ Register both commands in `src/main.ts`.
 
 `matchesExceptLinks()` in `src/fork/links.ts`; `isEdited()` takes an optional `sameLink` and
 uses it for the bodies, after the line-ending and leading-blank-line rule it has now.
-`loadCompare()` passes the vault's `sameLink`. Tests: a converted note is not edited; a
-changed link text, an added link, a retargeted link and changed text beside a link are.
+Tests: a converted note is not edited; changed link words, an added link and changed text
+beside a link are.
 
 ### 4. The offer (`src/fork/run.ts`, `src/fork/update-run.ts`)
 

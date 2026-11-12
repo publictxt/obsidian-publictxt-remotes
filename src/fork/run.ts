@@ -10,6 +10,7 @@ import { ForkModal } from '../ui/fork-modal.ts';
 import { ensureFolder } from '../util/vault.ts';
 import { initialDestination, type FolderReason, type PlannedFork, type VaultLook } from './destination.ts';
 import { forksOf, isForkable, newForkMeta } from './fork.ts';
+import { offerConvert } from './links-run.ts';
 
 /** The source to fork from, as a check saw it. */
 export interface ForkSource {
@@ -52,13 +53,15 @@ export async function startFork(app: App, data: PublicTxtData, from: ForkSource,
 
 		const submit = async (plan: readonly PlannedFork[]): Promise<string | null> => {
 			const [one] = plan;
+			let written: TFile[];
 			try {
-				if (plan.length === 1 && one) await forkOne(app, host, from, files, one);
-				else await forkSeveral(app, host, from, files, plan);
+				if (plan.length === 1 && one) written = [await forkOne(app, host, from, files, one)];
+				else written = await forkSeveral(app, host, from, files, plan);
 			} catch (e) {
 				return errorText(e);
 			}
 			done?.();
+			void offerConvert(app, host, from, written);
 			return null;
 		};
 		new ForkModal(app, { from: from.name, paths, initial: dest, why: WHY[reason], earlier, vault }, submit).open();
@@ -68,21 +71,23 @@ export async function startFork(app: App, data: PublicTxtData, from: ForkSource,
 }
 
 /** Forks one file and opens its note. Throws what went wrong, for the modal to show. */
-async function forkOne(app: App, host: RemoteHost, from: ForkSource, files: Tree['files'], fork: PlannedFork): Promise<void> {
+async function forkOne(app: App, host: RemoteHost, from: ForkSource, files: Tree['files'], fork: PlannedFork): Promise<TFile> {
 	const file = await forkTo(app, host, from, files, fork);
 	new Notice(`Forked ${fork.path} to ${file.path}.`);
 	await app.workspace.getLeaf(false).openFile(file);
+	return file;
 }
 
-/** Forks each file in turn, going on past one that fails; one notice says how it went. */
-async function forkSeveral(app: App, host: RemoteHost, from: ForkSource, files: Tree['files'], plan: readonly PlannedFork[]): Promise<void> {
+/** Forks each file in turn, going on past one that fails; one notice says how it went. Returns the notes written. */
+async function forkSeveral(app: App, host: RemoteHost, from: ForkSource, files: Tree['files'], plan: readonly PlannedFork[]): Promise<TFile[]> {
 	const failed: string[] = [];
+	const written: TFile[] = [];
 	// One fetch for them all, not one each.
 	const blobs = plan.map((f) => files.get(f.path)).filter((b): b is string => b !== undefined);
 	await host.prefetch?.(from.url, blobs);
 	for (const fork of plan) {
 		try {
-			await forkTo(app, host, from, files, fork);
+			written.push(await forkTo(app, host, from, files, fork));
 		} catch (e) {
 			failed.push(`${fork.path}: ${errorText(e)}`);
 		}
@@ -91,6 +96,7 @@ async function forkSeveral(app: App, host: RemoteHost, from: ForkSource, files: 
 	if (failed.length === 0) new Notice(`Forked ${forked} files from ${from.name}.`);
 	// Stays until dismissed: it is the only record of what didn't fork.
 	else new Notice([`Forked ${forked} of ${plan.length} files from ${from.name}. Not forked:`, ...failed].join('\n'), 0);
+	return written;
 }
 
 /** Fetches the file at the source's head and writes it to its planned vault path as a fork. */
