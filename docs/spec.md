@@ -185,7 +185,7 @@ the lists:
 - **Snapshot**: local sources only, in the header, so shown whatever the result and when closed
   (Local sources → Snapshot).
 
-Needs Obsidian 1.7.2 (`revealLeaf` returning a promise).
+Needs Obsidian 1.14.4: the API the plugin is built and linted against.
 
 ## Remote host
 
