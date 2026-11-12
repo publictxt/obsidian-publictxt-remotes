@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addToTally, convertLinks, danglingLink, danglingName, emptyTally, markdownLink, nothingConverted, wikilink, isWikilink, linkShows, matchesExceptLinks, splitLink, tallyText, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
+import { addToTally, convertLinks, danglingLink, danglingName, emptyTally, markdownLink, missingLink, nothingConverted, wikilink, isWikilink, linkShows, matchesExceptLinks, splitLink, tallyText, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
 
 const FILES = upstreamFiles(['wiki/a.md', 'wiki/cs/b.md', 'wiki/c.md', 'cs/b.md', 'top.md', 'wiki/v1.2 notes.md', 'wiki/My Note.md', 'x/dup.md', 'y/dup.md', 'img/p.png']);
 const FROM = 'wiki/a.md';
@@ -131,7 +131,7 @@ test('tallyText: what was converted, what was left, what to try again', () => {
 	addToTally(t, 'b.md', { ...none, left: { unforked: 0, 'not-note': 0, missing: 0, unclear: 1 } });
 	addToTally(t, 'c.md', { ...none, converted: 1 });
 	addToTally(t, 'd.md', null);
-	assert.equal(tallyText(t, false), 'Converted 4 links, 2 to notes not forked yet. Left: 2 no name fits, 1 not a note, 1 not in the source, 1 unclear. See "Links to fix" in the follow note. Changed while converting, try again: d.md.');
+	assert.equal(tallyText(t, false), "Converted 4 links, 2 to notes you don't have yet. Left: 2 no name fits, 1 not a note, 1 not in the source, 1 unclear. See \"Links to fix\" in the follow note. Changed while converting, try again: d.md.");
 	assert.equal(tallyText({ ...emptyTally(), converted: 1, notes: 1 }, true), 'Converted 1 link in 1 note.');
 });
 
@@ -204,4 +204,17 @@ test('convertLinks: counts dangling links among the converted', () => {
 	const text = 'a [b](b.md) [c](c.md)';
 	const r = convertLinks(text, refsOf(text), (ref) => (ref.link === 'b.md' ? '[[b]]' : { dangling: '[[c]]' }));
 	assert.deepEqual(r, { ...nothingConverted('a [[b]] [[c]]'), converted: 2, dangling: 1 });
+});
+
+test('missingLink: a page not written yet, by its own name in the vault\'s style', () => {
+	assert.deepEqual(missingLink({ original: '[x](../ideas/some-idea.md)', link: '../ideas/some-idea.md' }, 'wiki'), { dangling: '[[some-idea|x]]' });
+	assert.deepEqual(missingLink({ original: '[Some Idea](Some%20Idea.md#H)', link: 'Some%20Idea.md#H' }, 'wiki'), { dangling: '[[Some Idea#H|Some Idea]]' });
+	assert.deepEqual(missingLink({ original: '[[old/Some Idea]]', link: 'old/Some Idea' }, 'markdown'), { dangling: '[Some Idea](Some%20Idea.md)' });
+	assert.deepEqual(missingLink({ original: '[[../Some Idea|see]]', link: '../Some Idea' }, 'wiki'), { dangling: '[[Some Idea|see]]' });
+	// Already by name in the vault's style: a dangling link as wikis have.
+	assert.equal(missingLink({ original: '[[Some Idea]]', link: 'Some Idea' }, 'wiki'), null);
+	assert.equal(missingLink({ original: '[x](some-idea.md)', link: 'some-idea.md' }, 'markdown'), null);
+	assert.equal(missingLink({ original: '[[v1.2 notes]]', link: 'v1.2 notes' }, 'wiki'), null);
+	assert.deepEqual(missingLink({ original: '![p](gone.png)', link: 'gone.png' }, 'wiki'), { left: 'not-note' });
+	assert.deepEqual(missingLink({ original: '[a|b](x.md)', link: 'x.md' }, 'wiki'), { left: 'missing' });
 });

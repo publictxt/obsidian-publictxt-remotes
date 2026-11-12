@@ -244,13 +244,36 @@ export function markdownLink(name: string, subpath: string, shows: string): stri
  */
 export function danglingLink(ref: Pick<LinkRef, 'original' | 'link'>, path: string, forkPath: string, files: UpstreamFiles, style: LinkStyle): { dangling: string } | { left: 'unforked' | 'not-note' } | null {
 	if (!/\.md$/i.test(path)) return { left: 'not-note' };
-	const { path: written, subpath } = splitLink(ref.link);
-	if (isWikilink(ref.original) === (style === 'wiki') && !/^\.{0,2}\//.test(written)) return null;
+	const { subpath } = splitLink(ref.link);
+	if (inStyleByName(ref, style)) return null;
 	const name = danglingName(path, forkPath, files, style);
 	if (name === null) return { left: 'unforked' };
 	const shows = linkShows(ref.original);
 	const link = style === 'wiki' ? wikilink(name, decoded(subpath), shows) : markdownLink(name, decoded(subpath), shows);
 	return link === null ? { left: 'unforked' } : { dangling: link };
+}
+
+/** Whether a link is in `style` and by name (no `./`, `../` or leading `/`): Obsidian takes it by name. */
+function inStyleByName(ref: Pick<LinkRef, 'original' | 'link'>, style: LinkStyle): boolean {
+	return isWikilink(ref.original) === (style === 'wiki') && !/^\.{0,2}\//.test(splitLink(ref.link).path);
+}
+
+/**
+ * A link to a note that is no file upstream either (a page not written yet), by its own name in
+ * the vault's `style`: it lands on the vault's note of that name, or dangles. The wiki way.
+ * `null`: it already is one. Left when its target isn't a note, or its words can't be the link's.
+ */
+export function missingLink(ref: Pick<LinkRef, 'original' | 'link'>, style: LinkStyle): { dangling: string } | { left: 'missing' | 'not-note' } | null {
+	const { path, subpath } = splitLink(ref.link);
+	const file = baseName(decoded(path).trim());
+	const ext = /\.([a-z0-9]{1,5})$/i.exec(file)?.[1];
+	if (ext !== undefined && ext.toLowerCase() !== 'md') return { left: 'not-note' };
+	if (inStyleByName(ref, style)) return null;
+	const name = file.replace(/\.md$/i, '');
+	if (!name || NOT_IN_NAME.test(name)) return { left: 'missing' };
+	const shows = linkShows(ref.original);
+	const link = style === 'wiki' ? wikilink(name, decoded(subpath), shows) : markdownLink(name, decoded(subpath), shows);
+	return link === null ? { left: 'missing' } : { dangling: link };
 }
 
 /** What becomes of a link: its new text, a dangling wikilink, why it is left, or `null`: right as it is. */
@@ -302,7 +325,7 @@ export function tallyText(t: LinkTally, many: boolean): string {
 	const lines: string[] = [];
 	if (t.converted === 0) lines.push('No links to convert.');
 	else {
-		const dangling = t.dangling ? `, ${t.dangling} to notes not forked yet` : '';
+		const dangling = t.dangling ? `, ${t.dangling} to notes you don't have yet` : '';
 		lines.push(`Converted ${n(t.converted, 'link')}${many ? ` in ${n(t.notes, 'note')}` : ''}${dangling}.`);
 	}
 	const left = (Object.keys(LEFT_TEXT) as Left[]).filter((k) => t.left[k] > 0).map((k) => `${t.left[k]} ${LEFT_TEXT[k]}`);

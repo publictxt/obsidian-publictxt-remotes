@@ -30,7 +30,9 @@ wiki dialects (Gollum's `[[text|Page-Name]]`, MediaWiki, Dendron) are not read.
    upstream path (`b`, `cs/b`, `wiki/cs/b`) that upstream reads back as that note, so once it is
    forked the link converts to the copy. Until then Obsidian takes it by name: it lands on the
    user's note of that name, or dangles. The wiki way. A link already in the vault's style and by
-   name (no `./`, `../`, `/`) stays. Links to files that aren't notes (images) are left. Nothing
+   name (no `./`, `../`, `/`) stays. A link to a note that is no file upstream either (a page
+   not written yet) is written by its own name the same way, landing on the user's note of
+   that name or dangling. Links to files that aren't notes (images) are left. Nothing
    is turned into a web URL, and nothing is forked for the user; offering to fork the targets
    may come later. The vault's style is read by asking Obsidian for a link to the note itself:
    its setting isn't public API.
@@ -147,8 +149,9 @@ Links in forks of this source that converting left as they were. Rewritten each 
 ```
 
 Why a link is left: **no name fits** (a note not forked that no link by name reads back as),
-**not a note** (an image or other file), **not in the source**, **unclear** (a name for several
-files upstream, or a local copy and upstream disagreeing).
+**not a note** (an image or other file), **not in the source** (a missing note whose name can't
+be a link's, or whose words can't be its text), **unclear** (a name for several files upstream,
+or a local copy and upstream disagreeing).
 
 ### The edited test
 

@@ -13,7 +13,7 @@ import type { PublicTxtData } from '../sources/schema.ts';
 import { forksOf, isForkOf, type Remote } from './fork.ts';
 import { withSection } from './fork-list.ts';
 import { LINK_REPORT_HEADING, renderLinkReport, type NoteLinks } from './link-report.ts';
-import { addToTally, convertLinks, danglingLink, emptyTally, linkShows, nothingConverted, splitLink, tallyText, upstreamFiles, upstreamTarget, type Converted, type LinkPlan, type LinkRef, type LinkStyle, type LinkTally, type UpstreamFiles } from './links.ts';
+import { addToTally, convertLinks, danglingLink, emptyTally, linkShows, missingLink, nothingConverted, splitLink, tallyText, upstreamFiles, upstreamTarget, type Converted, type LinkPlan, type LinkRef, type LinkStyle, type LinkTally, type UpstreamFiles } from './links.ts';
 
 /** One source's forks, and its files at each commit they were forked at, read once. */
 class SourceLinks {
@@ -93,7 +93,8 @@ class SourceLinks {
 			if ('path' in upstream && upstream.path !== localCopy.meta.path) return { left: 'unclear' };
 			target = local;
 		} else {
-			if ('left' in upstream) return upstream;
+			// No file upstream either: a link by its own name, the wiki way.
+			if ('left' in upstream) return upstream.left === 'missing' ? missingLink(ref, this.styleFor(file)) : upstream;
 			target = upstream.path === meta.path ? file : this.copyOf(upstream.path);
 			// Not forked: a wikilink by name, which converts to the copy once it is forked.
 			if (!target) return danglingLink(ref, upstream.path, meta.path, files, this.styleFor(file));
