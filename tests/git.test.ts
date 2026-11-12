@@ -1,13 +1,13 @@
 // GitHost against real git: a temporary "upstream" repo and a cache folder.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { setTimeout as wait } from 'node:timers/promises';
-import { GitHost, cachePath, parseLsTree, parseNameStatus, parseNumstat } from '../src/remote/git.ts';
-import { gitRunner, pathExists } from '../src/remote/git-process.ts';
+import { CACHE_GITIGNORE, GitHost, cachePath, parseLsTree, parseNameStatus, parseNumstat } from '../src/remote/git.ts';
+import { gitRunner, pathExists, writeIfMissing } from '../src/remote/git-process.ts';
 import { RemoteError } from '../src/remote/host.ts';
 import { fileUrl } from '../src/sources/repo-url.ts';
 
@@ -157,6 +157,30 @@ test('a clone folder that is not a repo: refused, and the repo around it left al
 	await assert.rejects(h.head(key, 'main'), (e) => e instanceof RemoteError && e.kind === 'git');
 	assert.equal(vg('remote', 'get-url', 'origin'), 'https://example.com/vault.git');
 	assert.equal(vg('for-each-ref'), '');
+});
+
+test('the cache folder ignores its clones, so a vault repo never sees them', async () => {
+	const vault = join(root, 'ignoring-vault');
+	mkdirSync(vault);
+	const vg = (...args: string[]) => execFileSync('git', args, { cwd: vault, encoding: 'utf8' }).trim();
+	vg('init', '-q', '-b', 'main');
+	const cache = join(vault, '.remotes');
+	const make = () => new GitHost({ run: gitRunner(), cacheDir: cache, join, exists: pathExists, remote: () => fileUrl(up), writeIfMissing });
+
+	await make().head('local:a', null);
+	assert.equal(readFileSync(join(cache, '.gitignore'), 'utf8'), CACHE_GITIGNORE);
+	assert.equal(vg('status', '--porcelain', '--untracked-files=all'), '');
+
+	// A cache folder from before, with no .gitignore, gets one at its next use.
+	rmSync(join(cache, '.gitignore'));
+	assert.match(vg('status', '--porcelain'), /^\?\? \.remotes\/$/);
+	await make().head('local:a', null);
+	assert.equal(vg('status', '--porcelain', '--untracked-files=all'), '');
+
+	// One already there is the user's: left as it is.
+	writeFileSync(join(cache, '.gitignore'), 'mine\n');
+	await make().head('local:b', null);
+	assert.equal(readFileSync(join(cache, '.gitignore'), 'utf8'), 'mine\n');
 });
 
 test('errors: missing branch, bad SHA, no git', async () => {

@@ -42,7 +42,15 @@ export interface GitHostOptions {
 	 * per operation, and they must still take turns. Absent: this host's own.
 	 */
 	queues?: Map<string, Promise<unknown>>;
+	/**
+	 * Writes `text` to the file at `path` unless there is one, making its folder. Used for the
+	 * cache folder's `.gitignore` (`CACHE_GITIGNORE`). Absent: nothing is written.
+	 */
+	writeIfMissing?: (path: string, text: string) => Promise<void>;
 }
+
+/** The cache folder's own `.gitignore`: all of it, itself too, so no repo it is in commits the clones. */
+export const CACHE_GITIGNORE = '# Written by PublicTxt Remotes: its clones of your sources, never to be committed.\n*\n';
 
 /** Blobs asked for in one fetch: well under any limit on a command line's length. */
 const PREFETCH_BATCH = 200;
@@ -164,6 +172,8 @@ export class GitHost implements RemoteHost {
 	private async ensureClone(repo: string): Promise<string> {
 		const dir = this.dir(repo);
 		const remote = this.o.remote ? this.o.remote(repo) : repo;
+		// Each time, not just at the first clone: a cache folder from before this file still gets it.
+		await this.o.writeIfMissing?.(this.o.join(this.o.cacheDir, '.gitignore'), CACHE_GITIGNORE);
 		if (await this.o.exists(dir)) {
 			const bare = await this.run(['rev-parse', '--is-bare-repository'], dir);
 			if (bare.code !== 0 || bare.stdout.trim() !== 'true') {

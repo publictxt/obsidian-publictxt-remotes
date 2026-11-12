@@ -3,7 +3,7 @@
 
 import { App, Notice } from 'obsidian';
 import { gitRunner, localFs } from '../remote/git-process.ts';
-import { ignoreRemotes, initLocal, initQuestion, newRepoGitignore, inspectLocal, localProblem, localWarnings, REMOTES_IGNORE, type RemotesIgnored } from '../remote/local-repo.ts';
+import { initLocal, initQuestion, newRepoGitignore, inspectLocal, localProblem, localWarnings } from '../remote/local-repo.ts';
 import { snapshot, type SnapshotResult } from '../remote/snapshot.ts';
 import { errorText, localFolder } from '../remote/vault-host.ts';
 import type { Follow } from '../sources/follow-note.ts';
@@ -14,7 +14,7 @@ import { choose } from '../ui/choice-modal.ts';
 import { ConfirmModal } from '../ui/confirm-modal.ts';
 import { localIso } from '../util/time.ts';
 
-type Outcome = { kind: 'done'; result: SnapshotResult; notes: string[] } | { kind: 'not-repo'; within: boolean; dir: string } | { kind: 'busy' };
+type Outcome = { kind: 'done'; result: SnapshotResult } | { kind: 'not-repo'; within: boolean; dir: string } | { kind: 'busy' };
 
 /** Folders being snapshotted or made repos: git locks the index, so one job at a time per folder. */
 const busy = new Set<string>();
@@ -40,18 +40,7 @@ export function snapshotText(label: string, r: SnapshotResult): string {
 	return `${label}: committed ${files} to ${r.branch} (${r.commit.slice(0, 7)}).`;
 }
 
-/** What to tell the user about `.remotes/` in `dir` after `ignoreRemotes`. */
-function remotesNotes(dir: string, r: RemotesIgnored): string[] {
-	const notes: string[] = [];
-	if (r.added) notes.push(`added ${REMOTES_IGNORE} to .gitignore, so the plugin's clones aren't committed.`);
-	if (r.tracked) notes.push(`${REMOTES_IGNORE} is already committed. To take it out, run git rm -r --cached .remotes in ${dir}.`);
-	return notes;
-}
-
-/**
- * Commits everything changed in a local source's folder, if anything. Never makes a repo. When
- * the folder has a `.remotes` (a vault with this plugin), it is made ignored first.
- */
+/** Commits everything changed in a local source's folder, if anything. Never makes a repo. */
 async function snapshotFollow(data: PublicTxtData, follow: Follow): Promise<Outcome> {
 	const dir = localFolder(data, follow.url);
 	const run = gitRunner(data.gitPath);
@@ -60,9 +49,7 @@ async function snapshotFollow(data: PublicTxtData, follow: Follow): Promise<Outc
 		const problem = localProblem(local, dir);
 		if (problem) throw new Error(problem);
 		if (local.kind === 'not-repo') return { kind: 'not-repo', within: local.within, dir };
-		const hasRemotes = local.kind === 'work' && (await localFs.isFolder(localFs.join(dir, REMOTES_IGNORE)));
-		const notes = hasRemotes ? remotesNotes(dir, await ignoreRemotes(run, localFs, dir)) : [];
-		return { kind: 'done', result: await snapshot(run, dir, follow.branch, message()), notes };
+		return { kind: 'done', result: await snapshot(run, dir, follow.branch, message()) };
 	});
 	return out ?? { kind: 'busy' };
 }
@@ -96,7 +83,7 @@ export async function snapshotAndTell(app: App, data: PublicTxtData, follows: Fo
 			if (o.kind === 'busy') lines.push(`${name}: a snapshot is already running.`);
 			else if (o.kind === 'done') {
 				committed ||= o.result.committed;
-				lines.push(...o.notes.map((n) => `${name}: ${n}`), snapshotText(name, o.result));
+				lines.push(snapshotText(name, o.result));
 			} else if (follows.length === 1) {
 				offerInit(app, data, name, o.dir, follow.branch, o.within, onCommitted);
 				return;

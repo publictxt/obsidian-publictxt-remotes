@@ -2,8 +2,8 @@
 // Node: the plugin is desktop-only (docs/intent.md).
 
 import { execFile } from 'child_process';
-import { access, appendFile, readFile, stat, writeFile } from 'fs/promises';
-import { join } from 'path';
+import { access, mkdir, stat, writeFile } from 'fs/promises';
+import { dirname, join } from 'path';
 import { RemoteError } from './host.ts';
 import { GitHost, type GitResult, type RunGit } from './git.ts';
 import type { LocalFs } from './local-repo.ts';
@@ -62,7 +62,7 @@ export async function pathExists(path: string): Promise<boolean> {
 
 /** The plugin's git host: clones in `<vaultBase>/<remotesFolder>`, the git at `gitPath`; `remote` as `GitHostOptions.remote`. */
 export function gitHost(gitPath: string, vaultBase: string, remotesFolder: string, remote?: (repo: string) => string): GitHost {
-	return new GitHost({ run: gitRunner(gitPath), cacheDir: join(vaultBase, remotesFolder), join, exists: pathExists, remote, queues });
+	return new GitHost({ run: gitRunner(gitPath), cacheDir: join(vaultBase, remotesFolder), join, exists: pathExists, remote, queues, writeIfMissing });
 }
 
 /** The real file system for local sources. */
@@ -75,15 +75,6 @@ export const localFs: LocalFs = {
 			return false;
 		}
 	},
-	read: async (path) => {
-		try {
-			return await readFile(path, 'utf8');
-		} catch (e) {
-			if ((e as { code?: unknown }).code === 'ENOENT') return null;
-			throw e;
-		}
-	},
-	append: (path, text) => appendFile(path, text, 'utf8'),
 	writeNew: async (path, text) => {
 		try {
 			await writeFile(path, text, { encoding: 'utf8', flag: 'wx' });
@@ -94,3 +85,9 @@ export const localFs: LocalFs = {
 		}
 	},
 };
+
+/** Writes `text` to `path` unless there is a file there, making its folder first. */
+export async function writeIfMissing(path: string, text: string): Promise<void> {
+	await mkdir(dirname(path), { recursive: true });
+	await localFs.writeNew(path, text);
+}
