@@ -60,9 +60,9 @@ and command ids freeze at the first release.
 | `runCheck()` | Every source, from the vault; returns results and state to save |
 | `CheckView` | The check view: the last check, and its clicks |
 | `renderSource()` | Draws one source in the check view |
-| `SourceUi` | What the user did to a source in the view: what's open, what's ticked |
+| `SourceUi` | What the user did to a source in the view: what's open, what's ticked, whether all files are shown |
 | `fileTree()` | A folder tree (`TreeFolder`) from a flat list of paths. Pure |
-| `forkablePaths()` / `forkableUnder()` | The files a check lists that can be forked; those under a folder. Pure |
+| `forkablePaths()` / `forkableUnder()` | The files a check lists that can be forked; those under a folder, in what's new or all files (`FileList`). Pure |
 | `planForks()` / `PlannedFork` | Where each file goes under a destination, numbered when its name is taken. Pure |
 | `treeItem()` | A row in Obsidian's tree style; collapsible when given `open` |
 | `RemoteHost` | What the plugin needs from a remote: `head`, `tree`, `changes`, `blob`, `diffStat` |

@@ -40,6 +40,8 @@ export interface SourceCheck {
 	readonly forks: readonly ForkChange[];
 	/** Every upstream path the user has a fork of, changed or not: the view marks those files. */
 	readonly forked: ReadonlySet<string>;
+	/** Every file at head within `include`, sorted: what "all files" lists, whatever was seen. */
+	readonly files: readonly string[];
 	/** Blob at head per watched path that exists there: what acknowledging stores. */
 	readonly watchedBlobs: Readonly<Record<string, string>>;
 }
@@ -52,6 +54,7 @@ export function inInclude(path: string, include: readonly string[]): boolean {
 export async function checkSource(host: RemoteHost, source: Source & Remote, state: SourceState | undefined, forks: readonly Fork[]): Promise<SourceCheck> {
 	const head = await host.head(source.url, source.branch);
 	const { files } = await host.tree(source.url, head.tree);
+	const all = [...files.keys()].filter((p) => inInclude(p, source.include)).sort();
 	const seen = state?.seenCommit ?? null;
 
 	let changes: Change[] | null = [];
@@ -76,7 +79,7 @@ export async function checkSource(host: RemoteHost, source: Source & Remote, sta
 	}
 
 	const byPath = copiesByPath(source, forks);
-	return { url: source.url, head, changes: inScope, reason, watched, forks: forkChanges(byPath, files), forked: new Set(byPath.keys()), watchedBlobs };
+	return { url: source.url, head, changes: inScope, reason, watched, forks: forkChanges(byPath, files), forked: new Set(byPath.keys()), files: all, watchedBlobs };
 }
 
 /** This source's forks by the upstream file they came from: that file's copies. */

@@ -6,7 +6,7 @@ import type PublicTxtPlugin from '../main.ts';
 import type { ForkChange, SourceCheck } from '../check/check.ts';
 import type { SourceResult } from '../check/run.ts';
 import { FOLLOWS_FOLDER } from '../sources/follow-note.ts';
-import { forkableUnder, selectedPaths, toggleAll } from '../check/selection.ts';
+import { forkableUnder, selectedPaths, toggleAll, type FileList } from '../check/selection.ts';
 import { compareChange } from '../fork/compare-run.ts';
 import { startFork, type ForkSource } from '../fork/run.ts';
 import { detach, keepGone } from '../fork/update-run.ts';
@@ -113,6 +113,15 @@ export class CheckView extends ItemView {
 			case 'select-folder':
 				if (path) this.selectFolder(url, path);
 				break;
+			case 'browse':
+				this.toggleBrowse(url);
+				break;
+			case 'toggle-all-folder':
+				if (path) this.toggleFolder(url, path, 'all');
+				break;
+			case 'select-all-folder':
+				if (path) this.selectFolder(url, path, 'all');
+				break;
 			case 'fork-selected':
 				this.forkSelected(url);
 				break;
@@ -141,11 +150,18 @@ export class CheckView extends ItemView {
 		this.render();
 	}
 
-	private toggleFolder(url: string, path: string): void {
+	private toggleFolder(url: string, path: string, list: FileList = 'new'): void {
 		const c = this.result(url)?.check;
 		if (!c) return;
 		const ui = this.uiOf(url);
-		ui.folders.set(path, !folderOpen(c, ui, path));
+		(list === 'all' ? ui.allFolders : ui.folders).set(path, !folderOpen(c, ui, path, list));
+		this.render();
+	}
+
+	/** Shows or hides all files. */
+	private toggleBrowse(url: string): void {
+		const ui = this.uiOf(url);
+		ui.browse = !ui.browse;
 		this.render();
 	}
 
@@ -160,9 +176,9 @@ export class CheckView extends ItemView {
 		this.render();
 	}
 
-	private selectFolder(url: string, folder: string): void {
+	private selectFolder(url: string, folder: string, list: FileList = 'new'): void {
 		const c = this.result(url)?.check;
-		if (c) this.select(url, forkableUnder(c, folder));
+		if (c) this.select(url, forkableUnder(c, folder, list));
 	}
 
 	/** The source `url` as the last check saw it: forks come from the head the user is looking at. */

@@ -6,8 +6,8 @@ import type { Change } from '../src/remote/host.ts';
 
 const change = (path: string, status: Change['status'] = 'modified'): Change => ({ path, status, from: null });
 
-function check(changes: Change[], watched: SourceCheck['watched'] = [], forked: string[] = []): SourceCheck {
-	return { url: 'https://github.com/a/b', head: { branch: 'main', commit: '', tree: '' }, changes, reason: null, watched, forks: [], forked: new Set(forked), watchedBlobs: {} };
+function check(changes: Change[], watched: SourceCheck['watched'] = [], forked: string[] = [], files: string[] = []): SourceCheck {
+	return { url: 'https://github.com/a/b', head: { branch: 'main', commit: '', tree: '' }, changes, reason: null, watched, forks: [], forked: new Set(forked), files, watchedBlobs: {} };
 }
 
 const C = check(
@@ -68,4 +68,13 @@ test('forkableByFolder: forkableUnder, for every folder that has any', () => {
 	const folders = new Set(C.changes.flatMap((ch) => ch.path.split('/').slice(0, -1).map((_, i, parts) => parts.slice(0, i + 1).join('/'))));
 	for (const folder of folders) assert.deepEqual(by.get(folder) ?? [], forkableUnder(C, folder), folder);
 	assert.ok(by.size > 0);
+});
+
+test('all files: forkable under a folder, in its own list; ticks there count for Fork selected', () => {
+	const c = check([change('wiki/a.md')], [], ['old/forked.md'], ['old/forked.md', 'old/b.md', 'old/pic.png', 'wiki/a.md', 'top.md']);
+	assert.deepEqual(forkableUnder(c, 'old', 'all'), ['old/b.md']);
+	assert.deepEqual(forkableUnder(c, 'old'), []);
+	assert.deepEqual(forkableByFolder(c, 'all'), new Map([['old', ['old/b.md']], ['wiki', ['wiki/a.md']]]));
+	assert.deepEqual(forkablePaths(c), ['wiki/a.md', 'old/forked.md', 'old/b.md', 'top.md']);
+	assert.deepEqual(selectedPaths(c, new Set(['top.md', 'old/pic.png'])), ['top.md']);
 });
