@@ -86,19 +86,12 @@ class SourceLinks {
 		const { path, subpath } = splitLink(ref.link);
 		// Already a link to a copy from this source: that copy is the target (a second run changes nothing).
 		const local = this.app.metadataCache.getFirstLinkpathDest(path, file.path);
-		const localCopy = local ? this.byPath.get(local.path) : undefined;
-		let target: TFile | null;
-		if (local && localCopy) {
-			// Upstream reads it as another file: don't guess between them.
-			if ('path' in upstream && upstream.path !== localCopy.meta.path) return { left: 'unclear' };
-			target = local;
-		} else {
-			// No file upstream either: a link by its own name, the wiki way.
-			if ('left' in upstream) return upstream.left === 'missing' ? missingLink(ref, this.styleFor(file)) : upstream;
-			target = upstream.path === meta.path ? file : this.copyOf(upstream.path);
-			// Not forked: a wikilink by name, which converts to the copy once it is forked.
-			if (!target) return danglingLink(ref, upstream.path, meta.path, files, this.styleFor(file));
-		}
+		if (local && this.byPath.has(local.path)) return this.linkTo(local, file.path, subpath, ref.original);
+		// No one file upstream (none, or several of that name): a link by its own name, the wiki way.
+		if ('left' in upstream) return missingLink(ref, this.styleFor(file));
+		const target = upstream.path === meta.path ? file : this.copyOf(upstream.path);
+		// Not forked: a link by name, which converts to the copy once it is forked.
+		if (!target) return danglingLink(ref, upstream.path, meta.path, files, this.styleFor(file));
 		return this.linkTo(target, file.path, subpath, ref.original);
 	}
 

@@ -82,13 +82,13 @@ link goes through this, in order:
      a wikilink: from the root, then relative to the folder, then by name.
 
    "By name" is the upstream files whose path ends in `/` + the target, or equals it; exactly
-   one resolves, several are **unclear**. Paths that climb out of the repo resolve to nothing.
-   A case-insensitive match is taken only when there is no exact one. A target that is no file
-   upstream is **missing**.
+   one resolves. Paths that climb out of the repo resolve to nothing. A case-insensitive match
+   is taken only when there is no exact one. A target that is no one file upstream (none, or
+   several by name) is **missing**, and becomes a link by its own name (decision 1).
 3. **Its copy.** The latest copy (`latestFirst()`) of that upstream path from the same source
    (`forksOf()`). No copy: a wikilink by name (decision 1), else **unforked**.
-4. **Unclear.** If step 1 found a copy and steps 2–3 find a different upstream file's copy,
-   the link is left alone and counted as unclear. The plugin never guesses.
+4. **A copy already.** If step 1 found a copy from this source, that copy is the target,
+   whatever upstream reads the link as.
 
 A link to the note's own upstream path resolves to the note itself, not to another copy.
 With forks' paths standing in for the files, missing and unforked can't be told apart: both
@@ -115,7 +115,7 @@ converting; try again".
 
 - **Convert links in this fork** (`convert-links`): the active note, which must be a fork of a
   followed source. Notice: "Converted 4 links. 2 left: not forked." / "No links to convert."
-  Missing and unclear links are counted too, when there are any.
+  Links left are counted too, when there are any.
 - **Convert links in every fork** (`convert-links-all`): every fork of every followed source.
   One notice: "Converted 12 links in 5 notes."
 - **The offer after forking.** After a fork is written (one, several, or **Write alongside**)
@@ -150,8 +150,7 @@ Links in forks of this source that converting left as they were. Rewritten each 
 
 Why a link is left: **no name fits** (a note not forked that no link by name reads back as),
 **not a note** (an image or other file), **not in the source** (a missing note whose name can't
-be a link's, or whose words can't be its text), **unclear** (a name for several files upstream,
-or a local copy and upstream disagreeing).
+be a link's, or whose words can't be its text).
 
 ### The edited test
 
@@ -188,15 +187,15 @@ Pure module and Obsidian side, as elsewhere.
   target with its subpath, decoded).
 - `splitLink(link)`: path and subpath. `isWikilink(original)`.
 - `upstreamTarget(ref, forkPath, files)`: the upstream path a link names, or why not
-  (`'missing'`, `'unclear'`); step 2 of Resolving. `files` is a set of upstream paths.
+  (`'missing'`); step 2 of Resolving. `files` is a set of upstream paths.
 - `linkShows(original)`: what a link shows.
 - `convertLinks(text, refs, plan)`: `plan(ref)` returns the new link text, or why it is left
-  (`'unforked'`, `'missing'`, `'unclear'`; `null`: it is right as it is). Returns
-  `{ text, converted, dangling, left: { unforked, missing, unclear } }`, or `null` when a position doesn't
+  (`'unforked'`, `'not-note'`, `'missing'`; `null`: it is right as it is). Returns
+  `{ text, converted, dangling, left: { unforked, not-note, missing }, leftLinks }`, or `null` when a position doesn't
   match. Splices from the last link back so offsets stay true.
 
 Test at least: `../`, `/`-rooted, encoded spaces, no extension, a name with a dot, out of the
-repo; Markdown link relative before root, wikilink root before relative; by name, ambiguous,
+repo; Markdown link relative before root, wikilink root before relative; by name, several by name,
 different case; subpath kept; alias only when needed; embed kept; a stale position; a second
 run changes nothing.
 

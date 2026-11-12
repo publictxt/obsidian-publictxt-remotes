@@ -17,16 +17,15 @@ export interface LinkRef {
 
 /**
  * Why a link is left as it is: its upstream note has no copy and no link by name fits; its target
- * isn't a note (an image); it is no file upstream; or which file it names can't be told.
+ * isn't a note (an image); or it is no one file upstream and can't be a link by its own name.
  */
-export type Left = 'unforked' | 'not-note' | 'missing' | 'unclear';
+export type Left = 'unforked' | 'not-note' | 'missing';
 
 /** Each reason, as the notice and the report say it. */
 export const LEFT_TEXT: Record<Left, string> = {
 	unforked: 'no name fits',
 	'not-note': 'not a note',
 	missing: 'not in the source',
-	unclear: 'unclear',
 };
 
 /** A link left as it is, and why. */
@@ -37,7 +36,7 @@ export interface LeftLink {
 }
 
 function noLeft(): Record<Left, number> {
-	return { unforked: 0, 'not-note': 0, missing: 0, unclear: 0 };
+	return { unforked: 0, 'not-note': 0, missing: 0 };
 }
 
 /** `link` cut at its first `#`: the path, and the subpath with its `#` (`''`: none). */
@@ -109,10 +108,10 @@ function decoded(s: string): string {
 
 /**
  * The upstream path a link in the note forked from `forkPath` names, as upstream would read it,
- * or why there is none. `null`: not a link to a file (an external URL, or a link within the
- * note). See docs/plans/convert-links.md → Resolving a link, step 2.
+ * or `missing` when it names no one file there (none, or several by name). `null`: not a link
+ * to a file (an external URL, or a link within the note). See docs/plans/convert-links.md → Resolving a link, step 2.
  */
-export function upstreamTarget(ref: Pick<LinkRef, 'original' | 'link'>, forkPath: string, files: UpstreamFiles): { path: string } | { left: 'missing' | 'unclear' } | null {
+export function upstreamTarget(ref: Pick<LinkRef, 'original' | 'link'>, forkPath: string, files: UpstreamFiles): { path: string } | { left: 'missing' } | null {
 	const raw = splitLink(ref.link).path.trim();
 	if (!raw || /^[a-z][a-z0-9+.-]*:/i.test(raw)) return null;
 	const wiki = isWikilink(ref.original);
@@ -137,7 +136,7 @@ export function upstreamTarget(ref: Pick<LinkRef, 'original' | 'link'>, forkPath
 			if (!byName) continue;
 			const named = lookUpByName(files, p, caseless);
 			if (named.length === 1 && named[0] !== undefined) return { path: named[0] };
-			if (named.length > 1) return { left: 'unclear' };
+			if (named.length > 1) return { left: 'missing' };
 		}
 	}
 	return { left: 'missing' };

@@ -4,7 +4,7 @@ import { renderLinkReport } from '../src/fork/link-report.ts';
 
 test('renderLinkReport: by note then line, the link as code, why', () => {
 	const section = renderLinkReport([
-		{ path: 'z.md', link: '[[z]]', left: [{ line: 0, original: '[[dup]]', why: 'unclear' }] },
+		{ path: 'z.md', link: '[[z]]', left: [{ line: 0, original: '[[dup]]', why: 'missing' }] },
 		{ path: 'a.md', link: '[[a]]', left: [
 			{ line: 2, original: '![p](../img/p.png)', why: 'not-note' },
 			{ line: 9, original: '[x](../../out.md)', why: 'missing' },
@@ -18,7 +18,7 @@ test('renderLinkReport: by note then line, the link as code, why', () => {
 		'',
 		'- [[a]] line 3: `![p](../img/p.png)` not a note',
 		'- [[a]] line 10: `[x](../../out.md)` not in the source',
-		'- [[z]] line 1: `[[dup]]` unclear',
+		'- [[z]] line 1: `[[dup]]` not in the source',
 	].join('\n'));
 });
 

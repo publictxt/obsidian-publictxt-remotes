@@ -38,12 +38,12 @@ test('upstreamTarget: wikilinks, from the root first', () => {
 	assert.equal(target('[[../top]]', '../top'), 'top.md');
 });
 
-test('upstreamTarget: by name, unique or unclear', () => {
+test('upstreamTarget: by name, one file or missing', () => {
 	assert.equal(target('[[b]]', 'b', upstreamFiles(['wiki/cs/b.md', 'wiki/a.md'])), 'wiki/cs/b.md');
-	assert.equal(target('[[b]]', 'b'), 'unclear');
-	assert.equal(target('[[dup]]', 'dup'), 'unclear');
+	assert.equal(target('[[b]]', 'b'), 'missing');
+	assert.equal(target('[[dup]]', 'dup'), 'missing');
 	assert.equal(target('[[x/dup]]', 'x/dup'), 'x/dup.md');
-	assert.equal(target('[d](dup.md)', 'dup.md'), 'unclear');
+	assert.equal(target('[d](dup.md)', 'dup.md'), 'missing');
 });
 
 test('upstreamTarget: case only when nothing matches exactly', () => {
@@ -93,7 +93,7 @@ test('convertLinks: rewrites from the end, keeps embeds, counts what is left', (
 		if (r.link === 'cs/b.md') return '[[b]]';
 		if (r.link === 'c') return '[[c 1|c]]';
 		if (r.link === 'gone') return { left: 'missing' as const };
-		if (r.link === 'dup') return { left: 'unclear' as const };
+		if (r.link === 'dup') return { left: 'not-note' as const };
 		return { left: 'unforked' as const };
 	};
 	const r = convertLinks(text, refsOf(text), plan);
@@ -101,10 +101,10 @@ test('convertLinks: rewrites from the end, keeps embeds, counts what is left', (
 		text: 'See [[b]] and [[c 1|c]].\n\n![[c 1|c]]\n\n[[gone]] [[dup]] [[x]]\n',
 		converted: 3,
 		dangling: 0,
-		left: { unforked: 1, 'not-note': 0, missing: 1, unclear: 1 },
+		left: { unforked: 1, 'not-note': 1, missing: 1 },
 		leftLinks: [
 			{ line: 4, original: '[[gone]]', why: 'missing' },
-			{ line: 4, original: '[[dup]]', why: 'unclear' },
+			{ line: 4, original: '[[dup]]', why: 'not-note' },
 			{ line: 4, original: '[[x]]', why: 'unforked' },
 		],
 	});
@@ -127,11 +127,11 @@ test('tallyText: what was converted, what was left, what to try again', () => {
 	const t = emptyTally();
 	assert.equal(tallyText(t, false), 'No links to convert.');
 	const none = nothingConverted('');
-	addToTally(t, 'a.md', { ...none, converted: 3, dangling: 2, left: { unforked: 2, 'not-note': 1, missing: 1, unclear: 0 } });
-	addToTally(t, 'b.md', { ...none, left: { unforked: 0, 'not-note': 0, missing: 0, unclear: 1 } });
+	addToTally(t, 'a.md', { ...none, converted: 3, dangling: 2, left: { unforked: 2, 'not-note': 1, missing: 1 } });
+	addToTally(t, 'b.md', { ...none, left: { unforked: 0, 'not-note': 0, missing: 1 } });
 	addToTally(t, 'c.md', { ...none, converted: 1 });
 	addToTally(t, 'd.md', null);
-	assert.equal(tallyText(t, false), "Converted 4 links, 2 to notes you don't have yet. Left: 2 no name fits, 1 not a note, 1 not in the source, 1 unclear. See \"Links to fix\" in the follow note. Changed while converting, try again: d.md.");
+	assert.equal(tallyText(t, false), "Converted 4 links, 2 to notes you don't have yet. Left: 2 no name fits, 1 not a note, 2 not in the source. See \"Links to fix\" in the follow note. Changed while converting, try again: d.md.");
 	assert.equal(tallyText({ ...emptyTally(), converted: 1, notes: 1 }, true), 'Converted 1 link in 1 note.');
 });
 
