@@ -235,9 +235,10 @@ Warnings are notices; the source is still added.
 `initLocal()`: `init --initial-branch <branch>` (git's default when the source has none), a
 `.gitignore` unless the folder has one, then a snapshot. The `.gitignore` leaves out a vault's
 app data: this vault's `configDir` (taken as the other vault's too), `.trash/`, `.remotes/` and
-`.DS_Store`. Within another repo, it makes a separate, nested one. If it fails partway (a
-commit hook, no git identity), the error shows and, on add, the source is not added; adding
-again finds a repo with nothing committed and warns.
+`.DS_Store`. A folder that has a `.gitignore` keeps it, and `.remotes/` is made ignored
+(Ignoring the clones, below). Within another repo, it makes a separate, nested one. If it fails
+partway (a commit hook, no git identity), the error shows and, on add, the source is not added;
+adding again finds a repo with nothing committed and warns.
 
 ### Snapshot
 
@@ -258,6 +259,18 @@ Then `status --porcelain -z --untracked-files=all`: empty, nothing to do. Otherw
 (`.gitignore` respected) and, if the index then differs from HEAD (`diff --cached --name-only`),
 `commit -m "Snapshot <local ISO time>"`. A failing commit is a `git` error and leaves the
 changes staged.
+
+### Ignoring the clones
+
+A local source can be a vault with this plugin, whose `.remotes/` holds clones that must never be
+committed. `ignoreRemotes()` asks git whether `.remotes/` is ignored (`check-ignore --no-index`,
+so every rule counts: nested `.gitignore`s, `.git/info/exclude`, a global excludes file, a `!`
+that un-ignores it). If not, it appends `.remotes/` on a line of its own to the folder's
+`.gitignore`, making it if missing. It runs when a repo is made and the folder already has a
+`.gitignore`, and before each snapshot of an existing working repo that has a `.remotes`
+folder. The `.gitignore` change goes into that snapshot. The notice says so; it also says when
+files under `.remotes/` are already committed, which ignoring doesn't undo, and how to take
+them out (`git rm -r --cached .remotes`). The plugin never untracks them itself.
 
 ## Fork
 
