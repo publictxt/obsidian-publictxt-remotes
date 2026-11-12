@@ -1,0 +1,166 @@
+// Converting forks' links in the vault (docs/plans/convert-links.md): the Obsidian side of
+// links.ts. A link is read as upstream reads it and pointed at the vault's copy of its file.
+
+import { App, Notice, TFile, type CachedMetadata } from 'obsidian';
+import { latestFirst } from '../check/check.ts';
+import { errorText, vaultHost } from '../remote/vault-host.ts';
+import type { Fork, ForkMeta } from '../sources/fork-meta.ts';
+import { readForkMeta } from '../sources/fork-meta.ts';
+import type { Follow } from '../sources/follow-note.ts';
+import { scanFollows } from '../sources/follows.ts';
+import { scanForks } from '../sources/forks.ts';
+import type { PublicTxtData } from '../sources/schema.ts';
+import { forksOf, isForkOf } from './fork.ts';
+import { addToTally, convertLinks, emptyTally, linkShows, splitLink, tallyText, upstreamFiles, upstreamTarget, type Converted, type Left, type LinkRef, type LinkTally, type UpstreamFiles } from './links.ts';
+
+/** One source's forks, and its files at each commit they were forked at, read once. */
+class SourceLinks {
+	readonly forks: Fork[];
+	private readonly byPath: Map<string, Fork>;
+	private readonly files = new Map<string, Promise<UpstreamFiles>>();
+
+	private readonly app: App;
+	private readonly data: PublicTxtData;
+	readonly follow: Follow;
+
+	constructor(app: App, data: PublicTxtData, follow: Follow, allForks: readonly Fork[]) {
+		this.app = app;
+		this.data = data;
+		this.follow = follow;
+		this.forks = allForks.filter((f) => isForkOf(f.meta, follow));
+		this.byPath = new Map(this.forks.map((f) => [f.path, f]));
+	}
+
+	/**
+	 * The source's files at `commit`, from its clone (no fetch: the clone holds every tree). When
+	 * that can't be read (no commit, no clone, gone from history), the paths of its forks stand in.
+	 */
+	filesAt(commit: string | null): Promise<UpstreamFiles> {
+		const key = commit ?? '';
+		let files = this.files.get(key);
+		if (!files) {
+			files = this.readFiles(commit);
+			this.files.set(key, files);
+		}
+		return files;
+	}
+
+	private async readFiles(commit: string | null): Promise<UpstreamFiles> {
+		if (commit) {
+			try {
+				// `ls-tree` takes any tree-ish: a commit lists its tree.
+				const tree = await vaultHost(this.app, this.data).tree(this.follow.url, commit);
+				return upstreamFiles(tree.files.keys());
+			} catch (e) {
+				console.warn(`PublicTxt Remotes: reading ${this.follow.name} at ${commit}:`, e);
+			}
+		}
+		return upstreamFiles(this.forks.map((f) => f.meta.path));
+	}
+
+	/** Converts the links in the fork `note`; with `write` false only counts them. `null`: the cache was stale. */
+	async convertNote(file: TFile, meta: ForkMeta, write: boolean): Promise<Converted | null> {
+		const cache = this.app.metadataCache.getFileCache(file);
+		const refs = refsOf(cache);
+		if (refs.length === 0) return { text: '', converted: 0, left: { unforked: 0, missing: 0, unclear: 0 } };
+		const files = await this.filesAt(meta.commit);
+		const plan = (ref: LinkRef) => this.planLink(ref, file, meta, files);
+		const counted = convertLinks(await this.app.vault.cachedRead(file), refs, plan);
+		if (!write || !counted || counted.converted === 0) return counted;
+		// `process` reads the file itself: the offsets are checked again against what it reads.
+		let result: Converted | null = null;
+		await this.app.vault.process(file, (text) => {
+			result = convertLinks(text, refs, plan);
+			return result?.text ?? text;
+		});
+		return result;
+	}
+
+	/** A link's new text, why it is left, or `null` when it isn't a link to a file. */
+	private planLink(ref: LinkRef, file: TFile, meta: ForkMeta, files: UpstreamFiles): string | { left: Left } | null {
+		const upstream = upstreamTarget(ref, meta.path, files);
+		if (upstream === null) return null;
+		const { path, subpath } = splitLink(ref.link);
+		// Already a link to a copy from this source: that copy is the target (a second run changes nothing).
+		const local = this.app.metadataCache.getFirstLinkpathDest(path, file.path);
+		const localCopy = local ? this.byPath.get(local.path) : undefined;
+		let target: TFile | null;
+		if (local && localCopy) {
+			// Upstream reads it as another file: don't guess between them.
+			if ('path' in upstream && upstream.path !== localCopy.meta.path) return { left: 'unclear' };
+			target = local;
+		} else {
+			if ('left' in upstream) return upstream;
+			target = upstream.path === meta.path ? file : this.copyOf(upstream.path);
+			if (!target) return { left: 'unforked' };
+		}
+		return this.linkTo(target, file.path, subpath, ref.original);
+	}
+
+	/** The vault file of the latest copy of the upstream file `path`. */
+	private copyOf(path: string): TFile | null {
+		const [latest] = latestFirst(forksOf(this.forks, this.follow, path));
+		return latest ? this.app.vault.getFileByPath(latest.path) : null;
+	}
+
+	/** The link Obsidian writes to `target`, showing what `original` showed. */
+	private linkTo(target: TFile, from: string, subpath: string, original: string): string {
+		const fm = this.app.fileManager;
+		const plain = fm.generateMarkdownLink(target, from, subpath || undefined);
+		const shows = linkShows(original);
+		return linkShows(plain) === shows ? plain : fm.generateMarkdownLink(target, from, subpath || undefined, shows);
+	}
+}
+
+/** The links and embeds Obsidian found in a note's body, in the form `convertLinks` takes. */
+function refsOf(cache: CachedMetadata | null): LinkRef[] {
+	const refs: LinkRef[] = [];
+	for (const [list, embed] of [[cache?.links, false], [cache?.embeds, true]] as const) {
+		for (const r of list ?? []) refs.push({ start: r.position.start.offset, end: r.position.end.offset, original: r.original, link: r.link, embed });
+	}
+	return refs;
+}
+
+/** Converts (or with `write` false, counts) the links in every fork of `follows`. */
+export async function convertForks(app: App, data: PublicTxtData, follows: readonly Follow[], write: boolean, only?: (fork: Fork) => boolean): Promise<LinkTally> {
+	const tally = emptyTally();
+	const forks = scanForks(app);
+	for (const follow of follows) {
+		const source = new SourceLinks(app, data, follow, forks);
+		for (const fork of source.forks) {
+			if (only && !only(fork)) continue;
+			const file = app.vault.getFileByPath(fork.path);
+			if (file) addToTally(tally, fork.path, await source.convertNote(file, fork.meta, write));
+		}
+	}
+	return tally;
+}
+
+/** The "Convert links in this fork" command. */
+export async function convertActiveFork(app: App, data: PublicTxtData): Promise<void> {
+	const file = app.workspace.getActiveFile();
+	const meta = file ? readForkMeta(app.metadataCache.getFileCache(file)?.frontmatter) : null;
+	if (!file || !meta) {
+		new Notice('This note is not a fork.');
+		return;
+	}
+	const follow = scanFollows(app).follows.find((f) => isForkOf(meta, f));
+	if (!follow) {
+		new Notice('The source this note was forked from is not followed.');
+		return;
+	}
+	try {
+		new Notice(tallyText(await convertForks(app, data, [follow], true, (f) => f.path === file.path), false));
+	} catch (e) {
+		new Notice(errorText(e));
+	}
+}
+
+/** The "Convert links in every fork" command. */
+export async function convertAllForks(app: App, data: PublicTxtData): Promise<void> {
+	try {
+		new Notice(tallyText(await convertForks(app, data, scanFollows(app).follows, true), true));
+	} catch (e) {
+		new Notice(errorText(e));
+	}
+}

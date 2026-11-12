@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { convertLinks, isWikilink, linkShows, splitLink, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
+import { addToTally, convertLinks, emptyTally, isWikilink, linkShows, splitLink, tallyText, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
 
 const FILES = upstreamFiles(['wiki/a.md', 'wiki/cs/b.md', 'wiki/c.md', 'cs/b.md', 'top.md', 'wiki/v1.2 notes.md', 'wiki/My Note.md', 'x/dup.md', 'y/dup.md', 'img/p.png']);
 const FROM = 'wiki/a.md';
@@ -114,4 +114,15 @@ test('convertLinks: a stale position writes nothing', () => {
 	const text = 'a [[b]] c';
 	const refs = refsOf(text).map((r) => ({ ...r, start: r.start + 1, end: r.end + 1 }));
 	assert.equal(convertLinks(text, refs, () => '[[x]]'), null);
+});
+
+test('tallyText: what was converted, what was left, what to try again', () => {
+	const t = emptyTally();
+	assert.equal(tallyText(t, false), 'No links to convert.');
+	addToTally(t, 'a.md', { text: '', converted: 3, left: { unforked: 2, missing: 1, unclear: 0 } });
+	addToTally(t, 'b.md', { text: '', converted: 0, left: { unforked: 0, missing: 0, unclear: 1 } });
+	addToTally(t, 'c.md', { text: '', converted: 1, left: { unforked: 0, missing: 0, unclear: 0 } });
+	addToTally(t, 'd.md', null);
+	assert.equal(tallyText(t, false), 'Converted 4 links. Left: 2 not forked, 1 not in the source, 1 unclear. Changed while converting, try again: d.md.');
+	assert.equal(tallyText({ ...emptyTally(), converted: 1, notes: 1 }, true), 'Converted 1 link in 1 note.');
 });

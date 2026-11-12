@@ -171,6 +171,45 @@ export interface Converted {
 	left: Record<Left, number>;
 }
 
+/** Over several notes: what `convertLinks` did, the notes it changed, and those whose cache was stale. */
+export interface LinkTally {
+	converted: number;
+	left: Record<Left, number>;
+	notes: number;
+	stale: string[];
+}
+
+export function emptyTally(): LinkTally {
+	return { converted: 0, left: { unforked: 0, missing: 0, unclear: 0 }, notes: 0, stale: [] };
+}
+
+/** Adds one note's result to `t`. `null`: its cache was stale. */
+export function addToTally(t: LinkTally, note: string, c: Converted | null): void {
+	if (!c) {
+		t.stale.push(note);
+		return;
+	}
+	t.converted += c.converted;
+	if (c.converted > 0) t.notes++;
+	for (const k of Object.keys(t.left) as Left[]) t.left[k] += c.left[k];
+}
+
+/** What a conversion did, as a notice. `many`: over several notes, so it says how many changed. */
+export function tallyText(t: LinkTally, many: boolean): string {
+	const n = (k: number, one: string, more = `${one}s`) => `${k} ${k === 1 ? one : more}`;
+	const lines: string[] = [];
+	if (t.converted === 0) lines.push('No links to convert.');
+	else lines.push(`Converted ${n(t.converted, 'link')}${many ? ` in ${n(t.notes, 'note')}` : ''}.`);
+	const left = [
+		t.left.unforked ? `${t.left.unforked} not forked` : '',
+		t.left.missing ? `${t.left.missing} not in the source` : '',
+		t.left.unclear ? `${t.left.unclear} unclear` : '',
+	].filter((s) => s !== '');
+	if (left.length) lines.push(`Left: ${left.join(', ')}.`);
+	if (t.stale.length) lines.push(`Changed while converting, try again: ${t.stale.join(', ')}.`);
+	return lines.join(' ');
+}
+
 /**
  * Rewrites the links `refs` in `text`. `plan(ref)` gives a link's new text, why it is left, or
  * `null` when it is right as it is. A new text equal to the old isn't counted. An embed stays an
