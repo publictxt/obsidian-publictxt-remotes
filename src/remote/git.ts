@@ -127,10 +127,16 @@ export class GitHost implements RemoteHost {
 	private readonly o: GitHostOptions;
 	/** Per-clone queue, by cache folder and source key: git takes locks, so commands on one clone run in turn. */
 	private readonly queues: Map<string, Promise<unknown>>;
+	/**
+	 * Runs git; in a clone (`cwd` set), as that repo only (`--git-dir=.`). Without it, git in a
+	 * folder that isn't a repo looks up the tree and would act on the vault's own repo.
+	 */
+	private readonly run: RunGit;
 
 	constructor(options: GitHostOptions) {
 		this.o = options;
 		this.queues = options.queues ?? new Map<string, Promise<unknown>>();
+		this.run = (args, cwd) => options.run(cwd === null ? args : ['--git-dir=.', ...args], cwd);
 	}
 
 	private dir(repo: string): string {
@@ -151,7 +157,7 @@ export class GitHost implements RemoteHost {
 	}
 
 	private git(args: string[], cwd: string | null, ok: number[] = [0]): Promise<GitResult> {
-		return gitOrThrow(this.o.run, args, cwd, ok);
+		return gitOrThrow(this.run, args, cwd, ok);
 	}
 
 	/** The clone of `repo`, made on first use. A local source's origin is set to `remote` each time, as its folder can move. */
@@ -159,6 +165,10 @@ export class GitHost implements RemoteHost {
 		const dir = this.dir(repo);
 		const remote = this.o.remote ? this.o.remote(repo) : repo;
 		if (await this.o.exists(dir)) {
+			const bare = await this.run(['rev-parse', '--is-bare-repository'], dir);
+			if (bare.code !== 0 || bare.stdout.trim() !== 'true') {
+				throw new RemoteError('git', `${dir} is there but isn't a clone. Delete that folder and check again: it is cloned anew.`);
+			}
 			if (this.o.remote && isLocalRepo(repo)) await this.git(['remote', 'set-url', 'origin', remote], dir);
 			return dir;
 		}
@@ -180,7 +190,7 @@ export class GitHost implements RemoteHost {
 				name = /^ref: refs\/heads\/(\S+)\tHEAD$/m.exec(out)?.[1] ?? null;
 				if (!name) throw new RemoteError('not-found', `No default branch: ${repo}`);
 				const at = /^([0-9a-f]+)\tHEAD$/m.exec(out)?.[1];
-				const have = await this.o.run(['rev-parse', '--verify', '--quiet', `refs/heads/${name}^{commit}`], dir);
+				const have = await this.run(['rev-parse', '--verify', '--quiet', `refs/heads/${name}^{commit}`], dir);
 				current = at !== undefined && have.code === 0 && have.stdout.trim() === at;
 			}
 			if (!current) await this.git(['fetch', '--prune', '--quiet', 'origin'], dir);
@@ -228,7 +238,7 @@ export class GitHost implements RemoteHost {
 			// nothing to ask for again. Failing is fine: `blob` fetches each on demand.
 			for (let i = 0; i < ids.length; i += PREFETCH_BATCH) {
 				const args = ['-c', 'fetch.negotiationAlgorithm=noop', 'fetch', '--quiet', '--no-tags', '--no-write-fetch-head', '--recurse-submodules=no', '--filter=blob:none', 'origin'];
-				const r = await this.o.run([...args, ...ids.slice(i, i + PREFETCH_BATCH)], dir);
+				const r = await this.run([...args, ...ids.slice(i, i + PREFETCH_BATCH)], dir);
 				if (r.code !== 0) return;
 			}
 		});
@@ -238,7 +248,7 @@ export class GitHost implements RemoteHost {
 		return this.serial(repo, async () => {
 			// Partial clone: a missing blob is fetched on demand. One that is gone upstream (history
 			// rewritten) fails, and then there is nothing to count.
-			const r = await this.o.run(['diff', '--numstat', sha(from, 'blob'), sha(to, 'blob')], this.dir(repo));
+			const r = await this.run(['diff', '--numstat', sha(from, 'blob'), sha(to, 'blob')], this.dir(repo));
 			return r.code === 0 ? parseNumstat(r.stdout) : null;
 		});
 	}
