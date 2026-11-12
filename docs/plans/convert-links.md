@@ -3,7 +3,7 @@
 A brief for whoever implements it. It is self-contained, but read `AGENTS.md`, `docs/spec.md`
 (→ Fork provenance, Fork, Fork update, Fork list) and `docs/naming.md` first.
 
-> Not built. The five decisions below are proposals: confirm or change them before starting.
+> Decisions confirmed 2026-11-12. Building on `feat/convert-links`.
 
 ## Context
 
@@ -15,28 +15,34 @@ the same name. And they are in upstream's link style, which may not be the vault
 or Markdown links, shortest, relative or absolute paths).
 
 This work rewrites a fork's links to other upstream files so that they point at the vault's
-copies of those files, written in the vault's own link format.
+copies of those files, written in the vault's own link format. Sources are Obsidian vaults or
+plain Markdown repos: `[[wikilinks]]` as Obsidian reads them, and `[text](path)` links. Other
+wiki dialects (Gollum's `[[text|Page-Name]]`, MediaWiki, Dendron) are not read.
 
-## Decisions to confirm
+## Decisions
 
 1. **Only links whose target is forked are converted.** A link to an upstream file with no
    copy in the vault is left exactly as it is, and counted. It is converted later, once that
    file is forked. Nothing is turned into a web URL, and nothing is forked for the user.
-2. **Offline: targets are worked out from `fork_path`, not from the upstream tree.** A
-   Markdown link is path arithmetic from the note's `fork_path`; a wikilink is matched against
-   the `fork_path`s of the source's forks. No fetch, so it is instant and can run over every
-   fork. The cost: a bare `[[name]]` is matched only against files already forked (see
-   Resolving).
+2. **What a link means comes from the source; where it points comes from the vault.** A link
+   is read as upstream would read it: against the source's files at the fork's
+   `fork_commit` (a local `ls-tree` in the clone, which holds every tree; no fetch). Its target
+   in the vault is the copy of that upstream file, found by `fork_path`, never a vault note
+   that happens to have the same name. When the commit isn't in the clone (history rewritten
+   and pruned), the paths of the source's forks stand in for its files.
 3. **Obsidian writes the link** (`fileManager.generateMarkdownLink`, as the fork list does), so
    the result follows **Settings → Files and links** without the plugin knowing the rules.
+   Converting to wikilinks or to Markdown links is the same code: whichever the vault uses.
 4. **A converted link is not an edit.** The compare's "Your copy is edited" test passes a note
    that matches the version at `fork_blob` except for link format (`matchesExceptLinks()`).
    Otherwise every converted fork would read as edited and **Overwrite** would always ask.
-5. **It is an option, and goes quiet by itself.** A link is rewritten only when what Obsidian
-   would write differs from what is there. In a vault and a source that both use
-   `[[wikilinks]]` by name, that is almost never: only for a copy under another name, or a
-   name that lands on the wrong note. So the option can stay when PublicTxt moves to
-   wikilinks.
+5. **Asked, not automatic.** Forking never rewrites links by itself. After a fork, if any fork
+   of that source now has links that can be converted, the notice says how many and offers
+   **Convert**. Every fork counts, not just the new note: forking `b` is what makes links to
+   `b` convertible in notes forked earlier. No setting; an always-convert toggle can be added
+   later if the button is always selected. A link is rewritten only when what Obsidian would
+   write differs from what is there, so in a vault and a source that both use `[[wikilinks]]`
+   by name the offer is rare.
 
 ## The design
 
@@ -49,24 +55,32 @@ links in front matter, and Markdown links with a title (`[a](b.md "title")`).
 
 ### Resolving a link
 
-For a note forked from `fork_path` in a source, each link goes through this, in order:
+For a note forked from `fork_path` in a source, with that source's files (decision 2), each
+link goes through this, in order:
 
 1. **Already local.** If Obsidian resolves the link from the note (`getFirstLinkpathDest`) to
    a copy from the same source, that copy is the target. This is what makes a second run
    change nothing.
-2. **Its upstream path.**
-   - Markdown link: the href, URL-decoded, without its `#…`; relative to the folder of
-     `fork_path`, or to the repo root when it starts with `/`. `.md` is added when there is no
-     extension. A path that climbs out of the repo is unresolved.
-   - Wikilink: the target without `#…` and `|…`, `.md` added. Among the upstream paths this
-     source has forks of: the one equal to it, else those ending in `/` + it. Exactly one
-     match resolves; none or several is unresolved. Compared without case.
+2. **Its upstream path.** The target without `#…` (and a wikilink's `|…`), URL-decoded. Each
+   candidate is tried as written, then with `.md` added; the first that is a file upstream
+   wins. Candidates, in order:
+   - starting with `./` or `../`: relative to the folder of `fork_path` only;
+   - starting with `/`: from the repo root only;
+   - otherwise, a Markdown link: relative to the folder, then from the root, then by name;
+     a wikilink: from the root, then relative to the folder, then by name.
+
+   "By name" is the upstream files whose path ends in `/` + the target, or equals it; exactly
+   one resolves, several are **unclear**. Paths that climb out of the repo resolve to nothing.
+   A case-insensitive match is taken only when there is no exact one. A target that is no file
+   upstream is **missing**.
 3. **Its copy.** The latest copy (`latestFirst()`) of that upstream path from the same source
-   (`forksOf()`). No copy: unresolved.
+   (`forksOf()`). No copy: **unforked**.
 4. **Unclear.** If step 1 found a copy and steps 2–3 find a different upstream file's copy,
    the link is left alone and counted as unclear. The plugin never guesses.
 
 A link to the note's own upstream path resolves to the note itself, not to another copy.
+With forks' paths standing in for the files, missing and unforked can't be told apart: both
+count as unforked.
 
 ### Writing the link
 
@@ -89,17 +103,18 @@ converting; try again".
 
 - **Convert links in this fork** (`convert-links`): the active note, which must be a fork of a
   followed source. Notice: "Converted 4 links. 2 left: not forked." / "No links to convert."
+  Missing and unclear links are counted too, when there are any.
 - **Convert links in every fork** (`convert-links-all`): every fork of every followed source.
   One notice: "Converted 12 links in 5 notes."
-- **Convert links when forking** (setting `convertLinks`, off by default): after a fork is
-  written (one, several, or **Write alongside**) and after **Overwrite**, every fork of that
-  source is converted. Every fork, not just the new note, so older forks pick up their links
-  to it, and files forked together link to each other. The fork's own notice gains
-  "4 links converted." when any were.
+- **The offer after forking.** After a fork is written (one, several, or **Write alongside**)
+  and after **Overwrite**, the plugin counts, without writing, the links in every fork of that
+  source that would be converted. When there are some, a notice: "7 links can now point to
+  your copies." with a **Convert** button, which converts that source's forks. The notice
+  stays until dismissed or used.
 
-The metadata cache lags a write. After forking, wait for the note's
-`metadataCache.on('changed')` before converting, giving up after 2 seconds: the links then
-stay as they are and the command can be run later.
+The metadata cache lags a write. Before counting, wait for each new note's
+`metadataCache.on('changed')`, giving up after 2 seconds: then there is no offer, and the
+commands can be run later.
 
 ### The edited test
 
@@ -121,11 +136,11 @@ passes. With the vault unavailable (tests), `sameLink` defaults to "shows the sa
 ### Not in this work
 
 - Links to files that aren't forked: making them web links to the host, or offering to fork.
-- Checking a wikilink against the upstream tree (it would tell an ambiguous name from a unique
-  one, at the cost of a fetch).
+- Other wiki dialects; a per-source link style.
 - Images and other non-Markdown targets: they can't be forked, so they never resolve.
 - Converting back to upstream's form, for proposing a change upstream.
 - Links in front matter; restyling links that were never upstream's.
+- A setting to convert on fork without asking.
 
 ## How to build it
 
@@ -135,24 +150,33 @@ Pure module and Obsidian side, as elsewhere.
 
 - `LinkRef`: `{ start, end, original, link, embed }`, as the cache gives them (`link` is the
   target with its subpath, decoded).
-- `upstreamTarget(ref, forkPath, forkedPaths)`: the upstream path a link names, or `null`
-  (step 2 of Resolving). `splitLink(link)`: path and subpath.
+- `splitLink(link)`: path and subpath. `isWikilink(original)`.
+- `upstreamTarget(ref, forkPath, files)`: the upstream path a link names, or why not
+  (`'missing'`, `'unclear'`); step 2 of Resolving. `files` is a set of upstream paths.
 - `linkShows(original)`: what a link shows.
-- `convertLinks(text, refs, plan)`: `plan(ref)` returns the new link text, `null` to leave it
-  (`'unforked'`, `'unclear'`). Returns `{ text, converted, unforked, unclear }`, or `null` when
-  a position doesn't match. Splices from the last link back so offsets stay true.
+- `convertLinks(text, refs, plan)`: `plan(ref)` returns the new link text, or why it is left
+  (`'unforked'`, `'missing'`, `'unclear'`; `null`: it is right as it is). Returns
+  `{ text, converted, left: { unforked, missing, unclear } }`, or `null` when a position doesn't
+  match. Splices from the last link back so offsets stay true.
 
-Test at least: `../`, `/`-rooted, encoded spaces, no extension, out of the repo; wikilink by
-full path, by name, ambiguous, different case; subpath kept; alias only when needed; embed
-kept; a stale position; a second run changes nothing.
+Test at least: `../`, `/`-rooted, encoded spaces, no extension, a name with a dot, out of the
+repo; Markdown link relative before root, wikilink root before relative; by name, ambiguous,
+different case; subpath kept; alias only when needed; embed kept; a stale position; a second
+run changes nothing.
 
 ### 2. The vault side: `src/fork/links-run.ts`
 
-- `convertNote(app, file, meta, forks)`: refs from the cache, the local resolution (step 1),
-  `generateMarkdownLink`, `vault.process`. Returns the counts.
-- `convertSource(app, remote)` and `convertAll(app)`: over `scanForks()`, scanned once.
-- `convertActiveFork(app)`: the command, with its notices.
-- `whenCached(app, file, ms)`: the wait described above.
+- `sourceFiles(host, url, commit, forks)`: the upstream paths at `commit` (`host.tree()`, which
+  takes any tree-ish: a commit's SHA lists its tree), or the forks' paths when that fails.
+  One read per source and commit.
+- `convertNote(app, file, meta, files, forks, write)`: refs from the cache, the local
+  resolution (step 1), `generateMarkdownLink`, and with `write` `vault.process`. Returns the
+  counts. Without `write` it is the count for the offer.
+- `convertSource(app, data, remote, write)` and `convertAll(app, data)`: over `scanForks()`,
+  scanned once.
+- `convertActiveFork(app, data)`: the command, with its notices.
+- `offerConvert(app, data, remote, written)`: waits for `written` to be cached (`whenCached`),
+  counts, and shows the notice with **Convert**.
 
 Register both commands in `src/main.ts`.
 
@@ -163,40 +187,41 @@ uses it for the bodies, after the line-ending and leading-blank-line rule it has
 `loadCompare()` passes the vault's `sameLink`. Tests: a converted note is not edited; a
 changed link text, an added link, a retargeted link and changed text beside a link are.
 
-### 4. The setting, and forking (`src/sources/schema.ts`, `src/settings.ts`, `src/fork/run.ts`, `src/fork/update-run.ts`)
+### 4. The offer (`src/fork/run.ts`, `src/fork/update-run.ts`)
 
-`convertLinks: boolean` in `PublicTxtData` and `normalizeData()`, default `false`; a toggle
-under the fork settings. Call `convertSource()` at the end of `forkOne()`, `forkSeveral()`,
-`overwrite()` and `writeAlongside()` when it is on. A failure there is a notice; the fork
-stands.
+Call `offerConvert()` at the end of `forkOne()`, `forkSeveral()`, `overwrite()` and
+`writeAlongside()`, with the notes written. A failure there is ignored (logged): the fork
+stands and the commands remain.
 
 ### 5. Docs, with the code they describe
 
-- `docs/spec.md`: a **Convert links** section after Fork update; the setting in **Data**; a
-  line in **Fork** and **Fork update**; the edited rule; **Build order**.
-- `docs/intent.md`: the four decisions, dated.
+- `docs/spec.md`: a **Convert links** section after Fork update; a line in **Fork** and
+  **Fork update** about the offer; the edited rule; **Build order**.
+- `docs/intent.md`: the five decisions, dated.
 - `docs/naming.md`: the command ids and the new names.
-- `README.md`: a bullet, the commands table, the settings table.
+- `README.md`: a bullet and the commands table.
 
 ## Working rules
 
-As in `docs/plans/fork-update.md`: branch `feat/convert-links` from `feat/fork-update`; small
-commits titled `Area: what changed`; no new dependencies; no Node imports; before each commit
+As in `docs/plans/fork-update.md`: branch `feat/convert-links` from `master`; small commits
+titled `Area: what changed`; no new dependencies; no Node imports; before each commit
 `npm run build`, `npm run lint`, `npm test`; don't push; no AI attribution lines.
 
 ## Checking it by hand
 
 With a local source holding `wiki/a.md` (links to `cs/b.md` as a Markdown link, to `c` as a
-wikilink, to `cs/b.md#Heading`, and embeds `c`) and `wiki/cs/b.md`, `wiki/c.md`:
+wikilink, to `cs/b.md#Heading`, to `nowhere`, and embeds `c`) and `wiki/cs/b.md`, `wiki/c.md`:
 
-1. Fork `a` only: the command says nothing was converted and counts the links left.
-2. Fork `b` and `c` into another folder, `c` under a new name: the command converts all four;
-   each opens the right note; the heading link lands on the heading; the renamed one keeps
-   its words.
-3. Run it again: "No links to convert."
+1. Fork `a` only: no offer. The command says nothing was converted, 4 left not forked and 1
+   missing.
+2. Fork `b` and `c` into another folder, `c` under a new name: the notice offers 4 links;
+   **Convert** converts them; each opens the right note; the heading link lands on the
+   heading; the renamed one keeps its words.
+3. Run the command again: "No links to convert."
 4. Switch **Use \[\[Wikilinks\]\]** off, then the link format to relative: newly converted
    links follow each.
 5. Compare `a` with upstream after converting: "Your copy is as you forked it."
-6. Turn the setting on and fork three linked files at once: they link to each other with no
-   command run. **Overwrite** and **Write alongside** leave converted links.
+6. Fork three linked files at once: one offer covers their links to each other. **Overwrite**
+   and **Write alongside** offer too.
 7. A link inside a code block, and an external URL, are untouched.
+8. A vault note named `c.md` that isn't a fork: `[[c]]` in `a` never converts to it.
