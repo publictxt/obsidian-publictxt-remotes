@@ -28,9 +28,10 @@ pages you want into your vault. Each fork records where it came from in its fron
 - A **fork** is a note copied from a source, with `fork_remote` (the source's name),
   `fork_repo`, `fork_path`, `fork_blob` and related keys in its front matter. Those keys are how the plugin tells when the original has
   changed. Fork a Markdown file with **Fork** next to it in the check view, or with **Fork a
-  file from a source**. You choose where it goes: the same folder as in the source, a folder
-  you pick, or a folder you pick with the source's folders kept inside it (`wiki/cs/git.md`
-  into `remotes/research/wiki/cs/git.md`), and for one file its name. Nothing is overwritten. To fork several, tick files or
+  file from a source**. By default it goes in the source's folder under the **remotes root**,
+  the source's folders kept: `wiki/cs/git.md` from `research` into
+  `remotes/research/wiki/cs/git.md`. You can instead pick a folder, with or without the
+  source's folders, or the same folder as in the source, and for one file its name. Nothing is overwritten. To fork several, tick files or
   whole folders in the check view and select **Fork selected**. Either way it shows what would
   be written before writing any.
 - **Updating a fork.** When a fork's original has changed, **Compare** in the check view opens
@@ -90,10 +91,10 @@ A source can be a git repo on your computer, such as another vault. Enter its fo
 
 | Setting | Default | Meaning |
 | --- | --- | --- |
-| **Fork folder** | vault root | Where forked notes go, unless the source sets its own |
-| **Match source folders** | on | Offer the same folder as in the source first when your vault has it. You can change it at each fork |
+| **Remotes root** | `remotes` | Forks from each source go in a folder under it, named for the source (`remotes/ann-notes/`) unless the source sets its own, with the source's folders kept. If you publish with publictxt-pages, set `remotesRoot` under `[params]` in `settings/site.toml` to match |
+| **Match source folders** | off | Offer the same folder as in the source first when your vault has it. You can change it at each fork |
 | **List forks in follow notes** | off | Keep a **Forked pages** list of links at the end of each follow note |
-| **Remotes folder** | `.remotes` | Where the git clones live |
+| **Clones folder** | `.remotes` | Where the git clones live |
 | **Git executable** | `git` | Path to git |
 
 ## Privacy

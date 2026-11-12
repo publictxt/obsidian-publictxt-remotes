@@ -3,7 +3,7 @@
 A brief for whoever implements it. Read `AGENTS.md`, `docs/spec.md` (→ Data, Sources settings,
 Fork) and `docs/naming.md` first.
 
-> Decisions confirmed 2026-11-13. Building on `feat/remotes-folder-setting`. Next: following
+> Decisions confirmed 2026-11-13. Built on `feat/remotes-folder-setting`. Next: following
 > files (below).
 
 ## Context
