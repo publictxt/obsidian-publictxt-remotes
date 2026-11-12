@@ -11,13 +11,14 @@ import { scanFollows } from '../sources/follows.ts';
 import { scanForks } from '../sources/forks.ts';
 import type { PublicTxtData } from '../sources/schema.ts';
 import { forksOf, isForkOf, type Remote } from './fork.ts';
-import { addToTally, convertLinks, danglingLink, emptyTally, linkShows, splitLink, tallyText, upstreamFiles, upstreamTarget, type Converted, type LinkPlan, type LinkRef, type LinkTally, type UpstreamFiles } from './links.ts';
+import { addToTally, convertLinks, danglingLink, emptyTally, linkShows, splitLink, tallyText, upstreamFiles, upstreamTarget, type Converted, type LinkPlan, type LinkRef, type LinkStyle, type LinkTally, type UpstreamFiles } from './links.ts';
 
 /** One source's forks, and its files at each commit they were forked at, read once. */
 class SourceLinks {
 	readonly forks: Fork[];
 	private readonly byPath: Map<string, Fork>;
 	private readonly files = new Map<string, Promise<UpstreamFiles>>();
+	private style: LinkStyle | null = null;
 
 	private readonly app: App;
 	private readonly host: RemoteHost;
@@ -93,9 +94,18 @@ class SourceLinks {
 			if ('left' in upstream) return upstream;
 			target = upstream.path === meta.path ? file : this.copyOf(upstream.path);
 			// Not forked: a wikilink by name, which converts to the copy once it is forked.
-			if (!target) return danglingLink(ref, upstream.path, meta.path, files);
+			if (!target) return danglingLink(ref, upstream.path, meta.path, files, this.styleFor(file));
 		}
 		return this.linkTo(target, file.path, subpath, ref.original);
+	}
+
+	/**
+	 * How the vault writes links. Obsidian's setting isn't public API, so ask it for a link to the
+	 * note itself and see which kind comes back.
+	 */
+	private styleFor(file: TFile): LinkStyle {
+		this.style ??= this.app.fileManager.generateMarkdownLink(file, file.path).startsWith('[[') ? 'wiki' : 'markdown';
+		return this.style;
 	}
 
 	/** The vault file of the latest copy of the upstream file `path`. */

@@ -164,22 +164,36 @@ export function linkShows(original: string): string {
 	return MARKDOWN.exec(original)?.[1] ?? original;
 }
 
-/** What wikilinks can't hold in their name. */
-const NOT_IN_WIKILINK = /[[\]|#^]/;
+/** How the vault writes links (Settings → Files and links → Use [[Wikilinks]]). */
+export type LinkStyle = 'wiki' | 'markdown';
+
+/** What a link by name can't hold in its name. */
+const NOT_IN_NAME = /[[\]|#^]/;
+
+/** A link by `name` (no `.md`) in `style`, as written and as the cache would give it. */
+function byName(name: string, style: LinkStyle): Pick<LinkRef, 'original' | 'link'> {
+	return style === 'wiki' ? { original: `[[${name}]]`, link: name } : { original: `[x](${hrefOf(name)}.md)`, link: `${name}.md` };
+}
+
+/** A path as a Markdown link's target, as Obsidian writes it: spaces and the like encoded, and `(` `)`. */
+function hrefOf(path: string): string {
+	return encodeURI(path).replace(/\(/g, '%28').replace(/\)/g, '%29');
+}
 
 /**
- * The shortest name for a wikilink to the upstream note `path` that has no copy in the vault:
- * the end of its path (`b`, `cs/b`, `wiki/cs/b`) that upstream reads back as `path` from the note
- * forked from `forkPath`. So once the note is forked, the link converts to the copy. Until then
- * it dangles, or lands on a vault note of that name: the wiki way. `null`: not a note.
+ * The shortest name for a link to the upstream note `path` that has no copy in the vault: the
+ * end of its path (`b`, `cs/b`, `wiki/cs/b`) that upstream reads back as `path` from the note
+ * forked from `forkPath`, written in `style` (which upstream reads in its own order). So once the
+ * note is forked, the link converts to the copy. Until then Obsidian takes it by name: it lands on
+ * a vault note of that name, or dangles. The wiki way. `null`: not a note.
  */
-export function danglingName(path: string, forkPath: string, files: UpstreamFiles): string | null {
+export function danglingName(path: string, forkPath: string, files: UpstreamFiles, style: LinkStyle): string | null {
 	const stem = path.replace(/\.md$/i, '');
-	if (stem === path || NOT_IN_WIKILINK.test(stem)) return null;
+	if (stem === path || NOT_IN_NAME.test(stem)) return null;
 	const parts = stem.split('/');
 	for (let i = parts.length - 1; i >= 0; i--) {
 		const name = parts.slice(i).join('/');
-		const back = upstreamTarget({ original: `[[${name}]]`, link: name }, forkPath, files);
+		const back = upstreamTarget(byName(name, style), forkPath, files);
 		if (back && 'path' in back && back.path === path) return name;
 	}
 	return null;
@@ -192,16 +206,25 @@ export function wikilink(name: string, subpath: string, shows: string): string |
 	return /\||\]\]|\n/.test(shows) ? null : `[[${name}${subpath}|${shows}]]`;
 }
 
+/** `[shows](name.md#subpath)`, encoded as Obsidian writes it. `null`: `shows` can't be a link's text. */
+export function markdownLink(name: string, subpath: string, shows: string): string | null {
+	if (/[[\]\n]/.test(shows)) return null;
+	return `[${shows}](${hrefOf(name)}.md${subpath ? `#${hrefOf(subpath.slice(1))}` : ''})`;
+}
+
 /**
- * A link to the upstream note `path`, which has no copy in the vault, as a wikilink by name
- * (`danglingName`) showing what it showed. `null`: it already is a wikilink, which upstream reads
- * as that note. Left as it is when no wikilink will do (not a note, or its words can't be an alias).
+ * A link to the upstream note `path`, which has no copy in the vault, by name (`danglingName`) in
+ * the vault's `style`, showing what it showed. `null`: it already is one, in that style and by
+ * name (not `./`, `../` or `/`), which upstream reads as that note. Left as it is when no link
+ * will do: not a note, or its words can't be the link's.
  */
-export function danglingLink(ref: Pick<LinkRef, 'original' | 'link'>, path: string, forkPath: string, files: UpstreamFiles): { dangling: string } | { left: 'unforked' } | null {
-	if (isWikilink(ref.original)) return null;
-	const name = danglingName(path, forkPath, files);
-	const { subpath } = splitLink(ref.link);
-	const link = name === null ? null : wikilink(name, decoded(subpath), linkShows(ref.original));
+export function danglingLink(ref: Pick<LinkRef, 'original' | 'link'>, path: string, forkPath: string, files: UpstreamFiles, style: LinkStyle): { dangling: string } | { left: 'unforked' } | null {
+	const { path: written, subpath } = splitLink(ref.link);
+	if (isWikilink(ref.original) === (style === 'wiki') && !/^\.{0,2}\//.test(written)) return null;
+	const name = danglingName(path, forkPath, files, style);
+	if (name === null) return { left: 'unforked' };
+	const shows = linkShows(ref.original);
+	const link = style === 'wiki' ? wikilink(name, decoded(subpath), shows) : markdownLink(name, decoded(subpath), shows);
 	return link === null ? { left: 'unforked' } : { dangling: link };
 }
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addToTally, convertLinks, danglingLink, danglingName, emptyTally, wikilink, isWikilink, linkShows, matchesExceptLinks, splitLink, tallyText, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
+import { addToTally, convertLinks, danglingLink, danglingName, emptyTally, markdownLink, wikilink, isWikilink, linkShows, matchesExceptLinks, splitLink, tallyText, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
 
 const FILES = upstreamFiles(['wiki/a.md', 'wiki/cs/b.md', 'wiki/c.md', 'cs/b.md', 'top.md', 'wiki/v1.2 notes.md', 'wiki/My Note.md', 'x/dup.md', 'y/dup.md', 'img/p.png']);
 const FROM = 'wiki/a.md';
@@ -145,12 +145,16 @@ test('matchesExceptLinks: changed words, subpath, embed, links or text are edits
 	assert.ok(!matchesExceptLinks('See [sorting](cs/a.md#H) and ![[c]].\nMore.\n', forked));
 });
 
-test('danglingName: the shortest name upstream reads back as the note', () => {
-	assert.equal(danglingName('wiki/c.md', FROM, FILES), 'c');
+test('danglingName: the shortest name upstream reads back as the note, in either style', () => {
+	assert.equal(danglingName('wiki/c.md', FROM, FILES, 'wiki'), 'c');
+	assert.equal(danglingName('wiki/c.md', FROM, FILES, 'markdown'), 'c');
 	// `b` is two files upstream: the shortest that is only this one.
-	assert.equal(danglingName('wiki/cs/b.md', FROM, FILES), 'wiki/cs/b');
-	assert.equal(danglingName('cs/b.md', FROM, FILES), 'cs/b');
-	assert.equal(danglingName('img/p.png', FROM, FILES), null);
+	assert.equal(danglingName('wiki/cs/b.md', FROM, FILES, 'wiki'), 'wiki/cs/b');
+	assert.equal(danglingName('cs/b.md', FROM, FILES, 'wiki'), 'cs/b');
+	// A Markdown link is read from the note's folder first: `cs/b` there is wiki/cs/b.md.
+	assert.equal(danglingName('wiki/cs/b.md', FROM, FILES, 'markdown'), 'cs/b');
+	assert.equal(danglingName('cs/b.md', FROM, FILES, 'markdown'), null);
+	assert.equal(danglingName('img/p.png', FROM, FILES, 'wiki'), null);
 });
 
 test('wikilink: alias only when it would show something else', () => {
@@ -161,14 +165,32 @@ test('wikilink: alias only when it would show something else', () => {
 	assert.equal(wikilink('c', '', 'a|b'), null);
 });
 
-test('danglingLink: Markdown to a wikilink by name; a wikilink stays', () => {
-	assert.deepEqual(danglingLink({ original: '[see c](c.md#My%20Heading)', link: 'c.md#My%20Heading' }, 'wiki/c.md', FROM, FILES), { dangling: '[[c#My Heading|see c]]' });
-	assert.deepEqual(danglingLink({ original: '![c](c.md)', link: 'c.md' }, 'wiki/c.md', FROM, FILES), { dangling: '[[c]]' });
-	assert.deepEqual(danglingLink({ original: '[b](cs/b.md)', link: 'cs/b.md' }, 'wiki/cs/b.md', FROM, FILES), { dangling: '[[wiki/cs/b]]' });
-	assert.deepEqual(danglingLink({ original: '[sorting](cs/b.md)', link: 'cs/b.md' }, 'wiki/cs/b.md', FROM, FILES), { dangling: '[[wiki/cs/b|sorting]]' });
-	assert.equal(danglingLink({ original: '[[cs/b]]', link: 'cs/b' }, 'cs/b.md', FROM, FILES), null);
-	assert.deepEqual(danglingLink({ original: '[p](../img/p.png)', link: '../img/p.png' }, 'img/p.png', FROM, FILES), { left: 'unforked' });
-	assert.deepEqual(danglingLink({ original: '[a|b](c.md)', link: 'c.md' }, 'wiki/c.md', FROM, FILES), { left: 'unforked' });
+test('markdownLink: encoded as Obsidian writes it', () => {
+	assert.equal(markdownLink('My Note', '', 'My Note'), '[My Note](My%20Note.md)');
+	assert.equal(markdownLink('cs/b', '#My Heading', 'b > My Heading'), '[b > My Heading](cs/b.md#My%20Heading)');
+	assert.equal(markdownLink('a (1)', '', 'a'), '[a](a%20%281%29.md)');
+	assert.equal(markdownLink('c', '', 'a]b'), null);
+});
+
+test('danglingLink: into a wikilink vault', () => {
+	assert.deepEqual(danglingLink({ original: '[see c](c.md#My%20Heading)', link: 'c.md#My%20Heading' }, 'wiki/c.md', FROM, FILES, 'wiki'), { dangling: '[[c#My Heading|see c]]' });
+	assert.deepEqual(danglingLink({ original: '![c](c.md)', link: 'c.md' }, 'wiki/c.md', FROM, FILES, 'wiki'), { dangling: '[[c]]' });
+	assert.deepEqual(danglingLink({ original: '[b](cs/b.md)', link: 'cs/b.md' }, 'wiki/cs/b.md', FROM, FILES, 'wiki'), { dangling: '[[wiki/cs/b]]' });
+	assert.deepEqual(danglingLink({ original: '[sorting](cs/b.md)', link: 'cs/b.md' }, 'wiki/cs/b.md', FROM, FILES, 'wiki'), { dangling: '[[wiki/cs/b|sorting]]' });
+	assert.equal(danglingLink({ original: '[[cs/b]]', link: 'cs/b' }, 'cs/b.md', FROM, FILES, 'wiki'), null);
+	assert.deepEqual(danglingLink({ original: '[[../top]]', link: '../top' }, 'top.md', FROM, FILES, 'wiki'), { dangling: '[[top]]' });
+	assert.deepEqual(danglingLink({ original: '[p](../img/p.png)', link: '../img/p.png' }, 'img/p.png', FROM, FILES, 'wiki'), { left: 'unforked' });
+	assert.deepEqual(danglingLink({ original: '[a|b](c.md)', link: 'c.md' }, 'wiki/c.md', FROM, FILES, 'wiki'), { left: 'unforked' });
+});
+
+test('danglingLink: into a Markdown-link vault, the same both ways', () => {
+	assert.deepEqual(danglingLink({ original: '[[c#My Heading|see c]]', link: 'c#My Heading' }, 'wiki/c.md', FROM, FILES, 'markdown'), { dangling: '[see c](c.md#My%20Heading)' });
+	assert.deepEqual(danglingLink({ original: '[[My Note]]', link: 'My Note' }, 'wiki/My Note.md', FROM, FILES, 'markdown'), { dangling: '[My Note](My%20Note.md)' });
+	assert.deepEqual(danglingLink({ original: '![[c]]', link: 'c' }, 'wiki/c.md', FROM, FILES, 'markdown'), { dangling: '[c](c.md)' });
+	// By name already: stays. By relative path: by name.
+	assert.equal(danglingLink({ original: '[see](c.md)', link: 'c.md' }, 'wiki/c.md', FROM, FILES, 'markdown'), null);
+	assert.deepEqual(danglingLink({ original: '[see](./c.md)', link: './c.md' }, 'wiki/c.md', FROM, FILES, 'markdown'), { dangling: '[see](c.md)' });
+	assert.deepEqual(danglingLink({ original: '[[a]b]]', link: 'a]b' }, 'wiki/c.md', FROM, FILES, 'markdown'), { left: 'unforked' });
 });
 
 test('convertLinks: counts dangling links among the converted', () => {
