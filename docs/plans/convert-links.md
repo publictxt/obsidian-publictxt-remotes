@@ -136,7 +136,7 @@ Each conversion that writes (either command, or **Convert**) rewrites a **Links 
 in the follow note of each source it covered: every link in every fork of that source that is
 left as it was, by note then line, with the link as written (as code, so it isn't a link) and
 why. **Convert links in this fork** converts one note but reports them all. The section is
-owned like **Forked pages** (`withSection()`, shared with it): from its heading to the next `#`
+owned like **Forked pages** (`writeSections()`, shared with it; both sections in one write): from its heading to the next `#`
 or `##` heading, removed when nothing is left, and the note left alone with a notice when the
 heading appears twice. Follow notes are public, so the section is published with the note.
 Links fixed by hand stay listed until the next conversion. Pure: `src/fork/link-report.ts`.
@@ -180,13 +180,13 @@ second are the wiki way.
 text came from, so the forked version can always be fetched and compared with. `fork_seen` is
 not involved: it records upstream versions dealt with, nothing about the note's own text.
 
-`matchesExceptLinks(note, forked, sameLink)` (pure) is the body half of `isEdited()`. One
+`matchesExceptLinks(note, forked)` (pure) is the body half of `isEdited()`. One
 regular expression cuts each body into text and links (`[[…]]`, `[…](…)`, with or without
 `!`). The bodies match when the text pieces are equal one for one, there are as many links,
-and each pair of links is the same text or `sameLink(noteLink, forkedLink)` holds. The same
+and each pair of links is the same text or shows the same words. The same
 pass runs on both sides, so it needn't know about code blocks.
 
-`sameLink`: both links show the same words (`linkShows()`). A link retargeted by hand while
+The same words: embedded alike, the same `linkShows()` and `#…`. A link retargeted by hand while
 keeping its words passes; the side-by-side compare shows it. Checking where the note's link
 points in the vault (a copy of the upstream file the forked link names) is left for later.
 
@@ -209,11 +209,11 @@ Pure module and Obsidian side, as elsewhere.
   target with its subpath, decoded).
 - `splitLink(link)`: path and subpath. `isWikilink(original)`.
 - `upstreamTarget(ref, forkPath, files)`: the upstream path a link names, or why not
-  (`'missing'`); step 2 of Resolving. `files` is a set of upstream paths.
+  (`none: 'missing' | 'several'`); step 2 of Resolving. `files` is a set of upstream paths.
 - `linkShows(original)`: what a link shows.
 - `convertLinks(text, refs, plan)`: `plan(ref)` returns the new link text, or why it is left
   (`'unforked'`, `'not-note'`, `'unconvertible'`; `null`: it is right as it is). Returns
-  `{ text, converted, dangling, left: { unforked, not-note, unconvertible }, leftLinks }`, or `null` when a position doesn't
+  `{ text, converted, dangling, leftLinks, checkLinks }`, or `null` when a position doesn't
   match. Splices from the last link back so offsets stay true.
 
 Test at least: `../`, `/`-rooted, encoded spaces, no extension, a name with a dot, out of the
@@ -237,8 +237,7 @@ Register both commands in `src/main.ts`.
 
 ### 3. The edited test (`src/fork/update.ts`, `tests/update.test.ts`)
 
-`matchesExceptLinks()` in `src/fork/links.ts`; `isEdited()` takes an optional `sameLink` and
-uses it for the bodies, after the line-ending and leading-blank-line rule it has now.
+`matchesExceptLinks()` in `src/fork/links.ts`; `isEdited()` uses it for the bodies, after the line-ending and leading-blank-line rule it has now.
 Tests: a converted note is not edited; changed link words, an added link and changed text
 beside a link are.
 

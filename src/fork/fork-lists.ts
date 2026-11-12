@@ -8,7 +8,7 @@ import { readForkMeta, type ForkMeta } from '../sources/fork-meta.ts';
 import { isFollowPath, type Follow } from '../sources/follow-note.ts';
 import { scanFollows } from '../sources/follows.ts';
 import { errorText } from '../remote/vault-host.ts';
-import { renderForkList, withForkList } from './fork-list.ts';
+import { FORK_LIST_HEADING, renderForkList, withSections } from './fork-list.ts';
 import { isForkOf } from './fork.ts';
 
 export interface SyncResult {
@@ -44,17 +44,25 @@ export async function syncForkLists(app: App, wanted: (follow: Follow) => boolea
 			const file = isForkOf(f.meta, follow) ? app.vault.getFileByPath(f.path) : null;
 			if (file) links.push(app.fileManager.generateMarkdownLink(file, follow.path));
 		}
-		const section = renderForkList(links);
-		// The cached text is enough to tell whether to write: `process` reads the file itself.
-		const text = await app.vault.cachedRead(note);
-		const next = withForkList(text, section);
-		if (next === null) out.skipped.push(follow.path);
-		else if (next !== text) {
-			await app.vault.process(note, (t) => withForkList(t, section) ?? t);
-			out.written.push(follow.path);
-		}
+		const r = await writeSections(app, note, [[FORK_LIST_HEADING, renderForkList(links)]]);
+		if (r.skipped.length) out.skipped.push(follow.path);
+		else if (r.written) out.written.push(follow.path);
 	}
 	return out;
+}
+
+/**
+ * Puts each `[heading, section]` in place in `note`, which the plugin owns (`withSections`), in
+ * one write and only when something changed. Returns whether it wrote, and the headings skipped
+ * because they appear twice.
+ */
+export async function writeSections(app: App, note: TFile, sections: readonly (readonly [string, string | null])[]): Promise<{ written: boolean; skipped: string[] }> {
+	// The cached text is enough to tell whether to write: `process` reads the file itself.
+	const text = await app.vault.cachedRead(note);
+	const r = withSections(text, sections);
+	const written = r.text !== text;
+	if (written) await app.vault.process(note, (t) => withSections(t, sections).text);
+	return { written, skipped: r.skipped };
 }
 
 /** Updates fork lists after vault changes, for the follow notes that keep one. */

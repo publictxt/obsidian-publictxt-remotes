@@ -11,7 +11,7 @@ import { scanFollows } from '../sources/follows.ts';
 import { scanForks } from '../sources/forks.ts';
 import type { PublicTxtData } from '../sources/schema.ts';
 import { forksOf, isForkOf, type Remote } from './fork.ts';
-import { withSection } from './fork-list.ts';
+import { writeSections } from './fork-lists.ts';
 import { LINK_CHECK_HEADING, LINK_REPORT_HEADING, renderCheckReport, renderLinkReport, type NoteLinks } from './link-report.ts';
 import { addToTally, convertLinks, danglingLink, emptyTally, linkShows, missingLink, nothingConverted, splitLink, tallyText, upstreamFiles, upstreamTarget, type Converted, type LinkPlan, type LinkRef, type LinkStyle, type LinkTally, type UpstreamFiles } from './links.ts';
 
@@ -84,9 +84,9 @@ class SourceLinks {
 		const upstream = upstreamTarget(ref, meta.path, files);
 		if (upstream === null) return null;
 		const { path, subpath } = splitLink(ref.link);
+		const several = 'none' in upstream && upstream.none === 'several';
 		// Already a link to a copy from this source: that copy is the target (a second run changes nothing).
 		const local = this.app.metadataCache.getFirstLinkpathDest(path, file.path);
-		const several = 'left' in upstream && upstream.left === 'several';
 		const localCopy = local ? this.byPath.get(local.path) : undefined;
 		if (local && localCopy) {
 			const then = this.linkTo(local, file.path, subpath, ref.original);
@@ -96,7 +96,7 @@ class SourceLinks {
 			return then;
 		}
 		// No one file upstream (none, or several of that name): a link by its own name, the wiki way.
-		if ('left' in upstream) {
+		if ('none' in upstream) {
 			const then = missingLink(ref, this.styleFor(file));
 			return several ? { check: 'several', then } : then;
 		}
@@ -160,26 +160,15 @@ export async function convertForks(app: App, host: RemoteHost, follows: readonly
 			if (typeof write !== 'function' || writes) addToTally(tally, fork.path, c);
 			if (c && note) report.push({ path: fork.path, link: app.fileManager.generateMarkdownLink(file, note.path), left: c.leftLinks, check: c.checkLinks });
 		}
-		if (!note) continue;
-		const sections = [[LINK_REPORT_HEADING, renderLinkReport(report)], [LINK_CHECK_HEADING, renderCheckReport(report)]] as const;
-		for (const [heading, section] of sections) {
-			if (await writeReport(app, note.path, heading, section)) continue;
-			const name = heading.replace(/^#+\s*/, '');
-			new Notice(`${name} not updated in ${note.path}: it has more than one "${name}" heading.`);
+		const file = note ? app.vault.getFileByPath(note.path) : null;
+		if (!file) continue;
+		const { skipped } = await writeSections(app, file, [[LINK_REPORT_HEADING, renderLinkReport(report)], [LINK_CHECK_HEADING, renderCheckReport(report)]]);
+		for (const heading of skipped) {
+			const name = heading.slice(3);
+			new Notice(`${name} not updated in ${file.path}: it has more than one "${name}" heading.`);
 		}
 	}
 	return tally;
-}
-
-/** Puts `section` in place of the follow note's section under `heading`. `false`: the heading is there twice. */
-async function writeReport(app: App, path: string, heading: string, section: string | null): Promise<boolean> {
-	const note = app.vault.getFileByPath(path);
-	if (!note) return true;
-	const text = await app.vault.cachedRead(note);
-	const next = withSection(text, heading, section);
-	if (next === null) return false;
-	if (next !== text) await app.vault.process(note, (t) => withSection(t, heading, section) ?? t);
-	return true;
 }
 
 /** The "Convert links in this fork" command. */

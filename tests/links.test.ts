@@ -8,7 +8,7 @@ const FROM = 'wiki/a.md';
 /** The upstream path `original` names from `FROM`, or why not. */
 function target(original: string, link: string, files = FILES): string | null {
 	const t = upstreamTarget({ original, link }, FROM, files);
-	return t === null ? null : 'path' in t ? t.path : t.left;
+	return t === null ? null : 'path' in t ? t.path : t.none;
 }
 
 test('splitLink and isWikilink', () => {
@@ -101,7 +101,6 @@ test('convertLinks: rewrites from the end, keeps embeds, counts what is left', (
 		text: 'See [[b]] and [[c 1|c]].\n\n![[c 1|c]]\n\n[[gone]] [[dup]] [[x]]\n',
 		converted: 3,
 		dangling: 0,
-		left: { unforked: 1, 'not-note': 1, unconvertible: 1 },
 		leftLinks: [
 			{ line: 4, original: '[[gone]]', why: 'unconvertible' },
 			{ line: 4, original: '[[dup]]', why: 'not-note' },
@@ -147,8 +146,9 @@ test('tallyText: what was converted, what was left, what to try again', () => {
 	const t = emptyTally();
 	assert.equal(tallyText(t, false), 'No links to convert.');
 	const none = nothingConverted('');
-	addToTally(t, 'a.md', { ...none, converted: 3, dangling: 2, left: { unforked: 2, 'not-note': 1, unconvertible: 1 } });
-	addToTally(t, 'b.md', { ...none, left: { unforked: 0, 'not-note': 0, unconvertible: 1 } });
+	const left = (why: 'unforked' | 'not-note' | 'unconvertible') => ({ line: 0, original: '[[x]]', why });
+	addToTally(t, 'a.md', { ...none, converted: 3, dangling: 2, leftLinks: [left('unforked'), left('unforked'), left('not-note'), left('unconvertible')] });
+	addToTally(t, 'b.md', { ...none, leftLinks: [left('unconvertible')] });
 	addToTally(t, 'c.md', { ...none, converted: 1 });
 	addToTally(t, 'd.md', null);
 	assert.equal(tallyText(t, false), "Converted 4 links, 2 to notes you don't have yet. Left: 2 no name fits, 1 not a note, 2 cannot be converted. See \"Links to fix\" in the follow note. Changed while converting, try again: d.md.");

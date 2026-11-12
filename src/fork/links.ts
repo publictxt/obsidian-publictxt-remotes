@@ -131,7 +131,7 @@ function decoded(s: string): string {
  * or why there is no one file there: `missing` (none) or `several` (several by name). `null`: not a link
  * to a file (an external URL, or a link within the note). See docs/plans/convert-links.md → Resolving a link, step 2.
  */
-export function upstreamTarget(ref: Pick<LinkRef, 'original' | 'link'>, forkPath: string, files: UpstreamFiles): { path: string } | { left: 'missing' | 'several' } | null {
+export function upstreamTarget(ref: Pick<LinkRef, 'original' | 'link'>, forkPath: string, files: UpstreamFiles): { path: string } | { none: 'missing' | 'several' } | null {
 	const raw = splitLink(ref.link).path.trim();
 	if (!raw || /^[a-z][a-z0-9+.-]*:/i.test(raw)) return null;
 	const wiki = isWikilink(ref.original);
@@ -156,10 +156,10 @@ export function upstreamTarget(ref: Pick<LinkRef, 'original' | 'link'>, forkPath
 			if (!byName) continue;
 			const named = lookUpByName(files, p, caseless);
 			if (named.length === 1 && named[0] !== undefined) return { path: named[0] };
-			if (named.length > 1) return { left: 'several' };
+			if (named.length > 1) return { none: 'several' };
 		}
 	}
-	return { left: 'missing' };
+	return { none: 'missing' };
 }
 
 /** `path` or `path.md` if a file upstream; caseless: the one file it names without regard to case. */
@@ -266,9 +266,7 @@ export function danglingLink(ref: Pick<LinkRef, 'original' | 'link'>, path: stri
 	const { subpath } = splitLink(ref.link);
 	if (inStyleByName(ref, style)) return null;
 	const name = danglingName(path, forkPath, files, style);
-	if (name === null) return { left: 'unforked' };
-	const shows = linkShows(ref.original);
-	const link = style === 'wiki' ? wikilink(name, decoded(subpath), shows) : markdownLink(name, decoded(subpath), shows);
+	const link = name === null ? null : linkByName(name, subpath, ref.original, style);
 	return link === null ? { left: 'unforked' } : { dangling: link };
 }
 
@@ -289,10 +287,14 @@ export function missingLink(ref: Pick<LinkRef, 'original' | 'link'>, style: Link
 	if (ext !== undefined && ext.toLowerCase() !== 'md') return { left: 'not-note' };
 	if (inStyleByName(ref, style)) return null;
 	const name = file.replace(/\.md$/i, '');
-	if (!name || NOT_IN_NAME.test(name)) return { left: 'unconvertible' };
-	const shows = linkShows(ref.original);
-	const link = style === 'wiki' ? wikilink(name, decoded(subpath), shows) : markdownLink(name, decoded(subpath), shows);
+	const link = !name || NOT_IN_NAME.test(name) ? null : linkByName(name, subpath, ref.original, style);
 	return link === null ? { left: 'unconvertible' } : { dangling: link };
+}
+
+/** A link by `name` in `style`, to `subpath`, showing what `original` showed. `null`: its words can't be the link's. */
+function linkByName(name: string, subpath: string, original: string, style: LinkStyle): string | null {
+	const shows = linkShows(original);
+	return style === 'wiki' ? wikilink(name, decoded(subpath), shows) : markdownLink(name, decoded(subpath), shows);
 }
 
 /** What becomes of a link: its new text, a dangling wikilink, why it is left, or `null`: right as it is. */
@@ -301,12 +303,11 @@ export type LinkOutcome = string | { dangling: string } | { left: Left } | null;
 /** A link's outcome, and the call made on it when there was one. */
 export type LinkPlan = LinkOutcome | { check: Check; then: LinkOutcome };
 
-/** What `convertLinks` did: links rewritten (`dangling` of them to notes not forked), and those left, by why. */
+/** What `convertLinks` did: links rewritten (`dangling` of them to notes not forked), those left, and those a call was made on. */
 export interface Converted {
 	text: string;
 	converted: number;
 	dangling: number;
-	left: Record<Left, number>;
 	/** The links left, in the order they appear. */
 	leftLinks: LeftLink[];
 	/** The links a call was made on, as they are now, in the order they appear. */
@@ -315,7 +316,7 @@ export interface Converted {
 
 /** What converting a note with no links did. */
 export function nothingConverted(text: string): Converted {
-	return { text, converted: 0, dangling: 0, left: noLeft(), leftLinks: [], checkLinks: [] };
+	return { text, converted: 0, dangling: 0, leftLinks: [], checkLinks: [] };
 }
 
 /** Over several notes: what `convertLinks` did, the notes it changed, and those whose cache was stale. */
@@ -342,7 +343,7 @@ export function addToTally(t: LinkTally, note: string, c: Converted | null): voi
 	t.dangling += c.dangling;
 	t.check += c.checkLinks.length;
 	if (c.converted > 0) t.notes++;
-	for (const k of Object.keys(t.left) as Left[]) t.left[k] += c.left[k];
+	for (const l of c.leftLinks) t.left[l.why]++;
 }
 
 /** What a conversion did, as a notice. `many`: over several notes, so it says how many changed. */
@@ -368,7 +369,6 @@ export function tallyText(t: LinkTally, many: boolean): string {
  */
 export function convertLinks(text: string, refs: readonly LinkRef[], plan: (ref: LinkRef) => LinkPlan): Converted | null {
 	if (refs.some((r) => text.slice(r.start, r.end) !== r.original)) return null;
-	const left = noLeft();
 	const leftLinks: LeftLink[] = [];
 	const checkLinks: CheckLink[] = [];
 	let converted = 0;
@@ -378,7 +378,6 @@ export function convertLinks(text: string, refs: readonly LinkRef[], plan: (ref:
 		const { check, then: p } = withCheck(plan(ref));
 		let now = ref.original;
 		if (p !== null && typeof p !== 'string' && 'left' in p) {
-			left[p.left]++;
 			leftLinks.push({ line: ref.line, original: ref.original, why: p.left });
 		} else if (p !== null) {
 			const link = typeof p === 'string' ? p : p.dangling;
@@ -394,7 +393,7 @@ export function convertLinks(text: string, refs: readonly LinkRef[], plan: (ref:
 	}
 	leftLinks.reverse();
 	checkLinks.reverse();
-	return { text: out, converted, dangling, left, leftLinks, checkLinks };
+	return { text: out, converted, dangling, leftLinks, checkLinks };
 }
 
 function withCheck(p: LinkPlan): { check: Check | null; then: LinkOutcome } {
@@ -413,15 +412,15 @@ function linkSubpath(original: string): string {
 }
 
 /** Two links that read the same: embedded alike, showing the same words, to the same `#…`. */
-export function sameWords(a: string, b: string): boolean {
+function sameWords(a: string, b: string): boolean {
 	return a.startsWith('!') === b.startsWith('!') && linkShows(a) === linkShows(b) && linkSubpath(a) === linkSubpath(b);
 }
 
 /**
  * Whether `note` is `forked` with only its links written differently: the text between links is
- * the same piece for piece, there are as many links, and each pair is equal or `sameLink`.
+ * the same piece for piece, there are as many links, and each pair is equal or `sameWords`.
  */
-export function matchesExceptLinks(note: string, forked: string, sameLink: (noteLink: string, forkedLink: string) => boolean = sameWords): boolean {
+export function matchesExceptLinks(note: string, forked: string): boolean {
 	if (note === forked) return true;
 	const a = cut(note);
 	const b = cut(forked);
@@ -429,7 +428,7 @@ export function matchesExceptLinks(note: string, forked: string, sameLink: (note
 	if (a.text.some((t, i) => t !== b.text[i])) return false;
 	return a.links.every((l, i) => {
 		const f = b.links[i] ?? '';
-		return l === f || sameLink(l, f);
+		return l === f || sameWords(l, f);
 	});
 }
 

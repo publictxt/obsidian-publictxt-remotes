@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { renderForkList, withForkList } from '../src/fork/fork-list.ts';
+import { FORK_LIST_HEADING, renderForkList, withSection, withSections } from '../src/fork/fork-list.ts';
+
+const withForkList = (text: string, section: string | null) => withSection(text, FORK_LIST_HEADING, section);
 
 test('renderForkList: none is null; links sorted and deduped under the heading', () => {
 	assert.equal(renderForkList([]), null);
@@ -42,4 +44,10 @@ test('withForkList: heading matched as a whole line; trailing spaces allowed', (
 
 test('withForkList: the heading twice leaves the note alone', () => {
 	assert.equal(withForkList(`${S}\n\n${S}\n`, S2), null);
+});
+
+test('withSections: each in place in one pass; a heading twice is skipped, the rest still put', () => {
+	const fix = '## Links to fix\n\n- a';
+	assert.deepEqual(withSections('Prose.\n', [[FORK_LIST_HEADING, S], ['## Links to fix', fix]]), { text: `Prose.\n\n${S}\n\n${fix}\n`, skipped: [] });
+	assert.deepEqual(withSections(`${S}\n\n${S}\n`, [[FORK_LIST_HEADING, S2], ['## Links to fix', fix]]), { text: `${S}\n\n${S}\n\n${fix}\n`, skipped: [FORK_LIST_HEADING] });
 });

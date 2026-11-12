@@ -10,11 +10,6 @@ export function renderForkList(links: readonly string[]): string | null {
 	return [FORK_LIST_HEADING, '', ...items].join('\n');
 }
 
-/** `text` with its fork list replaced by `section` (`withSection`). */
-export function withForkList(text: string, section: string | null): string | null {
-	return withSection(text, FORK_LIST_HEADING, section);
-}
-
 /**
  * `text` with the section under `heading` (a whole `## …` line) replaced by `section`: added at
  * the end if missing, removed if `section` is `null`. The section runs from its heading to the
@@ -39,6 +34,18 @@ export function withSection(text: string, heading: string, section: string | nul
 	if (parts.length === 0) return '';
 	const out = parts.join('\n\n');
 	return tail.trim() ? out : `${out}\n`;
+}
+
+/** `text` with each `[heading, section]` put in place (`withSection`); the headings that appear twice are skipped. */
+export function withSections(text: string, sections: readonly (readonly [string, string | null])[]): { text: string; skipped: string[] } {
+	const skipped: string[] = [];
+	let out = text;
+	for (const [heading, section] of sections) {
+		const next = withSection(out, heading, section);
+		if (next === null) skipped.push(heading);
+		else out = next;
+	}
+	return { text: out, skipped };
 }
 
 function cmp(a: string, b: string): number {
