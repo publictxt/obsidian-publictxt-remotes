@@ -1,8 +1,9 @@
-// Where to put forks, for one file or several (docs/spec.md → Fork): the same folder as in the
-// source, or one folder; for one file, its name too. It always shows what would be written.
+// Where to put forks, for one file or several (docs/spec.md → Fork): one folder, a folder with
+// the source's folders kept under it, or the same folders as in the source; for one file, its
+// name too. It always shows what would be written.
 
 import { App, Modal, Setting, type ButtonComponent, type TextComponent } from 'obsidian';
-import { canMatch, noteName, remoteFolder, resolveForks, type Destination, type PlannedFork, type Resolved, type VaultLook } from '../fork/destination.ts';
+import { canMatch, noteName, remoteFolder, resolveForks, type Destination, type Layout, type PlannedFork, type Resolved, type VaultLook } from '../fork/destination.ts';
 import { suggestFolders } from './folder-suggest.ts';
 import { renderForkPreview } from './fork-preview.ts';
 
@@ -35,6 +36,10 @@ export class ForkModal extends Modal {
 	private folderEdited = false;
 	private running = false;
 
+	/** Whether any file has a folder in the source: else only `flat` is offered. */
+	private readonly hasFolders: boolean;
+
+	private layoutRow!: Setting;
 	private folderRow!: Setting;
 	private folderText!: TextComponent;
 	private nameText: TextComponent | null = null;
@@ -47,7 +52,9 @@ export class ForkModal extends Modal {
 		this.info = info;
 		this.submit = submit;
 		this.only = info.paths.length === 1 ? (info.paths[0] ?? null) : null;
+		this.hasFolders = canMatch(info.paths);
 		this.dest = { ...info.initial };
+		if (!this.hasFolders) this.dest.layout = 'flat';
 	}
 
 	onOpen(): void {
@@ -57,7 +64,7 @@ export class ForkModal extends Modal {
 		const earlier = only ? info.earlier.get(only) : undefined;
 		if (earlier?.length) contentEl.createEl('p', { cls: 'publictxt-warning', text: `Already forked as ${earlier.join(', ')}.` });
 
-		this.sameRow();
+		this.layoutField();
 		this.folderField();
 		if (only) this.nameField();
 		this.preview = contentEl.createDiv({ cls: 'publictxt-fork-preview' });
@@ -80,25 +87,41 @@ export class ForkModal extends Modal {
 		this.contentEl.empty();
 	}
 
-	/** The "same folder as in the source" toggle; off for good when no file has a folder there. */
-	private sameRow(): void {
+	/** How the source's folders come over; fixed at `flat` when no file has a folder there. */
+	private layoutField(): void {
+		const one = this.only !== null;
+		const options: Record<Layout, string> = {
+			flat: one ? 'Into the folder' : 'All into the folder',
+			nested: 'Into the folder, keeping source folders',
+			same: one ? 'Same folder as in the source' : 'Same folders as in the source',
+		};
+		this.layoutRow = new Setting(this.contentEl).setName('Folders').addDropdown((d) =>
+			d
+				.addOptions(options)
+				.setValue(this.dest.layout)
+				.setDisabled(!this.hasFolders)
+				.onChange((v) => {
+					this.dest.layout = v as Layout;
+					this.refresh();
+				}),
+		);
+	}
+
+	/** What the chosen layout does with these files. */
+	private layoutDesc(): string {
 		const { info, only } = this;
-		const can = canMatch(info.paths);
-		let desc = 'At the top of the source: no folder to match.';
-		if (can) desc = only ? `${remoteFolder(only)}, as in ${info.from}. Created if missing.` : 'Each file goes to the folder it is in there. Missing folders are created.';
-		new Setting(this.contentEl)
-			.setName(only ? 'Same folder as in the source' : 'Same folders as in the source')
-			.setDesc(desc)
-			.addToggle((t) =>
-				t
-					.setValue(can && this.dest.same)
-					.setDisabled(!can)
-					.onChange((on) => {
-						this.dest.same = on;
-						this.refresh();
-					}),
-			);
-		if (!can) this.dest.same = false;
+		if (!this.hasFolders) return 'At the top of the source: no folders to keep.';
+		const at = only ? remoteFolder(only) : '';
+		switch (this.dest.layout) {
+			case 'flat':
+				return only ? 'It goes into the folder below.' : 'Every file goes into the folder below.';
+			case 'nested':
+				if (only) return at ? `Into ${at} in the folder below. Created if missing.` : 'At the top of the source: into the folder below.';
+				return 'Each file goes into the folder below, at the folder it is in there. Missing folders are created.';
+			case 'same':
+				if (only) return at ? `${at}, as in ${info.from}. Created if missing.` : `At the top of ${info.from}: the vault root.`;
+				return 'Each file goes to the folder it is in there. Missing folders are created.';
+		}
 	}
 
 	private folderField(): void {
@@ -133,10 +156,12 @@ export class ForkModal extends Modal {
 	/** Brings everything in line with the choices. Fields keep their text unless it isn't the user's. */
 	private refresh(): void {
 		const { dest, info } = this;
-		this.folderText.setDisabled(dest.same);
-		this.folderText.setPlaceholder(dest.same ? 'As in the source' : 'Vault root');
-		// While it is off, the field keeps what was typed (`dest.folder`), to come back.
-		if (dest.same) this.folderText.setValue('');
+		const same = dest.layout === 'same';
+		this.layoutRow.setDesc(this.layoutDesc());
+		this.folderText.setDisabled(same);
+		this.folderText.setPlaceholder(same ? 'As in the source' : 'Vault root');
+		// While it isn't used, the field keeps what was typed (`dest.folder`), to come back.
+		if (same) this.folderText.setValue('');
 		else if (this.folderText.getValue() !== dest.folder) this.folderText.setValue(dest.folder);
 		this.folderRow.setDesc(`${this.folderEdited ? '' : `${info.why} `}Empty: the vault root. A new folder is created.`);
 

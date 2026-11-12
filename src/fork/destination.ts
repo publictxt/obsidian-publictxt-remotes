@@ -3,11 +3,18 @@
 
 import { forkPath, freePath } from './fork.ts';
 
+/**
+ * How files are laid out in the vault:
+ * - `flat`: every file into `folder`.
+ * - `nested`: each file into `folder`, under the folder it is in in the source.
+ * - `same`: each file into the folder it is in in the source, at the same path in the vault.
+ */
+export type Layout = 'flat' | 'nested' | 'same';
+
 /** The fork modal's choice of where forks go. */
 export interface Destination {
-	/** Each file into the folder it is in in the source, at the same path in the vault. */
-	same: boolean;
-	/** The one folder for every file when `same` is off; `''` is the vault root. Kept while `same` is on. */
+	layout: Layout;
+	/** The folder for `flat` and `nested`; `''` is the vault root. Kept while the layout is `same`. */
 	folder: string;
 }
 
@@ -19,7 +26,7 @@ export interface ForkFolderOptions {
 	sourceFolder: string | null;
 	/** `forkFolder`; `''` is the vault root. */
 	defaultFolder: string;
-	/** Open with `same` on when the vault has every file's folder. */
+	/** Open with the `same` layout when the vault has every file's folder. */
 	matchFolders: boolean;
 	folderExists: (folder: string) => boolean;
 }
@@ -39,7 +46,7 @@ export function remoteFolder(path: string): string {
 	return slash > 0 ? path.slice(0, slash) : '';
 }
 
-/** Whether any of `paths` has a folder in the source: without one, `same` has nothing to match. */
+/** Whether any of `paths` has a folder in the source: without one, only `flat` means anything. */
 export function canMatch(paths: readonly string[]): boolean {
 	return paths.some((p) => remoteFolder(p) !== '');
 }
@@ -47,18 +54,25 @@ export function canMatch(paths: readonly string[]): boolean {
 /**
  * The destination the modal opens with: the source's folder; else `same`, if matching is on and
  * every file has a folder in the source that the vault already has; else the default folder.
- * Nothing is created for a match: the user turns `same` on for that.
+ * Nothing is created for a match: the user picks a layout for that.
  */
 export function initialDestination(paths: readonly string[], o: ForkFolderOptions): { dest: Destination; reason: FolderReason } {
-	if (o.sourceFolder) return { dest: { same: false, folder: o.sourceFolder }, reason: 'source' };
+	if (o.sourceFolder) return { dest: { layout: 'flat', folder: o.sourceFolder }, reason: 'source' };
 	const inVault = (p: string) => remoteFolder(p) !== '' && o.folderExists(remoteFolder(p));
 	const matched = o.matchFolders && paths.length > 0 && paths.every(inVault);
-	return { dest: { same: matched, folder: o.defaultFolder }, reason: matched ? 'matched' : 'default' };
+	return { dest: { layout: matched ? 'same' : 'flat', folder: o.defaultFolder }, reason: matched ? 'matched' : 'default' };
 }
 
 /** The vault folder the file `path` goes to. */
 export function folderFor(path: string, dest: Destination): string {
-	return dest.same ? remoteFolder(path) : dest.folder;
+	switch (dest.layout) {
+		case 'flat':
+			return dest.folder;
+		case 'same':
+			return remoteFolder(path);
+		case 'nested':
+			return [dest.folder, remoteFolder(path)].filter((f) => f !== '').join('/');
+	}
 }
 
 /** One file to fork, and the vault path it goes to. */
@@ -123,8 +137,8 @@ export type Resolved = { ok: true; plan: PlannedFork[]; newFolders: string[] } |
  */
 export function resolveForks(paths: readonly string[], dest: Destination, name: string | null, vault: VaultLook): Resolved {
 	const folder = checkFolder(dest.folder);
-	if (!dest.same && !folder.ok) return folder;
-	const clean: Destination = { same: dest.same, folder: folder.ok ? folder.value : '' };
+	if (dest.layout !== 'same' && !folder.ok) return folder;
+	const clean: Destination = { layout: dest.layout, folder: folder.ok ? folder.value : '' };
 
 	let plan = planForks(paths, clean, vault.taken);
 	const [only] = paths;

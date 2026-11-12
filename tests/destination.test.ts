@@ -4,8 +4,9 @@ import { canMatch, checkFolder, checkName, folderFor, initialDestination, newFol
 
 const VAULT_FOLDERS = new Set(['wiki', 'wiki/cs', 'forks']);
 const options = { sourceFolder: null, defaultFolder: 'forks', matchFolders: true, folderExists: (f: string) => VAULT_FOLDERS.has(f) };
-const SAME = { same: true, folder: 'forks' };
-const ONE = { same: false, folder: 'forks' };
+const SAME = { layout: 'same', folder: 'forks' } as const;
+const ONE = { layout: 'flat', folder: 'forks' } as const;
+const NESTED = { layout: 'nested', folder: 'remotes/research' } as const;
 
 function vault(notes: string[] = [], files: string[] = []): VaultLook {
 	return { taken: (p) => notes.includes(p), folderExists: (f) => VAULT_FOLDERS.has(f), isFile: (p) => files.includes(p) };
@@ -23,7 +24,7 @@ test('canMatch: any file with a folder in the source', () => {
 });
 
 test('initialDestination: the source folder, else same when the vault has every folder, else the default', () => {
-	assert.deepEqual(initialDestination(['wiki/cs/a.md'], { ...options, sourceFolder: 'theirs' }), { dest: { same: false, folder: 'theirs' }, reason: 'source' });
+	assert.deepEqual(initialDestination(['wiki/cs/a.md'], { ...options, sourceFolder: 'theirs' }), { dest: { layout: 'flat', folder: 'theirs' }, reason: 'source' });
 	assert.deepEqual(initialDestination(['wiki/cs/a.md'], options), { dest: SAME, reason: 'matched' });
 	assert.deepEqual(initialDestination(['wiki/cs/a.md', 'wiki/b.md'], options), { dest: SAME, reason: 'matched' });
 	// Exact folders only, and every one of them.
@@ -35,10 +36,14 @@ test('initialDestination: the source folder, else same when the vault has every 
 	assert.deepEqual(initialDestination(['wiki/a.md', 'b.md'], options), { dest: ONE, reason: 'default' });
 });
 
-test('folderFor: as in the source, or the one folder', () => {
+test('folderFor: as in the source, the one folder, or the source\'s folder under the folder', () => {
 	assert.equal(folderFor('wiki/cs/a.md', SAME), 'wiki/cs');
 	assert.equal(folderFor('a.md', SAME), '');
 	assert.equal(folderFor('wiki/cs/a.md', ONE), 'forks');
+	assert.equal(folderFor('wiki/cs/git.md', NESTED), 'remotes/research/wiki/cs');
+	assert.equal(folderFor('a.md', NESTED), 'remotes/research');
+	// Under the vault root: the same as in the source.
+	assert.equal(folderFor('wiki/cs/a.md', { layout: 'nested', folder: '' }), 'wiki/cs');
 });
 
 test('planForks: one name twice clashes in one folder, not in the source\'s folders', () => {
@@ -62,6 +67,14 @@ test('planForks: numbered past names taken in the vault and by earlier files, wi
 		'forks/a 2.md',
 		'forks/b.md',
 		'forks/B 1.md',
+	]);
+});
+
+test('planForks: nested keeps the source\'s folders apart under the folder', () => {
+	assert.deepEqual(planForks(['wiki/cs/git.md', 'blog/git.md', 'top.md'], NESTED, () => false).map((p) => [p.to, p.numbered]), [
+		['remotes/research/wiki/cs/git.md', false],
+		['remotes/research/blog/git.md', false],
+		['remotes/research/top.md', false],
 	]);
 });
 
@@ -105,6 +118,14 @@ test('resolveForks: the plan and the folders it needs', () => {
 	});
 });
 
+test('resolveForks: nested creates the source\'s folders under the folder, even ones the vault lacks', () => {
+	const r = resolveForks(['wiki/cs/git.md'], { layout: 'nested', folder: '/remotes/research/' }, null, vault());
+	assert.deepEqual(r.ok && [r.plan[0]?.to, r.newFolders], ['remotes/research/wiki/cs/git.md', ['remotes/research/wiki/cs']]);
+	const named = resolveForks(['wiki/cs/git.md'], NESTED, 'mine', vault());
+	assert.deepEqual(named.ok && named.plan[0]?.to, 'remotes/research/wiki/cs/mine.md');
+	assert.equal(resolveForks(['wiki/a.md'], { layout: 'nested', folder: '../x' }, null, vault()).ok, false);
+});
+
 test('resolveForks: one file with no name typed is numbered; a typed name must be free', () => {
 	const v = vault(['forks/a.md']);
 	const suggested = resolveForks(['wiki/a.md'], ONE, null, v);
@@ -116,15 +137,15 @@ test('resolveForks: one file with no name typed is numbered; a typed name must b
 });
 
 test('resolveForks: the folder is cleaned, and only checked when it is used', () => {
-	const typed = resolveForks(['wiki/a.md'], { same: false, folder: '/new/place/' }, null, vault());
+	const typed = resolveForks(['wiki/a.md'], { layout: 'flat', folder: '/new/place/' }, null, vault());
 	assert.deepEqual(typed.ok && [typed.plan[0]?.to, typed.newFolders], ['new/place/a.md', ['new/place']]);
-	assert.equal(resolveForks(['wiki/a.md'], { same: false, folder: '../x' }, null, vault()).ok, false);
-	assert.equal(resolveForks(['wiki/a.md'], { same: true, folder: '../x' }, null, vault()).ok, true);
+	assert.equal(resolveForks(['wiki/a.md'], { layout: 'flat', folder: '../x' }, null, vault()).ok, false);
+	assert.equal(resolveForks(['wiki/a.md'], { layout: 'same', folder: '../x' }, null, vault()).ok, true);
 	// The vault root.
-	const root = resolveForks(['wiki/a.md'], { same: false, folder: '' }, null, vault());
+	const root = resolveForks(['wiki/a.md'], { layout: 'flat', folder: '' }, null, vault());
 	assert.deepEqual(root.ok && [root.plan[0]?.to, root.newFolders], ['a.md', []]);
 });
 
 test('resolveForks: a folder that is a file in the vault', () => {
-	assert.deepEqual(resolveForks(['wiki/a.md'], { same: false, folder: 'todo' }, null, vault([], ['todo'])), { ok: false, error: 'todo is a file, not a folder.' });
+	assert.deepEqual(resolveForks(['wiki/a.md'], { layout: 'flat', folder: 'todo' }, null, vault([], ['todo'])), { ok: false, error: 'todo is a file, not a folder.' });
 });

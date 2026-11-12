@@ -27,8 +27,9 @@ pages you want into your vault. Each fork records where it came from in its fron
 - A **fork** is a note copied from a source, with `fork_remote` (the source's name),
   `fork_repo`, `fork_path`, `fork_blob` and related keys in its front matter. Those keys are how the plugin tells when the original has
   changed. Fork a Markdown file with **Fork** next to it in the check view, or with **Fork a
-  file from a source**. You choose where it goes: the same folder as in the source, or a folder
-  you pick, and for one file its name. Nothing is overwritten. To fork several, tick files or
+  file from a source**. You choose where it goes: the same folder as in the source, a folder
+  you pick, or a folder you pick with the source's folders kept inside it (`wiki/cs/git.md`
+  into `remotes/research/wiki/cs/git.md`), and for one file its name. Nothing is overwritten. To fork several, tick files or
   whole folders in the check view and select **Fork selected**. Either way it shows what would
   be written before writing any.
 - **Updating a fork.** When a fork's original has changed, **Compare** in the check view opens
