@@ -3,7 +3,7 @@
 A brief for whoever implements it. It is self-contained, but read `AGENTS.md`, `docs/spec.md`
 (→ Fork provenance, Fork, Fork update, Fork list) and `docs/naming.md` first.
 
-> Decisions confirmed 2026-11-12. Building on `feat/convert-links`. Built: steps 1, 2 and 4.
+> Decisions confirmed 2026-11-12. Built on `feat/convert-links`: steps 1, 2, 4 and 5.
 > Step 3 is the pure part only (decided 2026-11-12): links count as the same when they show
 > the same words; checking where they point in the vault is left out.
 

@@ -68,6 +68,17 @@ source's folder, again only when asked.
   can have several copies, and the newest is compared next time. `fork_seen` records the
   upstream version dealt with, so `fork_blob` stays what the note's text came from: the merge
   base, should merging come later.
+- **Forks' links point at the vault's copies, in the vault's style** (decided 2026-11-12). A
+  link means what it means upstream: it is read against the source's files at the fork's
+  commit, and pointed at the vault's copy of that file, never at a note that merely shares its
+  name. Obsidian writes the new link, so converting to wikilinks or to Markdown links is one
+  code path. A link to a note not in the vault becomes a link by name: it lands on the user's
+  note of that name, or dangles until it is forked. That is the wiki way, not a hazard, so
+  there are no guards against it. Converting is offered after a fork, never automatic, and a
+  converted link is not an edit, so **Overwrite** doesn't ask because of it. What converting
+  left, and the calls it made, are listed in the follow note, which is public like the forks.
+  Offering to fork the notes those links name may come later. Details:
+  `docs/plans/convert-links.md`.
 - **Folder selection reuses the manifest's convention**: repo-relative folder prefixes ending in
   `/` (as `types` and `ignore` in `publictxt.yaml`), not a new glob grammar. Tag filters need
   file contents, so they wait.
