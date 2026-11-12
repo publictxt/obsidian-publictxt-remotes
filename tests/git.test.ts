@@ -141,6 +141,24 @@ test('a local source: fetched from the folder the mapping gives, which can move'
 	await assert.rejects(unset.head(key, null), (e) => e instanceof RemoteError && e.kind === 'not-found');
 });
 
+test('a clone folder that is not a repo: refused, and the repo around it left alone', async () => {
+	// A vault repo whose .remotes/ was committed then reset away: empty folders where a clone was.
+	const vault = join(root, 'husk-vault');
+	mkdirSync(vault);
+	const vg = (...args: string[]) => execFileSync('git', args, { cwd: vault, encoding: 'utf8' }).trim();
+	vg('init', '-q', '-b', 'main');
+	vg('remote', 'add', 'origin', 'https://example.com/vault.git');
+	const key = 'local:husk';
+	const cache = join(vault, '.remotes');
+	mkdirSync(join(cache, ...cachePath(key), 'refs', 'heads'), { recursive: true });
+
+	const h = new GitHost({ run: gitRunner(), cacheDir: cache, join, exists: pathExists, remote: () => fileUrl(up) });
+	await assert.rejects(h.head(key, null), (e) => e instanceof RemoteError && e.kind === 'git' && /isn't a clone/.test(e.message));
+	await assert.rejects(h.head(key, 'main'), (e) => e instanceof RemoteError && e.kind === 'git');
+	assert.equal(vg('remote', 'get-url', 'origin'), 'https://example.com/vault.git');
+	assert.equal(vg('for-each-ref'), '');
+});
+
 test('errors: missing branch, bad SHA, no git', async () => {
 	const h = host();
 	await assert.rejects(h.head(REPO, 'nope'), (e) => e instanceof RemoteError && e.kind === 'not-found');
@@ -157,7 +175,7 @@ test('queues: hosts sharing them take turns on a clone; a clone with nothing wai
 		log.push(`${name} start`);
 		await wait(20);
 		log.push(`${name} end`);
-		return { code: 0, stdout: args[0] === 'cat-file' ? name : '', stderr: '' };
+		return { code: 0, stdout: args.includes('cat-file') ? name : '', stderr: '' };
 	};
 	const make = (name: string) => new GitHost({ run: run(name), cacheDir: '/cache', join, exists: async () => true, queues });
 	const blob = 'a'.repeat(40);
@@ -204,7 +222,7 @@ test('head of the default branch: no fetch when the clone is already there, one 
 	const key = 'https://example.com/a/quiet';
 	const ran: string[] = [];
 	const real = gitRunner();
-	const h = new GitHost({ run: (args, cwd) => (ran.push(args[0] ?? ''), real(args, cwd)), cacheDir: join(root, 'remotes'), join, exists: pathExists, remote: () => up });
+	const h = new GitHost({ run: (args, cwd) => (ran.push(args.find((a) => !a.startsWith('-')) ?? ''), real(args, cwd)), cacheDir: join(root, 'remotes'), join, exists: pathExists, remote: () => up });
 	const first = await h.head(key, null);
 	assert.equal(first.commit, g('rev-parse', 'HEAD'));
 

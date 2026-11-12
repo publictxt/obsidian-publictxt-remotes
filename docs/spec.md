@@ -186,7 +186,11 @@ Needs Obsidian 1.7.2 (`revealLeaf` returning a promise).
 local source (`<hash>`: 32-bit FNV-1a of the key, so names that clean up the same don't share a
 clone). git fetches a local source from `fileUrl()` of its folder in `localPaths`, and the
 clone's origin is set to it before each fetch (`remote set-url`), so a moved folder is followed;
-no folder here is a `not-found` error. Commands run without a shell, with
+no folder here is a `not-found` error. Every command in a clone runs as that repo alone
+(`--git-dir=.`): git in a folder that isn't one would otherwise look up the tree and act on the
+vault's own repo. A clone folder that is there but isn't a bare repo (say, emptied by a
+`reset` of a vault that had committed `.remotes/`) is a `git` error saying to delete it; it is
+cloned anew at the next check. Commands run without a shell, with
 `GIT_TERMINAL_PROMPT=0`, one at a time per clone: every host the plugin makes shares the
 queues, so a check, a fork and a compare take turns. A command still running after five minutes
 is stopped, and fails as a `git` error.
