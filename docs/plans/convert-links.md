@@ -126,6 +126,30 @@ The metadata cache lags a write. Before counting, wait for each new note's
 `metadataCache.on('changed')`, giving up after 2 seconds: then there is no offer, and the
 commands can be run later.
 
+### The report
+
+Each conversion that writes (either command, or **Convert**) rewrites a **Links to fix** section
+in the follow note of each source it covered: every link in every fork of that source that is
+left as it was, by note then line, with the link as written (as code, so it isn't a link) and
+why. **Convert links in this fork** converts one note but reports them all. The section is
+owned like **Forked pages** (`withSection()`, shared with it): from its heading to the next `#`
+or `##` heading, removed when nothing is left, and the note left alone with a notice when the
+heading appears twice. Follow notes are public, so the section is published with the note.
+Links fixed by hand stay listed until the next conversion. Pure: `src/fork/link-report.ts`.
+
+```markdown
+## Links to fix
+
+Links in forks of this source that converting left as they were. Rewritten each time links are converted.
+
+- [[a]] line 3: `![p](../img/p.png)` not a note
+- [[a]] line 10: `[x](../../out.md)` not in the source
+```
+
+Why a link is left: **no name fits** (a note not forked that no link by name reads back as),
+**not a note** (an image or other file), **not in the source**, **unclear** (a name for several
+files upstream, or a local copy and upstream disagreeing).
+
 ### The edited test
 
 `fork_blob` is the reference and conversion never moves it: it stays the upstream blob the

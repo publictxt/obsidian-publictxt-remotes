@@ -6,6 +6,8 @@ export interface LinkRef {
 	/** Offsets of `original` in the note's text. */
 	start: number;
 	end: number;
+	/** The line it starts on, from 0. */
+	line: number;
 	/** The link as written: `[[a#b|c]]`, `[c](a.md#b)`, `![[a]]`. */
 	original: string;
 	/** Its target with any subpath, without a wikilink's alias: `a#b`, `a.md#b`. */
@@ -13,8 +15,30 @@ export interface LinkRef {
 	embed: boolean;
 }
 
-/** Why a link is left as it is: its upstream file has no copy, is no file upstream, or can't be told. */
-export type Left = 'unforked' | 'missing' | 'unclear';
+/**
+ * Why a link is left as it is: its upstream note has no copy and no link by name fits; its target
+ * isn't a note (an image); it is no file upstream; or which file it names can't be told.
+ */
+export type Left = 'unforked' | 'not-note' | 'missing' | 'unclear';
+
+/** Each reason, as the notice and the report say it. */
+export const LEFT_TEXT: Record<Left, string> = {
+	unforked: 'no name fits',
+	'not-note': 'not a note',
+	missing: 'not in the source',
+	unclear: 'unclear',
+};
+
+/** A link left as it is, and why. */
+export interface LeftLink {
+	line: number;
+	original: string;
+	why: Left;
+}
+
+function noLeft(): Record<Left, number> {
+	return { unforked: 0, 'not-note': 0, missing: 0, unclear: 0 };
+}
 
 /** `link` cut at its first `#`: the path, and the subpath with its `#` (`''`: none). */
 export function splitLink(link: string): { path: string; subpath: string } {
@@ -218,7 +242,8 @@ export function markdownLink(name: string, subpath: string, shows: string): stri
  * name (not `./`, `../` or `/`), which upstream reads as that note. Left as it is when no link
  * will do: not a note, or its words can't be the link's.
  */
-export function danglingLink(ref: Pick<LinkRef, 'original' | 'link'>, path: string, forkPath: string, files: UpstreamFiles, style: LinkStyle): { dangling: string } | { left: 'unforked' } | null {
+export function danglingLink(ref: Pick<LinkRef, 'original' | 'link'>, path: string, forkPath: string, files: UpstreamFiles, style: LinkStyle): { dangling: string } | { left: 'unforked' | 'not-note' } | null {
+	if (!/\.md$/i.test(path)) return { left: 'not-note' };
 	const { path: written, subpath } = splitLink(ref.link);
 	if (isWikilink(ref.original) === (style === 'wiki') && !/^\.{0,2}\//.test(written)) return null;
 	const name = danglingName(path, forkPath, files, style);
@@ -237,6 +262,13 @@ export interface Converted {
 	converted: number;
 	dangling: number;
 	left: Record<Left, number>;
+	/** The links left, in the order they appear. */
+	leftLinks: LeftLink[];
+}
+
+/** What converting a note with no links did. */
+export function nothingConverted(text: string): Converted {
+	return { text, converted: 0, dangling: 0, left: noLeft(), leftLinks: [] };
 }
 
 /** Over several notes: what `convertLinks` did, the notes it changed, and those whose cache was stale. */
@@ -249,7 +281,7 @@ export interface LinkTally {
 }
 
 export function emptyTally(): LinkTally {
-	return { converted: 0, dangling: 0, left: { unforked: 0, missing: 0, unclear: 0 }, notes: 0, stale: [] };
+	return { converted: 0, dangling: 0, left: noLeft(), notes: 0, stale: [] };
 }
 
 /** Adds one note's result to `t`. `null`: its cache was stale. */
@@ -273,12 +305,8 @@ export function tallyText(t: LinkTally, many: boolean): string {
 		const dangling = t.dangling ? `, ${t.dangling} to notes not forked yet` : '';
 		lines.push(`Converted ${n(t.converted, 'link')}${many ? ` in ${n(t.notes, 'note')}` : ''}${dangling}.`);
 	}
-	const left = [
-		t.left.unforked ? `${t.left.unforked} not forked` : '',
-		t.left.missing ? `${t.left.missing} not in the source` : '',
-		t.left.unclear ? `${t.left.unclear} unclear` : '',
-	].filter((s) => s !== '');
-	if (left.length) lines.push(`Left: ${left.join(', ')}.`);
+	const left = (Object.keys(LEFT_TEXT) as Left[]).filter((k) => t.left[k] > 0).map((k) => `${t.left[k]} ${LEFT_TEXT[k]}`);
+	if (left.length) lines.push(`Left: ${left.join(', ')}. See "Links to fix" in the follow note.`);
 	if (t.stale.length) lines.push(`Changed while converting, try again: ${t.stale.join(', ')}.`);
 	return lines.join(' ');
 }
@@ -290,7 +318,8 @@ export function tallyText(t: LinkTally, many: boolean): string {
  */
 export function convertLinks(text: string, refs: readonly LinkRef[], plan: (ref: LinkRef) => LinkPlan): Converted | null {
 	if (refs.some((r) => text.slice(r.start, r.end) !== r.original)) return null;
-	const left: Record<Left, number> = { unforked: 0, missing: 0, unclear: 0 };
+	const left = noLeft();
+	const leftLinks: LeftLink[] = [];
 	let converted = 0;
 	let dangling = 0;
 	let out = text;
@@ -299,6 +328,7 @@ export function convertLinks(text: string, refs: readonly LinkRef[], plan: (ref:
 		if (p === null) continue;
 		if (typeof p !== 'string' && 'left' in p) {
 			left[p.left]++;
+			leftLinks.push({ line: ref.line, original: ref.original, why: p.left });
 			continue;
 		}
 		const link = typeof p === 'string' ? p : p.dangling;
@@ -308,7 +338,8 @@ export function convertLinks(text: string, refs: readonly LinkRef[], plan: (ref:
 		converted++;
 		if (typeof p !== 'string') dangling++;
 	}
-	return { text: out, converted, dangling, left };
+	leftLinks.reverse();
+	return { text: out, converted, dangling, left, leftLinks };
 }
 
 /** Every `[[…]]` and `[…](…)`, embedded or not. Read the same way on both sides of a compare. */

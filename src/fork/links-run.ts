@@ -11,7 +11,9 @@ import { scanFollows } from '../sources/follows.ts';
 import { scanForks } from '../sources/forks.ts';
 import type { PublicTxtData } from '../sources/schema.ts';
 import { forksOf, isForkOf, type Remote } from './fork.ts';
-import { addToTally, convertLinks, danglingLink, emptyTally, linkShows, splitLink, tallyText, upstreamFiles, upstreamTarget, type Converted, type LinkPlan, type LinkRef, type LinkStyle, type LinkTally, type UpstreamFiles } from './links.ts';
+import { withSection } from './fork-list.ts';
+import { LINK_REPORT_HEADING, renderLinkReport, type NoteLinks } from './link-report.ts';
+import { addToTally, convertLinks, danglingLink, emptyTally, linkShows, nothingConverted, splitLink, tallyText, upstreamFiles, upstreamTarget, type Converted, type LinkPlan, type LinkRef, type LinkStyle, type LinkTally, type UpstreamFiles } from './links.ts';
 
 /** One source's forks, and its files at each commit they were forked at, read once. */
 class SourceLinks {
@@ -63,7 +65,7 @@ class SourceLinks {
 	async convertNote(file: TFile, meta: ForkMeta, write: boolean): Promise<Converted | null> {
 		const cache = this.app.metadataCache.getFileCache(file);
 		const refs = refsOf(cache);
-		if (refs.length === 0) return { text: '', converted: 0, dangling: 0, left: { unforked: 0, missing: 0, unclear: 0 } };
+		if (refs.length === 0) return nothingConverted('');
 		const files = await this.filesAt(meta.commit);
 		const plan = (ref: LinkRef) => this.planLink(ref, file, meta, files);
 		const counted = convertLinks(await this.app.vault.cachedRead(file), refs, plan);
@@ -127,24 +129,48 @@ class SourceLinks {
 function refsOf(cache: CachedMetadata | null): LinkRef[] {
 	const refs: LinkRef[] = [];
 	for (const [list, embed] of [[cache?.links, false], [cache?.embeds, true]] as const) {
-		for (const r of list ?? []) refs.push({ start: r.position.start.offset, end: r.position.end.offset, original: r.original, link: r.link, embed });
+		for (const r of list ?? []) refs.push({ start: r.position.start.offset, end: r.position.end.offset, line: r.position.start.line, original: r.original, link: r.link, embed });
 	}
 	return refs;
 }
 
-/** Converts (or with `write` false, counts) the links in every fork of `follows`. */
-export async function convertForks(app: App, host: RemoteHost, follows: readonly Remote[], write: boolean, only?: (fork: Fork) => boolean): Promise<LinkTally> {
+/**
+ * Converts the links in the forks of `follows`: all of them (`true`), none (`false`: only counts),
+ * or those `write` picks, and then only those are counted. Unless nothing is written, each
+ * follow note's "Links to fix" is rewritten from every fork of its source.
+ */
+export async function convertForks(app: App, host: RemoteHost, follows: readonly Remote[], write: boolean | ((fork: Fork) => boolean)): Promise<LinkTally> {
 	const tally = emptyTally();
 	const forks = scanForks(app);
+	const notes = write === false ? [] : scanFollows(app).follows;
 	for (const follow of follows) {
 		const source = new SourceLinks(app, host, follow, forks);
+		const note = notes.find((f) => f.url === follow.url);
+		const report: NoteLinks[] = [];
 		for (const fork of source.forks) {
-			if (only && !only(fork)) continue;
 			const file = app.vault.getFileByPath(fork.path);
-			if (file) addToTally(tally, fork.path, await source.convertNote(file, fork.meta, write));
+			if (!file) continue;
+			const writes = typeof write === 'function' ? write(fork) : write;
+			const c = await source.convertNote(file, fork.meta, writes);
+			if (typeof write !== 'function' || writes) addToTally(tally, fork.path, c);
+			if (c && note) report.push({ path: fork.path, link: app.fileManager.generateMarkdownLink(file, note.path), left: c.leftLinks });
+		}
+		if (note && !(await writeReport(app, note.path, renderLinkReport(report)))) {
+			new Notice(`Links to fix not updated in ${note.path}: it has more than one "Links to fix" heading.`);
 		}
 	}
 	return tally;
+}
+
+/** Puts `section` in place of the follow note's "Links to fix". `false`: the heading is there twice. */
+async function writeReport(app: App, path: string, section: string | null): Promise<boolean> {
+	const note = app.vault.getFileByPath(path);
+	if (!note) return true;
+	const text = await app.vault.cachedRead(note);
+	const next = withSection(text, LINK_REPORT_HEADING, section);
+	if (next === null) return false;
+	if (next !== text) await app.vault.process(note, (t) => withSection(t, LINK_REPORT_HEADING, section) ?? t);
+	return true;
 }
 
 /** The "Convert links in this fork" command. */
@@ -161,7 +187,7 @@ export async function convertActiveFork(app: App, data: PublicTxtData): Promise<
 		return;
 	}
 	try {
-		new Notice(tallyText(await convertForks(app, vaultHost(app, data), [follow], true, (f) => f.path === file.path), false));
+		new Notice(tallyText(await convertForks(app, vaultHost(app, data), [follow], (f) => f.path === file.path), false));
 	} catch (e) {
 		new Notice(errorText(e));
 	}
