@@ -11,8 +11,7 @@ Forks open by default in the global **Fork folder** (`forkFolder`, the vault roo
 flat, or in the source's own `folder` when its follow note sets one. Forks from different
 sources mix, and a source's folders are flattened unless the user picks another layout at
 each fork. publictext already keeps its forks as `remotes/txt/…`: one folder per source,
-under one root, the source's folders kept inside it. publictxt-pages needs to know that root
-to treat those pages as forks.
+under one root, the source's folders kept inside it.
 
 ## Decisions
 
@@ -28,11 +27,9 @@ to treat those pages as forks.
 4. **Match source folders stays, default off.** On, the modal opens on **Same folder as in the
    source** when the vault has every file's folder, as now. Off (the default), it opens on the
    source's folder under the root.
-5. **The root is written to `settings/site.toml`** as `[params] remotesRoot = "remotes"`, for
-   publictxt-pages (`.Site.Params.remotesRoot`). The plugin setting is the source of truth:
-   the file is written when the setting changes, and when the plugin loads and the file says
-   something else or has no such key. Only that one line is touched; the file is created when
-   missing, with `[params]` and a comment.
+5. **The plugin doesn't write `settings/site.toml`** (decided 2026-11-13). publictxt-pages
+   reads the root from `[params] remotesRoot` there, set by hand; the root rarely changes. The
+   setting's description says to keep the two the same.
 6. **The clones folder is relabelled.** The setting **Remotes folder** (`remotesFolder`,
    `.remotes`, the git clones) becomes **Clones folder**, so it isn't taken for the root. The
    key stays.
@@ -59,47 +56,20 @@ straight in the source's folder: keeping folders and flat are the same for it.
   `normalizeData()` reads `remotesRoot` as a vault folder (`vaultFolder()`), else the default;
   an old `forkFolder` is ignored. Saved `matchFolders: true` stays on.
 - Settings: **Remotes root** ("Forks from each source go in a folder under it, named for the
-  source unless its follow note says otherwise. Written to settings/site.toml for
-  publictxt-pages.") where **Fork folder** was. **Clones folder** for `remotesFolder`.
+  source unless its follow note says otherwise. If you publish with publictxt-pages, set
+  remotesRoot under [params] in settings/site.toml to match.") where **Fork folder** was. **Clones folder** for `remotesFolder`.
 - The source form's folder field: "Fork folder, under the remotes root. Empty: the source's
   name." Its placeholder is the name. The settings list shows `forks to: remotes/txt`.
 
 Existing follow notes with a `folder` now read it under the root. Forks already made don't move.
 
-### `settings/site.toml`
-
-Pure: `withTomlParam(text, key, value)` in `src/util/site-toml.ts`, line-based, no TOML
-library (no new dependencies):
-
-- The `[params]` table runs from its header line to the next line starting with `[` (a table
-  or array header, `[params.footer]` included), or the end.
-- A line in it that sets `key` (`key =`, any spacing) is replaced, keeping its indentation and
-  any trailing comment.
-- Else the line is added after the table's last key line (or its header), indented like the
-  table's first key (two spaces when it has none).
-- No `[params]`: `\n[params]\n  key = "value"\n` at the end.
-- No file: a comment saying the plugin writes `remotesRoot`, then the `[params]` table.
-- The value is a TOML basic string (`\` and `"` escaped).
-
-`null` (nothing to change) when the key already has that value. Not handled: `params` written
-as an inline table or dotted keys (`params.remotesRoot = …`); such a file is left alone with a
-notice.
-
-Vault side, `src/settings-site.ts`: `syncSiteToml(app, root)` reads `settings/site.toml`,
-writes it with `vault.process` (or `vault.create`, after `ensureFolder('settings')`) when
-`withTomlParam` changes it. Called on layout ready and after the setting is saved (on blur, not
-each keystroke).
-
 ## How to build it
 
-1. **Pure:** `sourceFolderOf()`, `initialDestination()` with the root and the new default;
-   `withTomlParam()`. Tests: defaults, a `folder`, an empty root, matching on and off, a file
-   without folders; TOML: replace, keep comment and indent, add after the last key, before a
-   subtable, no `[params]`, empty file, escaping, unchanged, inline table refused.
+1. **Pure:** `sourceFolderOf()`, `initialDestination()` with the root and the new default.
+   Tests: defaults, a `folder`, an empty root, matching on and off, a file without folders.
 2. **Data and settings:** `remotesRoot`, `matchFolders` default, the labels, the source form's
    field, the `forks to:` line; the run passes the root and name into `initialDestination()`.
-3. **site.toml:** `syncSiteToml()` on load and on save.
-4. **Docs:** spec (Data, Sources settings, Fork), naming, intent, README.
+3. **Docs:** spec (Data, Sources settings, Fork), naming, intent, README.
 
 Each step a commit; `npm run build`, `npm run lint`, `npm test` before each.
 
@@ -107,4 +77,4 @@ Each step a commit; `npm run build`, `npm run lint`, `npm test` before each.
 
 - Moving forks already made into the root.
 - publictxt-pages reading `remotesRoot` (its own repo).
-- Reading the root back from `site.toml` when edited by hand.
+- Writing or reading `settings/site.toml`.
