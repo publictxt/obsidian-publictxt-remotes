@@ -1,0 +1,197 @@
+// Converting a fork's links (docs/plans/convert-links.md): what upstream file a link names, what
+// it shows, and rewriting a note's links. Pure.
+
+/** A link or embed in a note's body, as Obsidian's metadata cache gives it. */
+export interface LinkRef {
+	/** Offsets of `original` in the note's text. */
+	start: number;
+	end: number;
+	/** The link as written: `[[a#b|c]]`, `[c](a.md#b)`, `![[a]]`. */
+	original: string;
+	/** Its target with any subpath, without a wikilink's alias: `a#b`, `a.md#b`. */
+	link: string;
+	embed: boolean;
+}
+
+/** Why a link is left as it is: its upstream file has no copy, is no file upstream, or can't be told. */
+export type Left = 'unforked' | 'missing' | 'unclear';
+
+/** `link` cut at its first `#`: the path, and the subpath with its `#` (`''`: none). */
+export function splitLink(link: string): { path: string; subpath: string } {
+	const hash = link.indexOf('#');
+	return hash < 0 ? { path: link, subpath: '' } : { path: link.slice(0, hash), subpath: link.slice(hash) };
+}
+
+export function isWikilink(original: string): boolean {
+	return /^!?\[\[/.test(original);
+}
+
+/** The upstream files a link is read against, indexed for the lookups `upstreamTarget` makes. */
+export interface UpstreamFiles {
+	exact: ReadonlySet<string>;
+	/** Lower-cased path → paths. */
+	lower: ReadonlyMap<string, readonly string[]>;
+	/** Lower-cased file name → paths. */
+	byName: ReadonlyMap<string, readonly string[]>;
+}
+
+export function upstreamFiles(paths: Iterable<string>): UpstreamFiles {
+	const exact = new Set<string>();
+	const lower = new Map<string, string[]>();
+	const byName = new Map<string, string[]>();
+	const add = (m: Map<string, string[]>, k: string, p: string) => {
+		const list = m.get(k);
+		if (list) list.push(p);
+		else m.set(k, [p]);
+	};
+	for (const p of paths) {
+		if (exact.has(p)) continue;
+		exact.add(p);
+		add(lower, p.toLowerCase(), p);
+		add(byName, baseName(p).toLowerCase(), p);
+	}
+	return { exact, lower, byName };
+}
+
+function baseName(path: string): string {
+	return path.slice(path.lastIndexOf('/') + 1);
+}
+
+function folderOf(path: string): string {
+	const slash = path.lastIndexOf('/');
+	return slash < 0 ? '' : path.slice(0, slash);
+}
+
+/** `rel` from `folder`, with `.` and `..` worked out; `null` if it climbs out of the repo. */
+function join(folder: string, rel: string): string | null {
+	const parts = folder ? folder.split('/') : [];
+	for (const seg of rel.split('/')) {
+		if (seg === '' || seg === '.') continue;
+		if (seg === '..') {
+			if (parts.length === 0) return null;
+			parts.pop();
+		} else parts.push(seg);
+	}
+	return parts.length ? parts.join('/') : null;
+}
+
+function decoded(s: string): string {
+	try {
+		return decodeURIComponent(s);
+	} catch {
+		return s;
+	}
+}
+
+/**
+ * The upstream path a link in the note forked from `forkPath` names, as upstream would read it,
+ * or why there is none. `null`: not a link to a file (an external URL, or a link within the
+ * note). See docs/plans/convert-links.md → Resolving a link, step 2.
+ */
+export function upstreamTarget(ref: Pick<LinkRef, 'original' | 'link'>, forkPath: string, files: UpstreamFiles): { path: string } | { left: 'missing' | 'unclear' } | null {
+	const raw = splitLink(ref.link).path.trim();
+	if (!raw || /^[a-z][a-z0-9+.-]*:/i.test(raw)) return null;
+	const wiki = isWikilink(ref.original);
+	const tried = new Set<string>();
+	for (const p of [raw, decoded(raw)]) {
+		if (tried.has(p)) continue;
+		tried.add(p);
+		const folder = folderOf(forkPath);
+		let paths: (string | null)[];
+		let byName = false;
+		if (/^\.\.?\//.test(p)) paths = [join(folder, p)];
+		else if (p.startsWith('/')) paths = [join('', p)];
+		else {
+			paths = wiki ? [join('', p), join(folder, p)] : [join(folder, p), join('', p)];
+			byName = true;
+		}
+		for (const caseless of [false, true]) {
+			for (const c of paths) {
+				const hit = c === null ? null : lookUp(files, c, caseless);
+				if (hit) return { path: hit };
+			}
+			if (!byName) continue;
+			const named = lookUpByName(files, p, caseless);
+			if (named.length === 1 && named[0] !== undefined) return { path: named[0] };
+			if (named.length > 1) return { left: 'unclear' };
+		}
+	}
+	return { left: 'missing' };
+}
+
+/** `path` or `path.md` if a file upstream; caseless: the one file it names without regard to case. */
+function lookUp(files: UpstreamFiles, path: string, caseless: boolean): string | null {
+	for (const c of [path, `${path}.md`]) {
+		if (!caseless) {
+			if (files.exact.has(c)) return c;
+			continue;
+		}
+		const hits = files.lower.get(c.toLowerCase());
+		if (hits?.length === 1 && hits[0] !== undefined) return hits[0];
+	}
+	return null;
+}
+
+/** The files whose path is `name` or ends in `/` + `name` (or with `.md` added). */
+function lookUpByName(files: UpstreamFiles, name: string, caseless: boolean): string[] {
+	const found = new Set<string>();
+	for (const n of [name, `${name}.md`]) {
+		const want = caseless ? n.toLowerCase() : n;
+		for (const p of files.byName.get(baseName(n).toLowerCase()) ?? []) {
+			const have = caseless ? p.toLowerCase() : p;
+			if (have === want || have.endsWith(`/${want}`)) found.add(p);
+		}
+	}
+	return [...found];
+}
+
+const WIKI = /^!?\[\[([^\]|]*)(?:\|([^\]]*))?\]\]$/s;
+const MARKDOWN = /^!?\[(.*)\]\((.*)\)$/s;
+
+/**
+ * What a link shows when read: a Markdown link's text; a wikilink's alias, else its file's name
+ * without `.md` and its subpath as Obsidian shows it (`b#H` → `b > H`).
+ */
+export function linkShows(original: string): string {
+	const wiki = WIKI.exec(original);
+	if (wiki) {
+		if (wiki[2] !== undefined) return wiki[2];
+		const { path, subpath } = splitLink(wiki[1] ?? '');
+		const name = baseName(path).replace(/\.md$/i, '');
+		const parts = subpath.split('#').filter((s) => s !== '');
+		return [name, ...parts].filter((s) => s !== '').join(' > ');
+	}
+	return MARKDOWN.exec(original)?.[1] ?? original;
+}
+
+/** What `convertLinks` did: links rewritten, and those left, by why. */
+export interface Converted {
+	text: string;
+	converted: number;
+	left: Record<Left, number>;
+}
+
+/**
+ * Rewrites the links `refs` in `text`. `plan(ref)` gives a link's new text, why it is left, or
+ * `null` when it is right as it is. A new text equal to the old isn't counted. An embed stays an
+ * embed. `null` when a ref's offsets don't hold its `original`: the cache is stale.
+ */
+export function convertLinks(text: string, refs: readonly LinkRef[], plan: (ref: LinkRef) => string | { left: Left } | null): Converted | null {
+	if (refs.some((r) => text.slice(r.start, r.end) !== r.original)) return null;
+	const left: Record<Left, number> = { unforked: 0, missing: 0, unclear: 0 };
+	let converted = 0;
+	let out = text;
+	for (const ref of [...refs].sort((a, b) => b.start - a.start)) {
+		const p = plan(ref);
+		if (p === null) continue;
+		if (typeof p !== 'string') {
+			left[p.left]++;
+			continue;
+		}
+		const next = ref.embed && !p.startsWith('!') ? `!${p}` : p;
+		if (next === ref.original) continue;
+		out = out.slice(0, ref.start) + next + out.slice(ref.end);
+		converted++;
+	}
+	return { text: out, converted, left };
+}
