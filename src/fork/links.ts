@@ -35,6 +35,26 @@ export interface LeftLink {
 	why: Left;
 }
 
+/**
+ * A call converting made that may not be what upstream meant: the link's name is several files
+ * upstream, so it went by name; or it already pointed at a copy, which was kept although
+ * upstream reads it as another file.
+ */
+export type Check = 'several' | 'kept';
+
+/** Each call, as the notice and the report say it. */
+export const CHECK_TEXT: Record<Check, string> = {
+	several: 'several by name',
+	kept: 'kept on your copy',
+};
+
+/** A link converting made a call on: as it is after converting, and which call. */
+export interface CheckLink {
+	line: number;
+	link: string;
+	why: Check;
+}
+
 function noLeft(): Record<Left, number> {
 	return { unforked: 0, 'not-note': 0, unconvertible: 0 };
 }
@@ -108,10 +128,10 @@ function decoded(s: string): string {
 
 /**
  * The upstream path a link in the note forked from `forkPath` names, as upstream would read it,
- * or `missing` when it names no one file there (none, or several by name). `null`: not a link
+ * or why there is no one file there: `missing` (none) or `several` (several by name). `null`: not a link
  * to a file (an external URL, or a link within the note). See docs/plans/convert-links.md → Resolving a link, step 2.
  */
-export function upstreamTarget(ref: Pick<LinkRef, 'original' | 'link'>, forkPath: string, files: UpstreamFiles): { path: string } | { left: 'missing' } | null {
+export function upstreamTarget(ref: Pick<LinkRef, 'original' | 'link'>, forkPath: string, files: UpstreamFiles): { path: string } | { left: 'missing' | 'several' } | null {
 	const raw = splitLink(ref.link).path.trim();
 	if (!raw || /^[a-z][a-z0-9+.-]*:/i.test(raw)) return null;
 	const wiki = isWikilink(ref.original);
@@ -136,7 +156,7 @@ export function upstreamTarget(ref: Pick<LinkRef, 'original' | 'link'>, forkPath
 			if (!byName) continue;
 			const named = lookUpByName(files, p, caseless);
 			if (named.length === 1 && named[0] !== undefined) return { path: named[0] };
-			if (named.length > 1) return { left: 'missing' };
+			if (named.length > 1) return { left: 'several' };
 		}
 	}
 	return { left: 'missing' };
@@ -276,7 +296,10 @@ export function missingLink(ref: Pick<LinkRef, 'original' | 'link'>, style: Link
 }
 
 /** What becomes of a link: its new text, a dangling wikilink, why it is left, or `null`: right as it is. */
-export type LinkPlan = string | { dangling: string } | { left: Left } | null;
+export type LinkOutcome = string | { dangling: string } | { left: Left } | null;
+
+/** A link's outcome, and the call made on it when there was one. */
+export type LinkPlan = LinkOutcome | { check: Check; then: LinkOutcome };
 
 /** What `convertLinks` did: links rewritten (`dangling` of them to notes not forked), and those left, by why. */
 export interface Converted {
@@ -286,11 +309,13 @@ export interface Converted {
 	left: Record<Left, number>;
 	/** The links left, in the order they appear. */
 	leftLinks: LeftLink[];
+	/** The links a call was made on, as they are now, in the order they appear. */
+	checkLinks: CheckLink[];
 }
 
 /** What converting a note with no links did. */
 export function nothingConverted(text: string): Converted {
-	return { text, converted: 0, dangling: 0, left: noLeft(), leftLinks: [] };
+	return { text, converted: 0, dangling: 0, left: noLeft(), leftLinks: [], checkLinks: [] };
 }
 
 /** Over several notes: what `convertLinks` did, the notes it changed, and those whose cache was stale. */
@@ -298,12 +323,13 @@ export interface LinkTally {
 	converted: number;
 	dangling: number;
 	left: Record<Left, number>;
+	check: number;
 	notes: number;
 	stale: string[];
 }
 
 export function emptyTally(): LinkTally {
-	return { converted: 0, dangling: 0, left: noLeft(), notes: 0, stale: [] };
+	return { converted: 0, dangling: 0, left: noLeft(), check: 0, notes: 0, stale: [] };
 }
 
 /** Adds one note's result to `t`. `null`: its cache was stale. */
@@ -314,6 +340,7 @@ export function addToTally(t: LinkTally, note: string, c: Converted | null): voi
 	}
 	t.converted += c.converted;
 	t.dangling += c.dangling;
+	t.check += c.checkLinks.length;
 	if (c.converted > 0) t.notes++;
 	for (const k of Object.keys(t.left) as Left[]) t.left[k] += c.left[k];
 }
@@ -329,39 +356,50 @@ export function tallyText(t: LinkTally, many: boolean): string {
 	}
 	const left = (Object.keys(LEFT_TEXT) as Left[]).filter((k) => t.left[k] > 0).map((k) => `${t.left[k]} ${LEFT_TEXT[k]}`);
 	if (left.length) lines.push(`Left: ${left.join(', ')}. See "Links to fix" in the follow note.`);
+	if (t.check) lines.push(`${n(t.check, 'link')} to check: see "Links to check" in the follow note.`);
 	if (t.stale.length) lines.push(`Changed while converting, try again: ${t.stale.join(', ')}.`);
 	return lines.join(' ');
 }
 
 /**
  * Rewrites the links `refs` in `text`. `plan(ref)` gives a link's new text (to a copy, or
- * dangling), why it is left, or `null` when it is right as it is. A new text equal to the old isn't counted. An embed stays an
- * embed. `null` when a ref's offsets don't hold its `original`: the cache is stale.
+ * dangling), why it is left, or `null` when it is right as it is, and any call made on it. A new
+ * text equal to the old isn't counted. An embed stays an embed. `null` when a ref's offsets don't hold its `original`: the cache is stale.
  */
 export function convertLinks(text: string, refs: readonly LinkRef[], plan: (ref: LinkRef) => LinkPlan): Converted | null {
 	if (refs.some((r) => text.slice(r.start, r.end) !== r.original)) return null;
 	const left = noLeft();
 	const leftLinks: LeftLink[] = [];
+	const checkLinks: CheckLink[] = [];
 	let converted = 0;
 	let dangling = 0;
 	let out = text;
 	for (const ref of [...refs].sort((a, b) => b.start - a.start)) {
-		const p = plan(ref);
-		if (p === null) continue;
-		if (typeof p !== 'string' && 'left' in p) {
+		const { check, then: p } = withCheck(plan(ref));
+		let now = ref.original;
+		if (p !== null && typeof p !== 'string' && 'left' in p) {
 			left[p.left]++;
 			leftLinks.push({ line: ref.line, original: ref.original, why: p.left });
-			continue;
+		} else if (p !== null) {
+			const link = typeof p === 'string' ? p : p.dangling;
+			const next = ref.embed && !link.startsWith('!') ? `!${link}` : link;
+			if (next !== ref.original) {
+				out = out.slice(0, ref.start) + next + out.slice(ref.end);
+				now = next;
+				converted++;
+				if (typeof p !== 'string') dangling++;
+			}
 		}
-		const link = typeof p === 'string' ? p : p.dangling;
-		const next = ref.embed && !link.startsWith('!') ? `!${link}` : link;
-		if (next === ref.original) continue;
-		out = out.slice(0, ref.start) + next + out.slice(ref.end);
-		converted++;
-		if (typeof p !== 'string') dangling++;
+		if (check) checkLinks.push({ line: ref.line, link: now, why: check });
 	}
 	leftLinks.reverse();
-	return { text: out, converted, dangling, left, leftLinks };
+	checkLinks.reverse();
+	return { text: out, converted, dangling, left, leftLinks, checkLinks };
+}
+
+function withCheck(p: LinkPlan): { check: Check | null; then: LinkOutcome } {
+	if (p === null || typeof p === 'string' || !('check' in p)) return { check: null, then: p };
+	return p;
 }
 
 /** Every `[[…]]` and `[…](…)`, embedded or not. Read the same way on both sides of a compare. */

@@ -83,12 +83,14 @@ link goes through this, in order:
 
    "By name" is the upstream files whose path ends in `/` + the target, or equals it; exactly
    one resolves. Paths that climb out of the repo resolve to nothing. A case-insensitive match
-   is taken only when there is no exact one. A target that is no one file upstream (none, or
-   several by name) is **missing**, and becomes a link by its own name (decision 1).
+   is taken only when there is no exact one. A target that is no file upstream is **missing**;
+   one that is several by name is **several**. Both become a link by its own name
+   (decision 1); several is listed to check.
 3. **Its copy.** The latest copy (`latestFirst()`) of that upstream path from the same source
    (`forksOf()`). No copy: a wikilink by name (decision 1), else **unforked**.
 4. **A copy already.** If step 1 found a copy from this source, that copy is the target,
-   whatever upstream reads the link as.
+   whatever upstream reads the link as. When upstream reads it as several files, or as
+   another one, the link is listed to check.
 
 A link to the note's own upstream path resolves to the note itself, not to another copy.
 With forks' paths standing in for the files, missing and unforked can't be told apart: both
@@ -151,6 +153,26 @@ Links in forks of this source that converting left as they were. Rewritten each 
 Why a link is left: **no name fits** (a note not forked that no link by name reads back as),
 **not a note** (an image or other file), **cannot be converted** (a note not upstream whose name can't
 be a link's, or whose words can't be its text).
+
+The same conversion rewrites a **Links to check** section beside it, owned the same way: the
+links converting made a call on, which may not go where upstream meant, by note then line, with
+the link as it is now and the call. They stay listed every run until the link is changed by
+hand (given a path) or upstream no longer reads it two ways. The notice adds "2 links to check".
+
+```markdown
+## Links to check
+
+Links in forks of this source that converting made a call on: they may not go where upstream meant. Rewritten each time links are converted.
+
+- [[a]] line 2: `[[dup]]` several by name
+- [[z]] line 5: `[[x]]` kept on your copy
+```
+
+The calls: **several by name** (the name is several files upstream, so the link went by its
+own name, and lands on your note of that name), **kept on your copy** (the link already
+pointed at one of your copies, and upstream reads it as another file). Case-only matches and
+links by name to notes you don't have are not listed: the first are nearly always right, the
+second are the wiki way.
 
 ### The edited test
 

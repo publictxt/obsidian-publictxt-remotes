@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addToTally, convertLinks, danglingLink, danglingName, emptyTally, markdownLink, missingLink, nothingConverted, wikilink, isWikilink, linkShows, matchesExceptLinks, splitLink, tallyText, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
+import { addToTally, convertLinks, danglingLink, danglingName, emptyTally, markdownLink, missingLink, nothingConverted, wikilink, type LinkPlan, isWikilink, linkShows, matchesExceptLinks, splitLink, tallyText, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
 
 const FILES = upstreamFiles(['wiki/a.md', 'wiki/cs/b.md', 'wiki/c.md', 'cs/b.md', 'top.md', 'wiki/v1.2 notes.md', 'wiki/My Note.md', 'x/dup.md', 'y/dup.md', 'img/p.png']);
 const FROM = 'wiki/a.md';
@@ -38,12 +38,12 @@ test('upstreamTarget: wikilinks, from the root first', () => {
 	assert.equal(target('[[../top]]', '../top'), 'top.md');
 });
 
-test('upstreamTarget: by name, one file or missing', () => {
+test('upstreamTarget: by name, one file or several', () => {
 	assert.equal(target('[[b]]', 'b', upstreamFiles(['wiki/cs/b.md', 'wiki/a.md'])), 'wiki/cs/b.md');
-	assert.equal(target('[[b]]', 'b'), 'missing');
-	assert.equal(target('[[dup]]', 'dup'), 'missing');
+	assert.equal(target('[[b]]', 'b'), 'several');
+	assert.equal(target('[[dup]]', 'dup'), 'several');
 	assert.equal(target('[[x/dup]]', 'x/dup'), 'x/dup.md');
-	assert.equal(target('[d](dup.md)', 'dup.md'), 'missing');
+	assert.equal(target('[d](dup.md)', 'dup.md'), 'several');
 });
 
 test('upstreamTarget: case only when nothing matches exactly', () => {
@@ -107,7 +107,27 @@ test('convertLinks: rewrites from the end, keeps embeds, counts what is left', (
 			{ line: 4, original: '[[dup]]', why: 'not-note' },
 			{ line: 4, original: '[[x]]', why: 'unforked' },
 		],
+		checkLinks: [],
 	});
+});
+
+test('convertLinks: a call made on a link is listed as the link is now, changed or not', () => {
+	const text = 'a [b](x/b.md)\n[[c]] [[d]]\n';
+	const plan = (r: LinkRef): LinkPlan => {
+		if (r.link === 'x/b.md') return { check: 'several', then: { dangling: '[[b]]' } };
+		if (r.link === 'c') return { check: 'kept', then: null };
+		return '[[d 1|d]]';
+	};
+	const r = convertLinks(text, refsOf(text), plan);
+	assert.equal(r?.text, 'a [[b]]\n[[c]] [[d 1|d]]\n');
+	assert.equal(r?.converted, 2);
+	assert.deepEqual(r?.checkLinks, [
+		{ line: 0, link: '[[b]]', why: 'several' },
+		{ line: 1, link: '[[c]]', why: 'kept' },
+	]);
+	const t = emptyTally();
+	addToTally(t, 'a.md', r);
+	assert.equal(tallyText(t, false), 'Converted 2 links, 1 to notes you don\'t have yet. 2 links to check: see "Links to check" in the follow note.');
 });
 
 test('convertLinks: the same text or null is no change; a second run changes nothing', () => {
