@@ -31,7 +31,7 @@ export class SourceModal extends Modal {
 
 		new Setting(contentEl)
 			.setName('Name')
-			.setDesc(this.editing ? 'The follow note\'s name; forks record it, so it can\'t change.' : 'Names the follow note, and is recorded in each fork. Empty: owner-repo, or the folder\'s name.')
+			.setDesc(this.editing ? 'The follow note\'s name; mirrors and forks record it, so it can\'t change.' : 'Names the follow note, and is recorded in each mirror and fork. Empty: owner-repo, or the folder\'s name.')
 			.addText((t) => {
 				t.setValue(this.form.name).onChange((v) => (this.form.name = v));
 				t.setDisabled(this.editing);
@@ -57,12 +57,8 @@ export class SourceModal extends Modal {
 			.setDesc('Folders to report as new, one per line. Empty: the whole repo.')
 			.addTextArea((t) => t.setValue(this.form.include).onChange((v) => (this.form.include = v)));
 		new Setting(contentEl)
-			.setName('Watch')
-			.setDesc('Files to report whenever they change, one per line.')
-			.addTextArea((t) => t.setValue(this.form.watch).onChange((v) => (this.form.watch = v)));
-		new Setting(contentEl)
-			.setName('Fork folder')
-			.setDesc('Folder for forks from this source, under the remotes root. Empty: the source\'s name.')
+			.setName('Mirror folder')
+			.setDesc('Folder for this source\'s mirrors, under the community folder. Empty: the source\'s name.')
 			.addText((t) => {
 				suggestFolders(this.app, t.inputEl);
 				t.setValue(this.form.folder).onChange((v) => (this.form.folder = v));

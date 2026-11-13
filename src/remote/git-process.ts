@@ -60,9 +60,9 @@ export async function pathExists(path: string): Promise<boolean> {
 	}
 }
 
-/** The plugin's git host: clones in `<vaultBase>/<remotesFolder>`, the git at `gitPath`; `remote` as `GitHostOptions.remote`. */
-export function gitHost(gitPath: string, vaultBase: string, remotesFolder: string, remote?: (repo: string) => string): GitHost {
-	return new GitHost({ run: gitRunner(gitPath), cacheDir: join(vaultBase, remotesFolder), join, exists: pathExists, remote, queues, writeIfMissing });
+/** The plugin's git host: clones in `<vaultBase>/<clonesFolder>`, the git at `gitPath`; `remote` as `GitHostOptions.remote`. */
+export function gitHost(gitPath: string, vaultBase: string, clonesFolder: string, remote?: (repo: string) => string): GitHost {
+	return new GitHost({ run: gitRunner(gitPath), cacheDir: join(vaultBase, clonesFolder), join, exists: pathExists, remote, queues, writeIfMissing });
 }
 
 /** The real file system for local sources. */

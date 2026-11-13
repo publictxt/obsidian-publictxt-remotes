@@ -6,17 +6,14 @@ import type { Change } from '../src/remote/host.ts';
 
 const change = (path: string, status: Change['status'] = 'modified'): Change => ({ path, status, from: null });
 
-function check(changes: Change[], watched: SourceCheck['watched'] = [], forked: string[] = [], files: string[] = []): SourceCheck {
-	return { url: 'https://github.com/a/b', head: { branch: 'main', commit: '', tree: '' }, changes, reason: null, watched, forks: [], forked: new Set(forked), files, watchedBlobs: {} };
+function check(changes: Change[], forked: string[] = [], files: string[] = []): SourceCheck {
+	return { url: 'https://github.com/a/b', head: { branch: 'main', commit: '', tree: '' }, changes, reason: null, mirrors: [], mirrored: new Map(), forks: [], forked: new Set(forked), files };
 }
 
 const C = check(
 	[change('wiki/a.md'), change('wiki/cs/b.md', 'added'), change('wiki/gone.md', 'removed'), change('wiki/pic.png'), change('wikis/c.md')],
-	[
-		{ path: 'wiki/a.md', status: 'modified', blob: 'x' },
-		{ path: 'out/w.md', status: 'new', blob: 'y' },
-		{ path: 'out/gone.md', status: 'removed', blob: null },
-	],
+	[],
+	['wiki/a.md', 'out/w.md', 'out/pic.png'],
 );
 
 test('canFork: Markdown that is still there', () => {
@@ -25,14 +22,14 @@ test('canFork: Markdown that is still there', () => {
 	assert.ok(!canFork({ path: 'a.png', status: 'added' }));
 });
 
-test('forkablePaths: what\'s new then watched, each once', () => {
+test('forkablePaths: what\'s new then all files, each once', () => {
 	assert.deepEqual(forkablePaths(C), ['wiki/a.md', 'wiki/cs/b.md', 'wikis/c.md', 'out/w.md']);
 });
 
 test('forkableUnder: what\'s new in the folder and below, not a folder that starts the same', () => {
 	assert.deepEqual(forkableUnder(C, 'wiki'), ['wiki/a.md', 'wiki/cs/b.md']);
 	assert.deepEqual(forkableUnder(C, 'wiki/cs'), ['wiki/cs/b.md']);
-	// Watched files aren't in the tree.
+	// Not in what's new.
 	assert.deepEqual(forkableUnder(C, 'out'), []);
 });
 
@@ -57,7 +54,7 @@ test('toggleAll: ticks all unless all were ticked, then clears them; others unto
 });
 
 test('forkableUnder: a file already forked is left out of its folder\'s box, but can still be ticked', () => {
-	const c = check([change('wiki/a.md'), change('wiki/b.md')], [], ['wiki/a.md']);
+	const c = check([change('wiki/a.md'), change('wiki/b.md')], ['wiki/a.md']);
 	assert.deepEqual(forkableUnder(c, 'wiki'), ['wiki/b.md']);
 	assert.deepEqual(selectedPaths(c, new Set(['wiki/a.md'])), ['wiki/a.md']);
 });
@@ -71,7 +68,7 @@ test('forkableByFolder: forkableUnder, for every folder that has any', () => {
 });
 
 test('all files: forkable under a folder, in its own list; ticks there count for Fork selected', () => {
-	const c = check([change('wiki/a.md')], [], ['old/forked.md'], ['old/forked.md', 'old/b.md', 'old/pic.png', 'wiki/a.md', 'top.md']);
+	const c = check([change('wiki/a.md')], ['old/forked.md'], ['old/forked.md', 'old/b.md', 'old/pic.png', 'wiki/a.md', 'top.md']);
 	assert.deepEqual(forkableUnder(c, 'old', 'all'), ['old/b.md']);
 	assert.deepEqual(forkableUnder(c, 'old'), []);
 	assert.deepEqual(forkableByFolder(c, 'all'), new Map([['old', ['old/b.md']], ['wiki', ['wiki/a.md']]]));

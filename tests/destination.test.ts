@@ -1,13 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { canMatch, checkFolder, checkName, folderFor, initialDestination, sourceFolderOf, newFolders, noteName, planForks, remoteFolder, resolveForks, type VaultLook } from '../src/fork/destination.ts';
+import { canMatch, checkFolder, checkName, folderFor, initialDestination, newFolders, noteName, planForks, remoteFolder, resolveForks, type VaultLook } from '../src/fork/destination.ts';
 
 const VAULT_FOLDERS = new Set(['wiki', 'wiki/cs', 'forks']);
-const options = { remotesRoot: 'remotes', sourceFolder: null, sourceName: 'txt', matchFolders: true, folderExists: (f: string) => VAULT_FOLDERS.has(f) };
-const HOME = { layout: 'nested', folder: 'remotes/txt' } as const;
+const options = { forkFolder: 'forks', matchFolders: true, folderExists: (f: string) => VAULT_FOLDERS.has(f) };
 const SAME = { layout: 'same', folder: 'forks' } as const;
 const ONE = { layout: 'flat', folder: 'forks' } as const;
-const NESTED = { layout: 'nested', folder: 'remotes/research' } as const;
+const NESTED = { layout: 'nested', folder: 'notes/research' } as const;
 
 function vault(notes: string[] = [], files: string[] = []): VaultLook {
 	return { taken: (p) => notes.includes(p), folderExists: (f) => VAULT_FOLDERS.has(f), isFile: (p) => files.includes(p) };
@@ -24,37 +23,26 @@ test('canMatch: any file with a folder in the source', () => {
 	assert.ok(!canMatch([]));
 });
 
-test('sourceFolderOf: the source\'s folder, else its name, under the root', () => {
-	assert.equal(sourceFolderOf('remotes', null, 'txt'), 'remotes/txt');
-	assert.equal(sourceFolderOf('remotes', 'research/ann', 'txt'), 'remotes/research/ann');
-	assert.equal(sourceFolderOf('', null, 'txt'), 'txt');
-	assert.equal(sourceFolderOf('', 'ann', 'txt'), 'ann');
-});
-
-test('initialDestination: same when matching finds every folder, else the source\'s folder under the root, folders kept', () => {
-	const same = { layout: 'same', folder: 'remotes/txt' } as const;
-	assert.deepEqual(initialDestination(['wiki/cs/a.md'], options), { dest: same, reason: 'matched' });
-	assert.deepEqual(initialDestination(['wiki/cs/a.md', 'wiki/b.md'], options), { dest: same, reason: 'matched' });
+test('initialDestination: same when matching finds every folder, else the fork folder; never the community folder', () => {
+	assert.deepEqual(initialDestination(['wiki/cs/a.md'], options), { dest: SAME, reason: 'matched' });
+	assert.deepEqual(initialDestination(['wiki/cs/a.md', 'wiki/b.md'], options), { dest: SAME, reason: 'matched' });
 	// Exact folders only, and every one of them.
-	assert.deepEqual(initialDestination(['wiki/cs/se/a.md'], options), { dest: HOME, reason: 'default' });
-	assert.deepEqual(initialDestination(['wiki/a.md', 'blog/b.md'], options), { dest: HOME, reason: 'default' });
-	assert.deepEqual(initialDestination(['wiki/cs/a.md'], { ...options, matchFolders: false }), { dest: HOME, reason: 'default' });
+	assert.deepEqual(initialDestination(['wiki/cs/se/a.md'], options), { dest: ONE, reason: 'default' });
+	assert.deepEqual(initialDestination(['wiki/a.md', 'blog/b.md'], options), { dest: ONE, reason: 'default' });
+	assert.deepEqual(initialDestination(['wiki/cs/a.md'], { ...options, matchFolders: false }), { dest: ONE, reason: 'default' });
 	// A file at the top of the repo has no folder to match.
-	assert.deepEqual(initialDestination(['a.md'], options), { dest: HOME, reason: 'default' });
-	assert.deepEqual(initialDestination(['wiki/a.md', 'b.md'], options), { dest: HOME, reason: 'default' });
-	// The source's own folder, still under the root; matching still comes first.
-	const theirs = { ...options, sourceFolder: 'ann', matchFolders: false };
-	assert.deepEqual(initialDestination(['wiki/cs/a.md'], theirs), { dest: { layout: 'nested', folder: 'remotes/ann' }, reason: 'source' });
-	assert.deepEqual(initialDestination(['wiki/cs/a.md'], { ...theirs, matchFolders: true }), { dest: { layout: 'same', folder: 'remotes/ann' }, reason: 'matched' });
-	assert.deepEqual(initialDestination(['a.md'], { ...options, remotesRoot: '' }), { dest: { layout: 'nested', folder: 'txt' }, reason: 'default' });
+	assert.deepEqual(initialDestination(['a.md'], options), { dest: ONE, reason: 'default' });
+	assert.deepEqual(initialDestination(['wiki/a.md', 'b.md'], options), { dest: ONE, reason: 'default' });
+	// No fork folder set: the vault root.
+	assert.deepEqual(initialDestination(['a.md'], { ...options, forkFolder: '' }), { dest: { layout: 'flat', folder: '' }, reason: 'default' });
 });
 
 test('folderFor: as in the source, the one folder, or the source\'s folder under the folder', () => {
 	assert.equal(folderFor('wiki/cs/a.md', SAME), 'wiki/cs');
 	assert.equal(folderFor('a.md', SAME), '');
 	assert.equal(folderFor('wiki/cs/a.md', ONE), 'forks');
-	assert.equal(folderFor('wiki/cs/git.md', NESTED), 'remotes/research/wiki/cs');
-	assert.equal(folderFor('a.md', NESTED), 'remotes/research');
+	assert.equal(folderFor('wiki/cs/git.md', NESTED), 'notes/research/wiki/cs');
+	assert.equal(folderFor('a.md', NESTED), 'notes/research');
 	// Under the vault root: the same as in the source.
 	assert.equal(folderFor('wiki/cs/a.md', { layout: 'nested', folder: '' }), 'wiki/cs');
 });
@@ -85,9 +73,9 @@ test('planForks: numbered past names taken in the vault and by earlier files, wi
 
 test('planForks: nested keeps the source\'s folders apart under the folder', () => {
 	assert.deepEqual(planForks(['wiki/cs/git.md', 'blog/git.md', 'top.md'], NESTED, () => false).map((p) => [p.to, p.numbered]), [
-		['remotes/research/wiki/cs/git.md', false],
-		['remotes/research/blog/git.md', false],
-		['remotes/research/top.md', false],
+		['notes/research/wiki/cs/git.md', false],
+		['notes/research/blog/git.md', false],
+		['notes/research/top.md', false],
 	]);
 });
 
@@ -132,10 +120,10 @@ test('resolveForks: the plan and the folders it needs', () => {
 });
 
 test('resolveForks: nested creates the source\'s folders under the folder, even ones the vault lacks', () => {
-	const r = resolveForks(['wiki/cs/git.md'], { layout: 'nested', folder: '/remotes/research/' }, null, vault());
-	assert.deepEqual(r.ok && [r.plan[0]?.to, r.newFolders], ['remotes/research/wiki/cs/git.md', ['remotes/research/wiki/cs']]);
+	const r = resolveForks(['wiki/cs/git.md'], { layout: 'nested', folder: '/notes/research/' }, null, vault());
+	assert.deepEqual(r.ok && [r.plan[0]?.to, r.newFolders], ['notes/research/wiki/cs/git.md', ['notes/research/wiki/cs']]);
 	const named = resolveForks(['wiki/cs/git.md'], NESTED, 'mine', vault());
-	assert.deepEqual(named.ok && named.plan[0]?.to, 'remotes/research/wiki/cs/mine.md');
+	assert.deepEqual(named.ok && named.plan[0]?.to, 'notes/research/wiki/cs/mine.md');
 	assert.equal(resolveForks(['wiki/a.md'], { layout: 'nested', folder: '../x' }, null, vault()).ok, false);
 });
 

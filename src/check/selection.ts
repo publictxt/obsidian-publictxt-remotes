@@ -1,4 +1,4 @@
-// Which of a check's files are ticked for forking, in the check view. Pure.
+// Which of a check's files are ticked, to mirror or fork, in the check view. Pure.
 
 import { isForkable } from '../fork/fork.ts';
 import type { SourceCheck } from './check.ts';
@@ -6,7 +6,7 @@ import type { SourceCheck } from './check.ts';
 /** Which folder tree in the check view: what's new, or every file at head. */
 export type FileList = 'new' | 'all';
 
-/** Whether a file a check lists can be forked: Markdown, and still at head. */
+/** Whether a file a check lists can be mirrored or forked: Markdown, and still at head. */
 export function canFork(file: { path: string; status: string }): boolean {
 	return file.status !== 'removed' && isForkable(file.path);
 }
@@ -16,9 +16,9 @@ function forkableIn(c: SourceCheck, list: FileList): string[] {
 	return list === 'new' ? c.changes.filter(canFork).map((ch) => ch.path) : c.files.filter(isForkable);
 }
 
-/** The files a check lists that can be forked: what's new, then watched, then all files, each once. */
+/** The files a check lists that can be forked: what's new, then all files, each once. */
 export function forkablePaths(c: SourceCheck): string[] {
-	const files = [...c.changes, ...c.watched].filter(canFork).map((f) => f.path);
+	const files = c.changes.filter(canFork).map((f) => f.path);
 	return [...new Set([...files, ...forkableIn(c, 'all')])];
 }
 

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { acknowledged, checkSource, checked, checkedAll, inInclude, isSettled, latestFirst } from '../src/check/check.ts';
-import type { Fork } from '../src/sources/fork-meta.ts';
+import { acknowledged, checkSource, checked, checkedAll, hasNews, inInclude, isSettled, latestFirst } from '../src/check/check.ts';
+import type { Fork, Mirror } from '../src/sources/fork-meta.ts';
 import type { Change, Head, RemoteHost } from '../src/remote/host.ts';
 import type { Source, SourceState } from '../src/sources/schema.ts';
 import type { Remote } from '../src/fork/fork.ts';
@@ -21,8 +21,8 @@ function fakeHost(files: Record<string, string>, changes: Change[] | null = []):
 		diffStat: async () => null,
 	};
 }
-const source = (over: Partial<Source & Remote> = {}): Source & Remote => ({ url: URL_, name: 'a-b', branch: null, include: [], watch: [], folder: null, listForks: null, ...over });
-const state = (over: Partial<SourceState> = {}): SourceState => ({ seenCommit: sha('a'), checkedAt: null, watched: {}, ...over });
+const source = (over: Partial<Source & Remote> = {}): Source & Remote => ({ url: URL_, name: 'a-b', branch: null, include: [], folder: null, listForks: null, ...over });
+const state = (over: Partial<SourceState> = {}): SourceState => ({ seenCommit: sha('a'), checkedAt: null, ...over });
 
 test('inInclude: prefixes; empty is the whole repo', () => {
 	assert.ok(inInclude('x/y.md', []));
@@ -68,12 +68,25 @@ test('history rewritten: every file, with the reason', async () => {
 	assert.deepEqual(c.changes.map((x) => x.path), ['a.md']);
 });
 
-test('watched: new, modified, removed; unchanged left out', async () => {
-	const files = { 'n.md': sha('1'), 'm.md': sha('2'), 'same.md': sha('3') };
-	const st = state({ seenCommit: HEAD.commit, watched: { 'm.md': sha('9'), 'same.md': sha('3'), 'gone.md': sha('4') } });
-	const c = await checkSource(fakeHost(files), source({ watch: ['n.md', 'm.md', 'same.md', 'gone.md'] }), st, []);
-	assert.deepEqual(c.watched.map((w) => [w.path, w.status]), [['n.md', 'new'], ['m.md', 'modified'], ['gone.md', 'removed']]);
-	assert.deepEqual(c.watchedBlobs, files);
+test('mirrors: this source only; modified and removed; current left out, still mirrored', async () => {
+	const mirror = (path: string, mp: string, blob: string, remote = 'a-b'): Mirror => ({ path, meta: { remote, repo: null, path: mp, blob, branch: null, commit: null, date: null } });
+	const files = { 'm.md': sha('2'), 'same.md': sha('3') };
+	const mirrors = [
+		mirror('community/a-b/m.md', 'm.md', sha('9')),
+		mirror('community/a-b/same.md', 'same.md', sha('3')),
+		mirror('community/a-b/gone.md', 'gone.md', sha('4')),
+		mirror('community/other/m.md', 'm.md', sha('9'), 'other'),
+		// Copied by hand: both listed, the current one not among those to update.
+		mirror('community/a-b/copy.md', 'same.md', sha('8')),
+	];
+	const c = await checkSource(fakeHost(files), source(), state({ seenCommit: HEAD.commit }), [], mirrors);
+	assert.deepEqual(c.mirrors.map((m) => [m.path, m.status, m.blob, m.notes.map((n) => n.path)]), [
+		['gone.md', 'removed', null, ['community/a-b/gone.md']],
+		['m.md', 'modified', sha('2'), ['community/a-b/m.md']],
+		['same.md', 'modified', sha('3'), ['community/a-b/copy.md']],
+	]);
+	assert.deepEqual([...c.mirrored].sort(), [['gone.md', 'community/a-b/gone.md'], ['m.md', 'community/a-b/m.md'], ['same.md', 'community/a-b/copy.md']]);
+	assert.ok(hasNews(c));
 });
 
 test('forks: this source only; modified and removed; unchanged left out', async () => {
@@ -138,11 +151,11 @@ test('forks: gone upstream is quiet once kept, and listed again when the file is
 	assert.deepEqual((await checkSource(fakeHost({ 'a.md': sha('1') }), source(), st, kept)).forks.map((f) => f.status), ['modified']);
 });
 
-test('checked moves checkedAt only; acknowledged moves seenCommit and watched', async () => {
-	const st = state({ watched: { 'old.md': sha('4') } });
+test('checked moves checkedAt only; acknowledged moves seenCommit', async () => {
+	const st = state();
 	assert.deepEqual(checked(st, 'T'), { ...st, checkedAt: 'T' });
-	const c = await checkSource(fakeHost({ 'w.md': sha('1') }), source({ watch: ['w.md'] }), st, []);
-	assert.deepEqual(acknowledged(c, 'T'), { seenCommit: HEAD.commit, checkedAt: 'T', watched: { 'w.md': sha('1') } });
+	const c = await checkSource(fakeHost({ 'w.md': sha('1') }), source(), st, []);
+	assert.deepEqual(acknowledged(c, 'T'), { seenCommit: HEAD.commit, checkedAt: 'T' });
 });
 
 test('checkedAll: from the state now; failed sources keep theirs, unfollowed are dropped', () => {
@@ -152,6 +165,6 @@ test('checkedAll: from the state now; failed sources keep theirs, unfollowed are
 	const next = checkedAll(now, [{ url: URL_, ok: true }, { url: 'https://github.com/x/failed', ok: false }, { url: 'https://github.com/x/new', ok: true }, { url: 'https://github.com/x/new-failed', ok: false }], at);
 	assert.deepEqual(next[URL_], state({ seenCommit: sha('c'), checkedAt: at }));
 	assert.deepEqual(next['https://github.com/x/failed'], state());
-	assert.deepEqual(next['https://github.com/x/new'], { seenCommit: null, watched: {}, checkedAt: at });
+	assert.deepEqual(next['https://github.com/x/new'], { seenCommit: null, checkedAt: at });
 	assert.deepEqual(Object.keys(next).sort(), [URL_, 'https://github.com/x/failed', 'https://github.com/x/new']);
 });

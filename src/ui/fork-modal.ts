@@ -18,6 +18,8 @@ export interface ForkModalInfo {
 	why: string;
 	/** Notes already forked from each path that has any. */
 	earlier: ReadonlyMap<string, readonly string[]>;
+	/** The mirror note of each path that has one: forking moves it. */
+	mirrored: ReadonlyMap<string, string>;
 	vault: VaultLook;
 }
 
@@ -63,6 +65,9 @@ export class ForkModal extends Modal {
 		contentEl.createEl('p', { text: only ? `${info.from} · ${only}` : `From ${info.from}.` });
 		const earlier = only ? info.earlier.get(only) : undefined;
 		if (earlier?.length) contentEl.createEl('p', { cls: 'publictxt-warning', text: `Already forked as ${earlier.join(', ')}.` });
+		const mirror = only ? info.mirrored.get(only) : undefined;
+		if (mirror !== undefined) contentEl.createEl('p', { text: `Its mirror, ${mirror}, moves there and becomes your note. Links to it follow.` });
+		else if (!only && info.mirrored.size) contentEl.createEl('p', { text: `${info.mirrored.size} of them ${info.mirrored.size === 1 ? 'is' : 'are'} mirrored: those mirrors move, and become your notes.` });
 
 		this.layoutField();
 		this.folderField();
@@ -163,12 +168,12 @@ export class ForkModal extends Modal {
 		// While it isn't used, the field keeps what was typed (`dest.folder`), to come back.
 		if (same) this.folderText.setValue('');
 		else if (this.folderText.getValue() !== dest.folder) this.folderText.setValue(dest.folder);
-		this.folderRow.setDesc(`${this.folderEdited ? '' : `${info.why} `}Empty: the vault root. A new folder is created.`);
+		this.folderRow.setDesc(`${this.folderEdited || !info.initial.folder ? '' : `${info.why} `}Empty: the vault root. A new folder is created.`);
 
 		const resolved = this.resolve();
 		const [first] = resolved.ok ? resolved.plan : [];
 		if (this.nameText && this.name === null && first) this.nameText.setValue(noteName(first.to));
-		renderForkPreview(this.preview, resolved, info.earlier, this.only !== null);
+		renderForkPreview(this.preview, resolved, info.earlier, info.mirrored, this.only !== null);
 		this.forkButton.setDisabled(!resolved.ok || this.running);
 	}
 

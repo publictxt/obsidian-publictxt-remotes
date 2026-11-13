@@ -2,7 +2,7 @@
 // What a compare shows, and what its actions and the check view's write. Each action ends with
 // every note forked from the file settled, and the file off the last check's list.
 
-import { App, getFrontMatterInfo, Notice, parseYaml, type TFile } from 'obsidian';
+import { App, Notice, type TFile } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
 import { isSettled, type ForkChange } from '../check/check.ts';
 import { scanForks } from '../sources/forks.ts';
@@ -11,11 +11,10 @@ import { vaultHost } from '../remote/vault-host.ts';
 import { clearForkMeta, readForkMeta, SEEN_GONE, setForkSeen, writeForkMeta, type ForkMeta } from '../sources/fork-meta.ts';
 import type { Follow } from '../sources/follow-note.ts';
 import { scanFollows } from '../sources/follows.ts';
-import { isRecord } from '../util/validate.ts';
 import { leafShowing } from './compare-run.ts';
 import { forksOf, isForkOf, newForkMeta } from './fork.ts';
 import { offerConvert } from './links-run.ts';
-import { needFrontMatter, writeFork } from './run.ts';
+import { needFrontMatter, noteParts as parts, writeFork } from './run.ts';
 import { alongsidePath, isEdited, updatedMeta, type Compare, type NoteParts } from './update.ts';
 
 /** What the Upstream view shows for a compare. */
@@ -29,18 +28,6 @@ export interface CompareInfo {
 	forked: NoteParts | null;
 	/** The copy's text already came from this version: nothing to do. */
 	current: boolean;
-}
-
-function parts(text: string): NoteParts {
-	const fm = getFrontMatterInfo(text);
-	if (!fm.exists) return { front: null, body: text };
-	let front: unknown = null;
-	try {
-		front = parseYaml(fm.frontmatter);
-	} catch {
-		// Not valid YAML: as if it had none.
-	}
-	return { front: isRecord(front) ? front : null, body: text.slice(fm.contentStart) };
 }
 
 /** The copy of `c` and its text. Throws if it is gone or no longer a fork of that file. */

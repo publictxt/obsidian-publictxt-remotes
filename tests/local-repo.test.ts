@@ -54,11 +54,11 @@ test('inspectLocal: a bare repo at its top, not inside it', async () => {
 	assert.deepEqual(await inspectLocal(run, localFs, join(b, 'refs'), null), { kind: 'unusable' });
 });
 
-test('newRepoGitignore: the config folder, .trash and .remotes', () => {
+test('newRepoGitignore: the config folder, .trash and .clones', () => {
 	const lines = (c: string) => newRepoGitignore(c).split('\n').filter((l) => l && !l.startsWith('#'));
-	assert.deepEqual(lines(CONFIG), [`${CONFIG}/`, '.trash/', '.remotes/', '.DS_Store']);
-	assert.deepEqual(lines(`/${CONFIG}/`), [`${CONFIG}/`, '.trash/', '.remotes/', '.DS_Store']);
-	assert.deepEqual(lines(''), ['.trash/', '.remotes/', '.DS_Store']);
+	assert.deepEqual(lines(CONFIG), [`${CONFIG}/`, '.trash/', '.clones/', '.DS_Store']);
+	assert.deepEqual(lines(`/${CONFIG}/`), [`${CONFIG}/`, '.trash/', '.clones/', '.DS_Store']);
+	assert.deepEqual(lines(''), ['.trash/', '.clones/', '.DS_Store']);
 });
 
 test('localProblem and localWarnings', () => {
@@ -78,8 +78,8 @@ test('initLocal: a vault becomes a repo of its notes', async () => {
 	writeFileSync(join(v, 'note.md'), 'n\n');
 	folder('vault', CONFIG);
 	writeFileSync(join(v, CONFIG, 'workspace.json'), '{}');
-	folder('vault', '.remotes', 'x.git');
-	writeFileSync(join(v, '.remotes', 'x.git', 'HEAD'), 'ref\n');
+	folder('vault', '.clones', 'x.git');
+	writeFileSync(join(v, '.clones', 'x.git', 'HEAD'), 'ref\n');
 
 	const r = await initLocal(run, localFs, v, 'pub', newRepoGitignore(CONFIG), 'Snapshot first');
 	assert.ok(r.committed);

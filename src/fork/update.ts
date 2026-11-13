@@ -2,7 +2,7 @@
 // copy was edited, and the names, provenance and sentences the actions need. Pure.
 
 import type { DiffStat, Head } from '../remote/host.ts';
-import { FORK_KEYS, type ForkMeta } from '../sources/fork-meta.ts';
+import { PROVENANCE_KEYS, type ForkMeta } from '../sources/fork-meta.ts';
 import { isRecord, isSha, repoPath, str } from '../util/validate.ts';
 import { localIso } from '../util/time.ts';
 import { matchesExceptLinks } from './links.ts';
@@ -39,7 +39,7 @@ export interface NoteParts {
 
 /**
  * Whether `note` was edited since it was forked from `forked`: its body differs, or its front
- * matter does, leaving out the `fork_*` keys. Front matter is compared parsed, as Obsidian
+ * matter does, leaving out the `fork_*` and `mirror_*` keys. Front matter is compared parsed, as Obsidian
  * rewrites the YAML when it adds the keys; the body without regard to blank lines at its start
  * or the kind of line ending, which the rewrite can also change. Links written differently
  * but showing the same words don't count: converting a fork's links is not an edit.
@@ -53,8 +53,7 @@ function bodyOf(n: NoteParts): string {
 }
 
 function ownKeys(front: Record<string, unknown> | null): Record<string, unknown> {
-	const fork: readonly string[] = FORK_KEYS;
-	return Object.fromEntries(Object.entries(front ?? {}).filter(([k]) => !fork.includes(k)));
+	return Object.fromEntries(Object.entries(front ?? {}).filter(([k]) => !PROVENANCE_KEYS.includes(k)));
 }
 
 /** Deep equality of parsed YAML: key order doesn't count, list order does. */

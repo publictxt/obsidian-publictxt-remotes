@@ -12,10 +12,10 @@ function ok(r: Checked): Extract<Checked, { ok: true }> {
 const follow = (r: Extract<Checked, { ok: true }>): Follow => ({ ...r.source, name: r.name, path: `follows/${r.name}.md` });
 
 test('add: canonical URL, name suggested, lines split and cleaned, blanks → null', () => {
-	const r = ok(checkAdd([], form({ url: 'git@github.com:a/b.git', include: ' wiki \n\n/notes/\n', watch: 'x.md\r\nx.md', folder: '/forks/' })));
+	const r = ok(checkAdd([], form({ url: 'git@github.com:a/b.git', include: ' wiki \n\n/notes/\n', folder: '/forks/' })));
 	assert.equal(r.name, 'a-b');
 	assert.equal(r.localPath, null);
-	assert.deepEqual(r.source, { url: 'https://github.com/a/b', branch: null, include: ['wiki/', 'notes/'], watch: ['x.md'], folder: 'forks', listForks: null });
+	assert.deepEqual(r.source, { url: 'https://github.com/a/b', branch: null, include: ['wiki/', 'notes/'], folder: 'forks', listForks: null });
 });
 
 test('add: a folder is a local source, keyed by its name; the folder stays out of the source', () => {
@@ -50,7 +50,7 @@ test('update: name and hosted URL fixed; a local folder can change, but stays a 
 });
 
 test('form round-trip', () => {
-	const r = ok(checkAdd([], form({ url: 'https://github.com/a/b', branch: 'main', include: 'w/\nn/', watch: 'x.md', folder: 'f', listForks: 'off' })));
+	const r = ok(checkAdd([], form({ url: 'https://github.com/a/b', branch: 'main', include: 'w/\nn/', folder: 'f', listForks: 'off' })));
 	assert.equal(r.source.listForks, false);
 	assert.deepEqual(ok(checkUpdate(follow(r), sourceToForm(follow(r), null))).source, r.source);
 	const l = ok(checkAdd([], form({ url: '/home/me/notes' })));
