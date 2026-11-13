@@ -39,15 +39,15 @@ source's folder, again only when asked.
   plan for. Node imports stay in `src/remote/git-process.ts`, which keeps the rest pure and
   testable under plain Node. A GitHub REST adapter, built before this was decided, is parked at
   tag `archive/github-adapter`.
-- **Clones live in the vault's hidden `.remotes/` folder** (setting), one bare partial clone per source
+- **Clones live in the vault's hidden `.clones/` folder** (setting; `.remotes/` until 2026-11-13, renamed so it isn't taken for the community folder), one bare partial clone per source
   (`--filter=blob:none`): history and trees up front, file contents fetched on demand. Bare
   clones have no working files, so no remote `.md` shows up as a note.
 - **Sources are notes** (decided 2026-11-03; publictext ADR-0014). One note per followed repo in
   `follows/`, its fields in front matter, the user's reasons in the body. Found by
   scanning, like forks. The folder makes a note a source, so moving it out unfollows. The
-  plugin's own keys (`watch`, `folder`) sit beside the spec's and are public with the note.
+  plugin's own keys (`folder`, `list_forks`) sit beside the spec's and are public with the note.
 - **Follow whole repos, narrow locally** (publictext ADR-0005). A source fetches the whole repo's
-  tree; `include` prefixes and `watch` paths filter it on this side.
+  tree; `include` prefixes filter it on this side.
 - **Local sources are git repos too** (decided 2026-11-10). A folder on this computer is
   followed through the same clone and check path, so nothing downstream changes. A plain folder can't be a source: without commits there is no history for "what's
   new", and no old blob to keep as the merge base for updating a fork. So the plugin makes the
@@ -79,11 +79,31 @@ source's folder, again only when asked.
   left, and the calls it made, are listed in the follow note, which is public like the forks.
   Offering to fork the notes those links name may come later. Details:
   `docs/plans/convert-links.md`.
-- **Forks live under one remotes root, a folder per source** (decided 2026-11-13). Forks
-  from `txt` open in `remotes/txt/`, the source's folders kept, so sources don't mix and each
-  keeps its layout; the global fork folder went. This is where followed files will live
-  next (`docs/plans/remotes-root.md` → Next: following files). The plugin doesn't write
-  publictxt-pages' `settings/site.toml`: the root rarely changes, so it is set there by hand.
+- **Three steps: follow, mirror, fork** (decided 2026-11-13), so that reading someone's notes
+  and owning a copy are apart. **Follow** a repo: a note in `follows/`, and checks show what's
+  new. **Mirror** the pages worth having at hand: upstream's copies, in
+  `community/<source>/` with the source's folders kept and its links as written, so Obsidian
+  searches them and shows their backlinks without the whole repo coming in. **Fork** the ones
+  to make your own: the mirror moves into your notes and its links are converted.
+  - *Upstream's and yours stay apart.* Upstream's copies live under the community folder and
+    are overwritten by updates, with no compare; yours are wherever you put them, and
+    upstream's changes come through Compare. A fork never opens under the community folder.
+  - *The keys say which a note is, not the folder* (`mirror_*`, `fork_*`), so a published note
+    says so too, and a note moved by hand doesn't change kind.
+  - *Links are converted once*, when a note leaves upstream's layout: that is when its
+    relative links would break. A mirror's links are never touched.
+  - *The folder is named for readers.* It is a section of the published site, so `community`,
+    the word publictxt-pages uses for where pages came from; not `mirrors` (the mechanism) or
+    `remotes` (git's word for the repos, not their pages). The plugin's action is still
+    Mirror.
+  - *Follows stay in `follows/`*: the note is the user's own (their reasons, the fork list),
+    and on the site it is the page saying who they follow.
+  - *Watch went.* A watched file was "tell me when it changes" without a copy; a mirror is
+    that and the copy. A check reports mirrors that changed and overwrites nothing itself.
+  - The earlier remotes root (forks in `remotes/<source>/`) became the community folder; the
+    global fork folder came back for forks. Details: `docs/plans/community-folder.md`.
+  - Still to do elsewhere: publictxt-pages reads `mirror_*` and hides `community` by default;
+    the publictext spec gains the folder and the keys.
 - **Folder selection reuses the manifest's convention**: repo-relative folder prefixes ending in
   `/` (as `types` and `ignore` in `publictxt.yaml`), not a new glob grammar. Tag filters need
   file contents, so they wait.
@@ -98,17 +118,17 @@ source's folder, again only when asked.
 3. **Canonical repo URL** (publictext spec §13 q2). We need one now, as the key for sources and
    forks. v0 rule in `spec.md`; propose it upstream. Local sources have no URL in their notes,
    so nothing local goes into the proposal.
-4. **`.remotes/` and sync.** Decided 2026-11-03: the clones default to the hidden `.remotes/`,
+4. **`.clones/` and sync.** Decided 2026-11-03: the clones default to a hidden folder (`.clones/`),
    which Obsidian neither shows nor indexes and Sync skips. A vault git repo still needs
-   `.remotes/` in its `.gitignore`: git doesn't skip dot folders. Public follow notes live
+   `.clones/` in its `.gitignore`: git doesn't skip dot folders. Public follow notes live
    apart, in `follows/`, so the ignore rule stays one line.
 5. **Local edits to a fork.** Detecting them needs a hash of the body without the `fork_*` keys.
    Deferred until "update my fork" is built. Answered 2026-11-11 without a stored hash: the
    compare fetches the version at `fork_blob` and compares it with the note, body and parsed
    front matter, `fork_*` keys aside. It costs a fetch, so only the compare does it, not the
    check.
-6. **Removing a source leaves its clone** (`<remotesFolder>/<host>/<owner>/<repo>.git`, or
-   `<remotesFolder>/local/<name>-<hash>.git` for a local source). Options: delete it on remove
+6. **Removing a source leaves its clone** (`<clonesFolder>/<host>/<owner>/<repo>.git`, or
+   `<clonesFolder>/local/<name>-<hash>.git` for a local source). Options: delete it on remove
    (asking first), offer a "clean up clones" command, or leave it. Left for now: re-adding is
    then cheap.
 7. **Create the remote's folders on fork.** Folder matching uses the remote file's folder only

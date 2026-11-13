@@ -4,14 +4,15 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 
 ## Data
 
-`data.json` holds `{ version, remotesRoot, matchFolders, listForks, remotesFolder, gitPath, state, localPaths }`. Sources are notes (below).
+`data.json` holds `{ version, communityFolder, forkFolder, matchFolders, listForks, clonesFolder, gitPath, state, localPaths }`. Sources are notes (below).
 
 | Field | Default | Meaning |
 |---|---|---|
-| `remotesRoot` | `remotes` | Vault folder holding each source's folder of forks (`''`: the vault root). publictxt-pages reads the same root from `[params] remotesRoot` in `settings/site.toml`, set by hand |
-| `matchFolders` | `false` | The fork modal opens with **Folders** set to **Same folder as in the source** when the vault has that exact folder (Fork, below). The user can change it at each fork |
+| `communityFolder` | `community` | **Community folder**: vault folder holding each source's folder of mirrors (Mirror, below; `''`: the vault root). publictxt-pages names the same folder in its settings, set by hand |
+| `forkFolder` | `''` | **Fork folder**: where forks go when they don't go to the folder they are in in the source (`''`: the vault root). Never under the community folder by default: a fork is the user's note |
+| `matchFolders` | `true` | The fork modal opens with **Folders** set to **Same folder as in the source** when the vault has that exact folder (Fork, below). The user can change it at each fork |
 | `listForks` | `false` | Keep a fork list in each follow note (Fork list, below) |
-| `remotesFolder` | `.remotes` | **Clones folder**: vault folder holding the clones; never empty. Hidden, so Obsidian doesn't index it and Sync skips it |
+| `clonesFolder` | `.clones` | **Clones folder**: vault folder holding the clones; never empty. Hidden, so Obsidian doesn't index it and Sync skips it |
 | `gitPath` | `git` | The git executable. Set it when Obsidian doesn't see the shell's PATH (macOS apps started from Finder) |
 | `localPaths` | `{}` | Remote name → absolute folder of each local source on this computer (Local sources, below). Never in a note |
 
@@ -24,7 +25,7 @@ stored. The note's body is the user's own prose; the plugin only touches its fro
 its fork list when it keeps one (Fork list, below).
 
 The note's file name, without `.md`, is the source's **remote name**: `follows/research.md` is the
-remote `research`. Forks record it (`fork_remote`). A name can't start with `.` or a space, or
+remote `research`. Mirrors and forks record it (`mirror_remote`, `fork_remote`). A name can't start with `.` or a space, or
 contain `\ / : * ? " < > | # ^ [ ]`; names are unique, compared without case.
 
 | Key | Type | Rule |
@@ -33,11 +34,10 @@ contain `\ / : * ? " < > | # ^ [ ]`; names are unique, compared without case.
 | `local` | `true` | Plugin only. A local source: no `url`; its folder is in `localPaths`, never in the note |
 | `branch` | string | Branch to track. Absent or blank: the remote's default branch |
 | `include` | string or list | Folder prefixes ending in `/`, repo-relative. Empty: the whole repo. Narrows "what's new" only |
-| `watch` | string or list | Plugin only. Repo-relative file paths to report on whenever they change, even outside `include` |
-| `folder` | string | Plugin only. Folder for forks from this source, under `remotesRoot`. Absent: the remote name |
+| `folder` | string | Plugin only. Folder for this source's mirrors, under `communityFolder`. Absent: the remote name |
 | `list_forks` | boolean | Plugin only. Keep this note's fork list (`true`) or not (`false`). Absent, or not a boolean: the `listForks` setting |
 
-`url`, `branch` and `include` are the spec's; `local`, `watch`, `folder` and `list_forks` are this
+`url`, `branch` and `include` are the spec's; `local`, `folder` and `list_forks` are this
 plugin's, which other readers ignore. They are public with the note.
 
 A source's **key** (`Source.url`; what state, clones and checks use) is its canonical URL, or
@@ -60,10 +60,10 @@ Anything else is invalid, `file:` URLs included: a local source has no URL in it
 ## Sources settings
 
 The settings tab lists the sources found in `follows/` (name; URL, or a local source's folder
-here, or that it has none; branch, include, watch count, the folder forks go to (`forks to:
-`remotes/txt`), fork list when set, note
-path), any duplicate or invalid notes, and **Add source**. **Fork folder**, here and in the
-form, offers the vault's folders as the user types. Lists are one path per line in the form; **Fork list** is Default, On or Off
+here, or that it has none; branch, include, the folder its mirrors go to (`mirrors to:
+community/txt`), fork list when set, note
+path), any duplicate or invalid notes, and **Add source**. **Community folder** and **Fork
+folder** here, and **Mirror folder** in the form, offer the vault's folders as the user types. Lists are one path per line in the form; **Fork list** is Default, On or Off
 (`list_forks` absent, `true`, `false`). It redraws when a note in `follows/` changes. Needs Obsidian 1.6.6 (`trashFile`). Pure logic in
 `src/sources/edit.ts` and `src/sources/follow-note.ts`; vault access in `src/sources/follows.ts`.
 
@@ -74,14 +74,14 @@ form, offers the vault's folders as the user types. Lists are one path per line 
   source's folder is looked at first (Local sources → Folder kinds), then saved in `localPaths`.
   A hosted repo is not contacted: a wrong URL or branch shows at the first check.
 - Edit: rewrites the keys above in the note's front matter (`processFrontMatter`); other keys and
-  the body are kept. The name and a hosted URL are read-only (forks record the name; a
+  the body are kept. The name and a hosted URL are read-only (mirrors and forks record the name; a
   different repo: remove, add). A local source's **Folder** can change: it is this computer's,
   looked at as on add, and saved in `localPaths`. A local source with no folder here is marked,
   and Edit sets one.
 - No "open note" button yet: a note opened from settings opens behind the settings window.
 - Remove: after confirming, moves the note to the trash (`trashFile`, the user's trash setting),
-  and forgets a local source's folder.
-  The clone stays under `remotesFolder` (open question).
+  and forgets a local source's folder. Its mirrors and forks stay in the vault.
+  The clone stays under `clonesFolder` (open question).
 
 ## State
 
@@ -91,7 +91,6 @@ A cache, per source `url`. Safe to delete. State for a source no longer followed
 |---|---|
 | `seenCommit` | Head commit at the last check the user acknowledged. `null`: never checked |
 | `checkedAt` | ISO datetime of the last check |
-| `watched` | `path → blob SHA` last acknowledged, per watched path |
 
 ## Fork provenance (front matter)
 
@@ -111,9 +110,26 @@ Remote front matter is kept; these keys are added or overwritten.
 
 A note is a fork when `fork_path` and `fork_blob` are valid and it has a valid `fork_remote` or
 `fork_repo`; the rest are optional when reading. Writing a fork sets these keys and removes any
-other `fork_*` key, so a fork of a fork never keeps the upstream's provenance. A fork belongs to
+other `fork_*` key and every `mirror_*` key, so a fork of a fork never keeps the upstream's
+provenance, and a mirror that is forked stops being one. A fork belongs to
 a source by `fork_remote` (names compared without case) when it has one, else by `fork_repo`
 (forks made before names). The list of forks is derived by scanning the vault (`intent.md`).
+
+## Mirror provenance (front matter)
+
+A mirror is upstream's copy of a page, kept in the vault to read, search and link to (Mirror,
+below). It carries the same provenance as a fork, under its own keys, so a note says which it
+is wherever it is, published included:
+
+`mirror_remote`, `mirror_repo`, `mirror_path`, `mirror_branch`, `mirror_commit`, `mirror_blob`,
+`mirror_date`: as their `fork_*` namesakes, for the version the mirror holds. No `mirror_seen`:
+an update overwrites a mirror, so there is nothing to have seen.
+
+A note is a mirror when `mirror_path` and `mirror_blob` are valid, it has a valid
+`mirror_remote` or `mirror_repo`, and it is not a fork: valid `fork_*` keys win. Writing a
+mirror removes every `fork_*` key. A mirror belongs to a source as a fork does. What it is
+goes by its keys, not its folder: a mirror moved by hand is still a mirror. The list of
+mirrors is derived by scanning the vault.
 
 ## Check
 
@@ -123,17 +139,19 @@ Per source, against the tracked branch's head:
 2. **What's new**: files changed between `seenCommit` and head, within `include`. If
    `seenCommit` is null, or `changes` is `null` (history rewritten): list every file in
    `include` as new, and say why.
-3. **Watched**: each `watch` path whose blob differs from `watched[path]`, or that is gone.
+3. **Mirrors**: each upstream file with a mirror of this source whose `mirror_blob` isn't the
+   blob at head, or that is gone. A file mirrored more than once (a mirror copied by hand)
+   lists the mirrors that aren't current.
 4. **Forks**: each upstream file with forks of this source that aren't all settled for it. The
    forks with one `fork_path` are that file's **copies**. A copy is **settled** for the blob at
    head when its `fork_blob` or its `fork_seen` is that blob; for a file that is gone, when its
    `fork_seen` is `gone`.
 
-Acknowledging moves `seenCommit` and `watched` forward. Forks are dealt with one upstream file
-at a time (Fork update, below), since their state is their front matter.
+Acknowledging moves `seenCommit` forward. Mirrors and forks are dealt with one upstream file
+at a time (Mirror, Fork update, below), since their state is their front matter.
 
-Details: a rename counts as in `include` if either path is. A watched path never acknowledged is
-`new`; a watched path not at head is reported every check until it leaves `watch`. A fork whose
+Details: a rename counts as in `include` if either path is. A mirror is listed whether or not
+its file is within `include`, until it is updated, forked or removed. A fork whose
 blob matches head is not listed. A fork is compared with the tracked branch, whatever its
 `fork_branch`. A file's copies are listed latest first: by `fork_date`, newest first; one
 without a valid date after any with; ties by path, in byte order. A file that is back after
@@ -149,30 +167,36 @@ acknowledged while it ran stays acknowledged. A check asked for as Obsidian star
 workspace to be ready, so a half-loaded metadata cache can't make sources look unfollowed.
 
 Per source, a header: its remote name (opens the follow note), branch, and a summary (`New 4 ·
-Watched 1 · Forks 2`, "Nothing new" or "Error"). Selecting the header opens or closes the
+Mirrors 1 · Forks 2`, "Nothing new" or "Error"). Selecting the header opens or closes the
 source. It starts open when it has an error or anything new, closed otherwise; once the user
 has opened or closed it, it stays that way until the view is closed, checks included. Under an
 open header: the error; or "nothing new" when there is nothing to list; then the actions and
 the lists:
 
-- **Mark as seen**: acknowledges this source. Forks stay listed. Shown when there is something
-  to acknowledge.
+- **Mark as seen**: acknowledges this source. Mirrors and forks stay listed. Shown when there
+  is something to acknowledge.
 - **Browse all files** / **Hide all files**: shows or hides All files, below. Always shown.
-- **Fork selected (n)**: shown when files are ticked (Fork, below).
+- **Update mirrors (n)**: shown when mirrors changed upstream (Mirror, below).
+- **Mirror selected (n)** and **Fork selected (n)**: shown when files are ticked (Mirror, Fork,
+  below).
 
 - **What's new**: every changed file, as a folder tree: folders first, each with a count of the
   files under it, then files with their status. A folder holding only one folder is joined
   with it (`wiki/cs/se`). Selecting a folder opens or closes it; what's in a closed folder
   isn't drawn. Folders start open, or closed when every file is listed (first check, history
   rewritten), which comes with the reason; like sources, they stay as the user left them.
-- **Watched**: status and path.
-- A file that can be forked (Markdown, not removed), in either list, has a tick box and
-  **Fork**. A folder holding any has a tick box for them all: ticked, half ticked or clear;
+- A file that can be mirrored or forked (Markdown, not removed), in either list, has a tick
+  box, **Mirror** and **Fork**. One already mirrored has the word "mirrored" (opens the mirror)
+  and **Stop** in place of **Mirror**; its **Fork** moves the mirror (Fork, below). A folder
+  holding any has a tick box for them all: ticked, half ticked or clear;
   selecting it ticks them all, or clears them if all were ticked. Ticks stay like what's open;
   one whose file a later check doesn't list isn't counted. A file the user has already forked
   also has **Compare** (as under Forks changed upstream) while its copies aren't settled, else
   the word "forked"; it keeps its own tick box and **Fork**, but a folder's tick box leaves it
   out, so ticking a folder never forks it again.
+- **Mirrors changed upstream**: a row per upstream file (its `mirror_path`), then a row per
+  mirror that isn't current (opens the note). A changed file has **Update**. A file gone
+  upstream has **Remove** and **Fork** (Mirror, below).
 - **Forks changed upstream**: a row per upstream file (its `fork_path`), then a row per copy,
   latest first (opens the note; with several, the first says "latest"). A changed file has
   **Compare**, for the latest copy. A file gone upstream has **Detach** and **Keep** (Fork
@@ -180,7 +204,7 @@ the lists:
 - **All files (n)**: last, while browsing. Every file at the head the check saw, within
   `include`, whatever has been seen: the way back to files after **Mark as seen**. A folder
   tree as in What's new, with no status; folders start closed and stay as the user left them,
-  apart from What's new's. Tick boxes, **Fork**, **Compare** and "forked" as in What's new; a
+  apart from What's new's. Tick boxes, **Mirror**, "mirrored", **Stop**, **Fork**, **Compare** and "forked" as in What's new; a
   tick is one tick per file, whichever list it was made in. Browsing changes no state, and
   stays on across checks until the view is closed.
 - **Snapshot**: local sources only, in the header, so shown whatever the result and when closed
@@ -192,14 +216,14 @@ Needs Obsidian 1.14.4: the API the plugin is built and linted against.
 
 `RemoteHost` (`src/remote/host.ts`) is all the check and fork steps use. `GitHost`
 (`src/remote/git.ts`) implements it with the git CLI, one bare partial clone per source at
-`<remotesFolder>/<host>/<owner>/<repo>.git`, or `<remotesFolder>/local/<name>-<hash>.git` for a
+`<clonesFolder>/<host>/<owner>/<repo>.git`, or `<clonesFolder>/local/<name>-<hash>.git` for a
 local source (`<hash>`: 32-bit FNV-1a of the key, so names that clean up the same don't share a
 clone). git fetches a local source from `fileUrl()` of its folder in `localPaths`, and the
 clone's origin is set to it before each fetch (`remote set-url`), so a moved folder is followed;
 no folder here is a `not-found` error. Every command in a clone runs as that repo alone
 (`--git-dir=.`): git in a folder that isn't one would otherwise look up the tree and act on the
 vault's own repo. A clone folder that is there but isn't a bare repo (say, emptied by a
-`reset` of a vault that had committed `.remotes/`) is a `git` error saying to delete it; it is
+`reset` of a vault that had committed `.clones/`) is a `git` error saying to delete it; it is
 cloned anew at the next check. Before each clone or fetch, the cache folder gets a `.gitignore`
 of `*` unless it has one, so the clones never show in a repo the vault is in, whatever commits
 it: the plugin, another plugin, or the user. Commands run without a shell, with
@@ -224,7 +248,7 @@ Errors are a `RemoteError` by `kind`: `no-git` (git can't start), `git` (a comma
 
 A local source is a git repo on this computer. Its follow note says `local: true` and holds no
 path: the folder is in `localPaths`, keyed by the remote name, on each computer separately, so
-the note can be published and synced without giving away a path. It is checked like any other: cloned into `remotesFolder` and read from its commits, so the check sees only
+the note can be published and synced without giving away a path. It is checked like any other: cloned into `clonesFolder` and read from its commits, so the check sees only
 what is committed. Two actions write to its folder, outside the vault, and only when the user
 asks: **making a repo** of a folder that isn't one, and a **snapshot**, which commits what
 changed. Both run the user's git with their identity and hooks, one at a time per folder. Pure
@@ -250,7 +274,7 @@ Warnings are notices; the source is still added.
 
 `initLocal()`: `init --initial-branch <branch>` (git's default when the source has none), a
 `.gitignore` unless the folder has one, then a snapshot. The `.gitignore` leaves out a vault's
-app data: this vault's `configDir` (taken as the other vault's too), `.trash/`, `.remotes/` and
+app data: this vault's `configDir` (taken as the other vault's too), `.trash/`, `.clones/` and
 `.DS_Store`. Within another repo, it makes a separate, nested one. If it fails partway (a
 commit hook, no git identity), the error shows and, on add, the source is not added; adding
 again finds a repo with nothing committed and warns.
@@ -275,20 +299,79 @@ Then `status --porcelain -z --untracked-files=all`: empty, nothing to do. Otherw
 `commit -m "Snapshot <local ISO time>"`. A failing commit is a `git` error and leaves the
 changes staged.
 
+## Mirror
+
+Taking notes from a source is three steps, so that reading its pages and owning a copy are
+apart: follow the repo (Source), **mirror** the pages worth keeping at hand, **fork** the ones
+to make one's own (Fork, below).
+
+A mirror is upstream's copy, in the vault: Obsidian searches it, shows its backlinks and
+graph, and opens it in place. Its links are left as upstream wrote them; they mostly work,
+since a source's mirrors keep its layout. It is not for editing: an update overwrites it.
+
+**Where.** `<communityFolder>/<folder or remote name>/<path upstream>` (`mirrorFolderOf()`,
+`mirrorPath()`): `wiki/cs/git.md` from `txt` is mirrored at `community/txt/wiki/cs/git.md`.
+Nothing is asked: where a mirror goes is not a choice. Upstream's pages live under the
+community folder, the user's wherever they put them.
+
+**Mirror.** Three ways in: **Mirror** after a file in the check view's What's new or All files
+(at the head that check saw); **Mirror selected** there, for the ticked files, which then
+clears the ticks; or **Mirror a file from a source** (pick a source, skipped when there is
+one; its head is fetched; pick a file). Markdown files only. Per file (`planMirrors()`):
+
+- Already mirrored, wherever its mirror is: left alone.
+- Its place is taken by something that isn't its mirror: not written, and reported.
+- Otherwise the blob is fetched, the note created with upstream's text, and the `mirror_*`
+  keys added. Upstream front matter that isn't valid YAML is refused before anything is
+  written.
+
+One notice says how it went; with failures it stays until dismissed. The note is not opened:
+the file's row now says "mirrored", which opens it.
+
+**Update.** A check lists the mirrors that aren't what is at head (Check, above). **Update**
+on a file's row, or **Update mirrors (n)** for all of them, overwrites each with upstream's
+text at the head the check saw and rewrites its `mirror_*` keys. No compare: the copy is
+upstream's. A mirror that was edited (its text differs from the version it mirrors, its
+`mirror_*` keys aside, as for a fork; or that version can't be read) is not overwritten
+unasked: **Update** asks first, and says to fork it to keep the edits; **Update mirrors**
+leaves it and names it. Updating never happens during a check: a check writes nothing into
+notes.
+
+**Stop.** **Stop** on a mirrored file's row, **Remove** on a mirror gone upstream, or **Stop
+mirroring this note** (command, on the active note): after confirming, the mirror moves to
+the trash. Nothing of the user's is lost: the text is upstream's. A mirror gone upstream
+stays listed until it is removed or forked.
+
+Mirrors don't count in fork lists or in Convert links: a mirror's links are upstream's.
+
+Pure logic in `src/mirror/mirror.ts`; the vault side in `src/mirror/run.ts`.
+
 ## Fork
 
-Three ways in: **Fork** after a file in the check view's What's new, Watched or All files (at
-the head that check saw); **Fork selected** there, for the ticked files; or **Fork a file from a source**
-(pick a source, skipped when there is one; its head is fetched; pick a file). Markdown files
-only: front matter is where the provenance goes.
+A fork is the user's own note, made from an upstream page: they edit it, and upstream's
+changes come through Compare (Fork update, below).
 
-All three open one modal, for one file or several. Where the forks go is two choices:
+Four ways in: **Fork** after a file in the check view's What's new, All files or a mirror gone
+upstream (at the head that check saw); **Fork selected** there, for the ticked files; **Fork a
+file from a source** (pick a source, skipped when there is one; its head is fetched; pick a
+file); or **Fork this mirror** (command, on the active note; nothing is fetched). Markdown
+files only: front matter is where the provenance goes.
+
+**A mirrored file is moved, not fetched.** Its mirror moves to where the fork goes
+(`renameFile`, so Obsidian updates the links to it) and its `mirror_*` keys become `fork_*`,
+with `fork_date` now. Its text stays as it is: the version it mirrored (`fork_blob`), and
+anything edited in it; if upstream has moved on since, the next check lists it under Forks.
+Moved, never copied: two notes of one name would split every link by name. The modal says so,
+and its mirror's own path doesn't count as taken. A file that isn't mirrored is fetched at
+head and written, as below.
+
+All of them open one modal, for one file or several. Where the forks go is two choices:
 
 - **Folders**, how the source's folders come over:
   - **Into the folder**: every file goes into the one **Folder**, under its own name.
   - **Into the folder, keeping source folders**: each file goes into **Folder**, under the
-    folder it is in in the source: `wiki/cs/git.md` with folder `remotes/research` goes to
-    `remotes/research/wiki/cs/git.md`. A file at the top of the source goes into **Folder**.
+    folder it is in in the source: `wiki/cs/git.md` with folder `notes/research` goes to
+    `notes/research/wiki/cs/git.md`. A file at the top of the source goes into **Folder**.
   - **Same folder as in the source**: each file goes to the folder it is in in the source, at
     the same path in the vault; a file at the top of the source goes to the vault root.
 
@@ -303,12 +386,11 @@ The modal opens as follows, and says which rule filled in the folder until the u
 
 | Case | Folders | Folder |
 |---|---|---|
-| `matchFolders` is on, and every file has a folder in the source that the vault has exactly | Same folder as in the source | the source's folder (below) |
-| Otherwise | Into the folder, keeping source folders | the source's folder |
+| `matchFolders` is on, and every file has a folder in the source that the vault has exactly | Same folder as in the source | the fork folder (`forkFolder`) |
+| Otherwise | Into the folder | the fork folder |
 
-The source's folder is its `folder`, else its remote name, under `remotesRoot`
-(`sourceFolderOf()`): `wiki/cs/git.md` from `txt` goes to `remotes/txt/wiki/cs/git.md`. Forks
-from different sources stay apart, and each keeps its source's layout.
+A fork never opens under the community folder: that is where upstream's copies are. The user
+can still type any folder.
 
 A partial match doesn't count, and nothing is created for a match: the user picks **Same
 folder as in the source** for that. The folder typed is kept while that is picked, and comes
@@ -322,11 +404,12 @@ modal names those notes.
 
 Above the buttons the modal shows what would be written, redrawn on each change: for one file
 "Goes to `<path>`"; for several, a row per file (`source path → vault path`, "Name taken." when
-numbered, in the vault or by an earlier row, compared without case; "Forked before."). Both
+numbered, in the vault or by an earlier row, compared without case; "Forked before."; "Its
+mirror moves."). Both
 list the folders that would be made. An error takes its place and disables **Fork** / **Fork
 all**. Enter in a text field forks; an existing note is never overwritten.
 
-On **Fork**, per file: the blob is fetched, the note created with the remote text, then the
+On **Fork**, per file that isn't mirrored: the blob is fetched, the note created with the remote text, then the
 provenance keys added (`processFrontMatter`: remote keys kept, `fork_*` added or overwritten).
 Remote front matter that isn't valid YAML is refused before anything is written. `fork_date`
 is local time with its offset.
@@ -513,10 +596,11 @@ Pure logic in `src/fork/links.ts` and `src/fork/link-report.ts`; the vault side 
 2. Done. Git host: head, tree, changes, blob over the git CLI. Tested against real git and
    temporary repos.
 3. Sources settings: add, edit, remove. Done.
-4. Check view: what's new, watched, forks. Done.
+4. Check view: what's new, watched, forks. Done. (Watched went when mirrors came: a mirror is a watched file the vault also holds.)
 5. Fork: check view and command, folder matching, fork list. Done.
 6. Local sources: snapshot, making a repo, folder checks on add. Done.
 7. Remote names: the note's name is the remote's, `fork_remote`, local folders in `localPaths`. Done.
 8. Fork update: compare with upstream, overwrite, write alongside, keep; `fork_seen`. Done.
 9. Convert links: to the vault's copies, in its style; the offer after forking; the report. Done.
-10. Later: merge a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.
+10. Mirror: upstream's copies under the community folder, updated by overwriting; a fork moves its mirror; watch removed. Done.
+11. Later: merge a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.
