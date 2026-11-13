@@ -15,10 +15,12 @@ export interface SourceForm {
 	include: string;
 	folder: string;
 	/** `''`: the setting decides. */
+	listMirrors: '' | 'on' | 'off';
+	/** `''`: the setting decides. */
 	listForks: '' | 'on' | 'off';
 }
 
-export const EMPTY_FORM: SourceForm = { name: '', url: '', branch: '', include: '', folder: '', listForks: '' };
+export const EMPTY_FORM: SourceForm = { name: '', url: '', branch: '', include: '', folder: '', listMirrors: '', listForks: '' };
 
 /** A source to write, its remote name, and a local source's folder (`null`: hosted). */
 export type Checked = { ok: true; source: Source; name: string; localPath: string | null } | { ok: false; error: string };
@@ -35,6 +37,7 @@ export function sourceToForm(f: Follow, localPath: string | null): SourceForm {
 		branch: f.branch ?? '',
 		include: f.include.join('\n'),
 		folder: f.folder ?? '',
+		listMirrors: f.listMirrors === null ? '' : f.listMirrors ? 'on' : 'off',
 		listForks: f.listForks === null ? '' : f.listForks ? 'on' : 'off',
 	};
 }
@@ -51,6 +54,7 @@ export function formToSource(f: SourceForm, name: string): Checked {
 			branch: f.branch,
 			include: lines(f.include),
 			folder: f.folder,
+			list_mirrors: f.listMirrors === '' ? null : f.listMirrors === 'on',
 			list_forks: f.listForks === '' ? null : f.listForks === 'on',
 		},
 		name,

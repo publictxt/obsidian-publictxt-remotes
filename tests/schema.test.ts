@@ -13,11 +13,11 @@ test('garbage in, defaults out', () => {
 test('normalizeSource: canonical, defaults filled, paths cleaned, invalid dropped', () => {
 	assert.deepEqual(
 		normalizeSource({ url: 'https://github.com/a/b.git', include: ['/wiki', 'notes/', 'wiki/', '../x', 3], watch: ['wiki/x.md'], extra: 1 }),
-		{ url: 'https://github.com/a/b', branch: null, include: ['wiki/', 'notes/'], folder: null, listForks: null },
+		{ url: 'https://github.com/a/b', branch: null, include: ['wiki/', 'notes/'], folder: null, listMirrors: null, listForks: null },
 	);
 	assert.deepEqual(
 		normalizeSource({ url: 'https://github.com/c/d', branch: ' main ', folder: '/forks/c/' }),
-		{ url: 'https://github.com/c/d', branch: 'main', include: [], folder: 'forks/c', listForks: null },
+		{ url: 'https://github.com/c/d', branch: 'main', include: [], folder: 'forks/c', listMirrors: null, listForks: null },
 	);
 	assert.equal(normalizeSource({ url: 'not a url' }), null);
 });
@@ -64,5 +64,7 @@ test('folders trimmed of slashes; clonesFolder and gitPath never empty', () => {
 	assert.equal(normalizeData({ matchFolders: 'no' }).matchFolders, true);
 	assert.equal(d.listForks, false);
 	assert.equal(normalizeData({ listForks: true }).listForks, true);
+	assert.equal(d.listMirrors, false);
+	assert.deepEqual([normalizeData({ listMirrors: true })].map((x) => [x.listMirrors, x.listForks]), [[true, false]]);
 	assert.equal(normalizeData({ clonesFolder: 'x/clones/' }).clonesFolder, 'x/clones');
 });

@@ -45,7 +45,7 @@ source's folder, again only when asked.
 - **Sources are notes** (decided 2026-11-03; publictext ADR-0014). One note per followed repo in
   `follows/`, its fields in front matter, the user's reasons in the body. Found by
   scanning, like forks. The folder makes a note a source, so moving it out unfollows. The
-  plugin's own keys (`folder`, `list_forks`) sit beside the spec's and are public with the note.
+  plugin's own keys (`folder`, `list_mirrors`, `list_forks`) sit beside the spec's and are public with the note.
 - **Follow whole repos, narrow locally** (publictext ADR-0005). A source fetches the whole repo's
   tree; `include` prefixes filter it on this side.
 - **Local sources are git repos too** (decided 2026-11-10). A folder on this computer is
@@ -96,7 +96,7 @@ source's folder, again only when asked.
     the word publictxt-pages uses for where pages came from; not `mirrors` (the mechanism) or
     `remotes` (git's word for the repos, not their pages). The plugin's action is still
     Mirror.
-  - *Follows stay in `follows/`*: the note is the user's own (their reasons, the fork list),
+  - *Follows stay in `follows/`*: the note is the user's own (their reasons, the mirror and fork lists),
     and on the site it is the page saying who they follow.
   - *Watch went.* A watched file was "tell me when it changes" without a copy; a mirror is
     that and the copy. A check reports mirrors that changed and overwrites nothing itself.

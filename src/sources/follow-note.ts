@@ -50,6 +50,7 @@ export function followProps(s: Source): Record<string, string | string[] | boole
 		branch: s.branch ?? undefined,
 		include: s.include.length ? s.include : undefined,
 		folder: s.folder ?? undefined,
+		list_mirrors: s.listMirrors ?? undefined,
 		list_forks: s.listForks ?? undefined,
 	};
 }

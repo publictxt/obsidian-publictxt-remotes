@@ -16,7 +16,7 @@ import { SourceModal } from './ui/source-modal.ts';
 import { mirrorFolderOf } from './mirror/mirror.ts';
 
 type TextField = 'communityFolder' | 'forkFolder' | 'clonesFolder' | 'gitPath';
-type ToggleField = 'matchFolders' | 'listForks';
+type ToggleField = 'matchFolders' | 'listMirrors' | 'listForks';
 
 export class PublicTxtSettingTab extends PluginSettingTab {
 	private readonly plugin: PublicTxtPlugin;
@@ -33,6 +33,9 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 		this.text('communityFolder', 'Community folder', 'Mirrors go here: upstream\'s copies of the pages you mirror, each source in a folder named for it unless its mirror folder is set, with the source\'s folders kept. Empty: the vault root. If you publish with publictxt-pages, name the same folder in its settings.', true, '');
 		this.text('forkFolder', 'Fork folder', 'Where your forks go when they don\'t go to the folder they are in in the source. Empty: the vault root. You can change it at each fork.', true, '');
 		this.toggle('matchFolders', 'Match source folders', 'Offer the same folder as in the source first when your vault has that folder, instead of the fork folder. You can change it at each fork.');
+		this.toggle('listMirrors', 'List mirrors in follow notes', 'Keep a list of links to the pages mirrored from each source at the end of its follow note, under Mirrored pages. The plugin rewrites that section; the rest of the note is yours.', (on) => {
+			if (on) void this.plugin.forkLists.update(false);
+		});
 		this.toggle('listForks', 'List forks in follow notes', 'Keep a list of links to the pages forked from each source at the end of its follow note, under Forked pages. The plugin rewrites that section; the rest of the note is yours.', (on) => {
 			if (on) void this.plugin.forkLists.update(false);
 		});
@@ -206,6 +209,7 @@ function summary(f: Follow, folder: string | null, root: string): string {
 		f.include.length ? `include: ${f.include.join(', ')}` : 'whole repo',
 	];
 	parts.push(`mirrors to: ${mirrorFolderOf(root, f.folder, f.name)}`);
+	if (f.listMirrors !== null) parts.push(`mirror list: ${f.listMirrors ? 'on' : 'off'}`);
 	if (f.listForks !== null) parts.push(`fork list: ${f.listForks ? 'on' : 'off'}`);
 	parts.push(f.path);
 	return parts.join(' · ');

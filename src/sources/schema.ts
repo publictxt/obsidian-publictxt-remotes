@@ -16,6 +16,8 @@ export interface Source {
 	include: string[];
 	/** Folder for this source's mirrors, under `communityFolder`; `null`: the remote name. */
 	folder: string | null;
+	/** Keep this follow note's mirror list; `null`: the `listMirrors` setting decides. */
+	listMirrors: boolean | null;
 	/** Keep this follow note's fork list; `null`: the `listForks` setting decides. */
 	listForks: boolean | null;
 }
@@ -34,7 +36,9 @@ export interface PublicTxtData {
 	forkFolder: string;
 	/** Open the fork modal on the remote file's folder when the vault has it (docs/spec.md → Fork). */
 	matchFolders: boolean;
-	/** Keep a fork list in each follow note (docs/spec.md → Fork list). */
+	/** Keep a mirror list in each follow note (docs/spec.md → Mirror and fork lists). */
+	listMirrors: boolean;
+	/** Keep a fork list in each follow note (docs/spec.md → Mirror and fork lists). */
 	listForks: boolean;
 	/** Vault folder holding the bare clones (docs/spec.md → Remote host). */
 	clonesFolder: string;
@@ -51,6 +55,7 @@ export const DEFAULT_DATA: PublicTxtData = {
 	communityFolder: 'community',
 	forkFolder: '',
 	matchFolders: true,
+	listMirrors: false,
 	listForks: false,
 	clonesFolder: '.clones',
 	gitPath: 'git',
@@ -94,6 +99,7 @@ export function normalizeSource(v: unknown, name: string | null = null): Source 
 		branch: str(v.branch),
 		include: paths(v.include, true),
 		folder: folder || null,
+		listMirrors: typeof v.list_mirrors === 'boolean' ? v.list_mirrors : null,
 		listForks: typeof v.list_forks === 'boolean' ? v.list_forks : null,
 	};
 }
@@ -132,6 +138,7 @@ export function normalizeData(v: unknown): PublicTxtData {
 	const clonesFolder = vaultFolder(r.clonesFolder) || DEFAULT_DATA.clonesFolder;
 	const gitPath = str(r.gitPath) ?? DEFAULT_DATA.gitPath;
 	const matchFolders = typeof r.matchFolders === 'boolean' ? r.matchFolders : DEFAULT_DATA.matchFolders;
+	const listMirrors = typeof r.listMirrors === 'boolean' ? r.listMirrors : DEFAULT_DATA.listMirrors;
 	const listForks = typeof r.listForks === 'boolean' ? r.listForks : DEFAULT_DATA.listForks;
-	return { version: DATA_VERSION, communityFolder, forkFolder, matchFolders, listForks, clonesFolder, gitPath, state, localPaths };
+	return { version: DATA_VERSION, communityFolder, forkFolder, matchFolders, listMirrors, listForks, clonesFolder, gitPath, state, localPaths };
 }

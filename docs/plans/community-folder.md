@@ -53,11 +53,13 @@ remote name, `fork_remote`).
    notes elsewhere. The fork modal opens on **Same folder as in the source** when the vault
    has it (`matchFolders`, now on by default), else on the **Fork folder** (`forkFolder`,
    back as a setting; the vault root unless set).
-8. **Keys decide what a note is, not its folder**: `mirror_*` or `fork_*`. A note moved by
+8. **Follow notes can list their mirrors, as they list their forks**: a **Mirrored pages**
+   section with its own switch (`listMirrors`, `list_mirrors`), apart from the fork list's.
+9. **Keys decide what a note is, not its folder**: `mirror_*` or `fork_*`. A note moved by
    hand doesn't change kind, and a published note says which it is. Valid `fork_*` keys win;
    writing one kind removes the other.
-9. **Stopping deletes the mirror**, after asking: nothing of the user's is lost.
-10. **The plugin doesn't write `settings/site.toml`.** publictxt-pages names the community
+10. **Stopping deletes the mirror**, after asking: nothing of the user's is lost.
+11. **The plugin doesn't write `settings/site.toml`.** publictxt-pages names the community
     folder in its own settings, set by hand.
 
 ## How it was built
@@ -81,4 +83,3 @@ remote name, `fork_remote`).
   again). Forks already under `remotes/<source>/` stay forks where they are.
 - Attachments: only Markdown is mirrored, so a mirror's embedded images don't come with it.
 - Updating mirrors without being asked (at each check), if it turns out to be wanted.
-- A list of mirrors in the follow note, as forks have.

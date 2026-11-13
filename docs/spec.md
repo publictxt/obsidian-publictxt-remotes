@@ -4,14 +4,15 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 
 ## Data
 
-`data.json` holds `{ version, communityFolder, forkFolder, matchFolders, listForks, clonesFolder, gitPath, state, localPaths }`. Sources are notes (below).
+`data.json` holds `{ version, communityFolder, forkFolder, matchFolders, listMirrors, listForks, clonesFolder, gitPath, state, localPaths }`. Sources are notes (below).
 
 | Field | Default | Meaning |
 |---|---|---|
 | `communityFolder` | `community` | **Community folder**: vault folder holding each source's folder of mirrors (Mirror, below; `''`: the vault root). publictxt-pages names the same folder in its settings, set by hand |
 | `forkFolder` | `''` | **Fork folder**: where forks go when they don't go to the folder they are in in the source (`''`: the vault root). Never under the community folder by default: a fork is the user's note |
 | `matchFolders` | `true` | The fork modal opens with **Folders** set to **Same folder as in the source** when the vault has that exact folder (Fork, below). The user can change it at each fork |
-| `listForks` | `false` | Keep a fork list in each follow note (Fork list, below) |
+| `listMirrors` | `false` | Keep a mirror list in each follow note (Mirror and fork lists, below) |
+| `listForks` | `false` | Keep a fork list in each follow note (Mirror and fork lists, below) |
 | `clonesFolder` | `.clones` | **Clones folder**: vault folder holding the clones; never empty. Hidden, so Obsidian doesn't index it and Sync skips it |
 | `gitPath` | `git` | The git executable. Set it when Obsidian doesn't see the shell's PATH (macOS apps started from Finder) |
 | `localPaths` | `{}` | Remote name → absolute folder of each local source on this computer (Local sources, below). Never in a note |
@@ -22,7 +23,7 @@ A repo the user follows, hosted or on this computer (Local sources, below): a no
 top-level `follows/` (any depth), one per repo
 (publictext ADR-0014, spec §3.2). The list of sources is derived by scanning that folder, never
 stored. The note's body is the user's own prose; the plugin only touches its front matter, and
-its fork list when it keeps one (Fork list, below).
+its mirror and fork lists when it keeps them (Mirror and fork lists, below).
 
 The note's file name, without `.md`, is the source's **remote name**: `follows/research.md` is the
 remote `research`. Mirrors and forks record it (`mirror_remote`, `fork_remote`). A name can't start with `.` or a space, or
@@ -35,9 +36,10 @@ contain `\ / : * ? " < > | # ^ [ ]`; names are unique, compared without case.
 | `branch` | string | Branch to track. Absent or blank: the remote's default branch |
 | `include` | string or list | Folder prefixes ending in `/`, repo-relative. Empty: the whole repo. Narrows "what's new" only |
 | `folder` | string | Plugin only. Folder for this source's mirrors, under `communityFolder`. Absent: the remote name |
+| `list_mirrors` | boolean | Plugin only. Keep this note's mirror list (`true`) or not (`false`). Absent, or not a boolean: the `listMirrors` setting |
 | `list_forks` | boolean | Plugin only. Keep this note's fork list (`true`) or not (`false`). Absent, or not a boolean: the `listForks` setting |
 
-`url`, `branch` and `include` are the spec's; `local`, `folder` and `list_forks` are this
+`url`, `branch` and `include` are the spec's; `local`, `folder`, `list_mirrors` and `list_forks` are this
 plugin's, which other readers ignore. They are public with the note.
 
 A source's **key** (`Source.url`; what state, clones and checks use) is its canonical URL, or
@@ -61,10 +63,10 @@ Anything else is invalid, `file:` URLs included: a local source has no URL in it
 
 The settings tab lists the sources found in `follows/` (name; URL, or a local source's folder
 here, or that it has none; branch, include, the folder its mirrors go to (`mirrors to:
-community/txt`), fork list when set, note
+community/txt`), mirror list and fork list when set, note
 path), any duplicate or invalid notes, and **Add source**. **Community folder** and **Fork
-folder** here, and **Mirror folder** in the form, offer the vault's folders as the user types. Lists are one path per line in the form; **Fork list** is Default, On or Off
-(`list_forks` absent, `true`, `false`). It redraws when a note in `follows/` changes. Needs Obsidian 1.6.6 (`trashFile`). Pure logic in
+folder** here, and **Mirror folder** in the form, offer the vault's folders as the user types. Lists are one path per line in the form; **Mirror list** and **Fork list** are each Default, On or Off
+(`list_mirrors`, `list_forks`: absent, `true`, `false`). It redraws when a note in `follows/` changes. Needs Obsidian 1.6.6 (`trashFile`). Pure logic in
 `src/sources/edit.ts` and `src/sources/follow-note.ts`; vault access in `src/sources/follows.ts`.
 
 - Add: **Name** and **Repo URL or folder**. A repo URL makes a hosted source, an absolute path or
@@ -342,7 +344,8 @@ mirroring this note** (command, on the active note): after confirming, the mirro
 the trash. Nothing of the user's is lost: the text is upstream's. A mirror gone upstream
 stays listed until it is removed or forked.
 
-Mirrors don't count in fork lists or in Convert links: a mirror's links are upstream's.
+Mirrors have their own list in the follow note (Mirror and fork lists, below). They don't
+count in Convert links: a mirror's links are upstream's.
 
 Pure logic in `src/mirror/mirror.ts`; the vault side in `src/mirror/run.ts`.
 
@@ -487,32 +490,44 @@ Pure logic in `src/fork/update.ts` (and `isSettled()`, `latestFirst()` in `src/c
 the vault side in `src/fork/update-run.ts` and `src/fork/compare-run.ts`; the view in
 `src/ui/upstream-view.ts`.
 
-## Fork list
+## Mirror and fork lists
 
-A follow note keeps a fork list when its `list_forks` is `true`, or when it has no `list_forks`
-and the `listForks` setting is on. The list is links to the notes forked from its source, at the
-end of the note:
+A follow note can end with two lists, each with its own switch: links to the notes mirrored
+from its source, and links to the notes forked from it.
+
+| List | Heading | Kept when |
+|---|---|---|
+| Mirror list | `## Mirrored pages` | the note's `list_mirrors` is `true`, or it has none and the `listMirrors` setting is on |
+| Fork list | `## Forked pages` | the note's `list_forks` is `true`, or it has none and the `listForks` setting is on |
 
 ```markdown
+## Mirrored pages
+
+- [git](../community/txt/wiki/cs/git.md)
+
 ## Forked pages
 
 - [human computation](../wiki/human%20computation.md)
 ```
 
-The plugin owns the section: from the `## Forked pages` line to the next `#` or `##` heading, or the
+The plugin owns each section: from its heading line to the next `#` or `##` heading, or the
 end of the note. Text in it is replaced, so `###` headings there go too; text outside it is never
 touched. Links are made by Obsidian (`generateMarkdownLink`), so they follow the vault's link
-settings, sorted. A source with no forks has no section: it is added at the end with the first
-fork and removed with the last. A note with the heading more than once is left alone, with a
-notice.
+settings, sorted. A list with nothing in it has no section: it is added at the end of the note
+with the first mirror or fork and removed with the last. Written together, the mirror list
+comes first; a section added later goes at the end, wherever the other is. A heading that
+appears more than once is left alone, with a notice; the other list is still written.
 
-Updated, debounced, after a fork note is created, renamed, deleted or changes the source it is
-a fork of (`fork_remote`, `fork_repo`; its text and other keys are in no list), after a follow
-note changes, and when the setting is turned on; not before the
+A mirror that is forked leaves the mirror list and joins the fork list, in one write.
+
+Updated, debounced, after a mirror or a fork is created, renamed, deleted, changes kind, or
+changes the source it is from (its remote name or repo; its text and other keys are in no
+list), after a follow note changes, and when either setting is turned on; not before the
 workspace is ready, so a half-loaded metadata cache can't empty a list. A note is written only if
-its list changed. A note that stops keeping a list (the setting off, or `list_forks: false`) is
-left as it is. **Update fork lists in follow notes** (`update-fork-lists`) syncs every follow note
-now except those with `list_forks: false`, whatever the setting. Pure logic in
+a list it keeps changed. A list a note stops keeping (its setting off, or its key `false`) is
+left as it is. **Update mirror and fork lists in follow notes** (`update-page-lists`) syncs
+every follow note now, each list except those turned off in the note (`list_mirrors: false`,
+`list_forks: false`), whatever the settings. Pure logic in
 `src/fork/fork-list.ts`; the vault side in `src/fork/fork-lists.ts`.
 
 ## Convert links

@@ -65,6 +65,15 @@ export class SourceModal extends Modal {
 			});
 
 		new Setting(contentEl)
+			.setName('Mirror list')
+			.setDesc('Whether this follow note ends with a list of the pages mirrored from it. Default: the plugin setting decides.')
+			.addDropdown((d) =>
+				d
+					.addOptions({ '': 'Default', on: 'On', off: 'Off' })
+					.setValue(this.form.listMirrors)
+					.onChange((v) => (this.form.listMirrors = v === 'on' || v === 'off' ? v : '')),
+			);
+		new Setting(contentEl)
 			.setName('Fork list')
 			.setDesc('Whether this follow note ends with a list of the pages forked from it. Default: the plugin setting decides.')
 			.addDropdown((d) =>

@@ -12,20 +12,23 @@ test('isFollowPath: markdown under follows/, any depth', () => {
 
 test('readFollow: spec keys, single strings as lists, other keys ignored', () => {
 	assert.deepEqual(readFollow({ url: 'https://github.com/a/b.git', include: 'wiki', tags: ['x'] }), {
-		url: 'https://github.com/a/b', branch: null, include: ['wiki/'], folder: null, listForks: null,
+		url: 'https://github.com/a/b', branch: null, include: ['wiki/'], folder: null, listMirrors: null, listForks: null,
 	});
 	assert.equal(readFollow({ url: 'https://github.com/a/b', list_forks: false })?.listForks, false);
 	assert.equal(readFollow({ url: 'https://github.com/a/b', list_forks: 'yes' })?.listForks, null);
+	// Its own switch: one list on says nothing of the other.
+	assert.deepEqual([readFollow({ url: 'https://github.com/a/b', list_mirrors: true })].map((s) => [s?.listMirrors, s?.listForks]), [[true, null]]);
 	assert.equal(readFollow({ title: 'no url' }), null);
 	assert.equal(readFollow(null), null);
 });
 
 test('writeFollow: sets keys, removes cleared ones, keeps the rest', () => {
 	const fm: Record<string, unknown> = { tags: ['t'], branch: 'old' };
-	writeFollow(fm, { url: 'https://github.com/a/b', branch: null, include: ['w/'], folder: null, listForks: null });
+	writeFollow(fm, { url: 'https://github.com/a/b', branch: null, include: ['w/'], folder: null, listMirrors: null, listForks: null });
 	assert.deepEqual(fm, { tags: ['t'], url: 'https://github.com/a/b', include: ['w/'] });
-	writeFollow(fm, { url: 'https://github.com/a/b', branch: null, include: [], folder: null, listForks: true });
+	writeFollow(fm, { url: 'https://github.com/a/b', branch: null, include: [], folder: null, listMirrors: false, listForks: true });
 	assert.equal((fm as Record<string, unknown>).list_forks, true);
+	assert.equal((fm as Record<string, unknown>).list_mirrors, false);
 });
 
 test('collectFollows: byte-order path, first wins, duplicates and invalid reported', () => {

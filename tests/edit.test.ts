@@ -15,7 +15,7 @@ test('add: canonical URL, name suggested, lines split and cleaned, blanks → nu
 	const r = ok(checkAdd([], form({ url: 'git@github.com:a/b.git', include: ' wiki \n\n/notes/\n', folder: '/forks/' })));
 	assert.equal(r.name, 'a-b');
 	assert.equal(r.localPath, null);
-	assert.deepEqual(r.source, { url: 'https://github.com/a/b', branch: null, include: ['wiki/', 'notes/'], folder: 'forks', listForks: null });
+	assert.deepEqual(r.source, { url: 'https://github.com/a/b', branch: null, include: ['wiki/', 'notes/'], folder: 'forks', listMirrors: null, listForks: null });
 });
 
 test('add: a folder is a local source, keyed by its name; the folder stays out of the source', () => {
@@ -57,4 +57,6 @@ test('form round-trip', () => {
 	assert.equal(sourceToForm(follow(l), '/home/me/notes').url, '/home/me/notes');
 	assert.equal(sourceToForm(follow(l), null).url, '');
 	assert.equal(ok(checkAdd([], form({ url: 'https://github.com/a/b', listForks: 'on' }))).source.listForks, true);
+	const mirrors = ok(checkAdd([], form({ url: 'https://github.com/a/b', listMirrors: 'off' }))).source;
+	assert.deepEqual([mirrors.listMirrors, mirrors.listForks], [false, null]);
 });

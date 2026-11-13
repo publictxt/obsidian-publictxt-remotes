@@ -11,7 +11,7 @@ and command ids freeze at the first release.
 | Plugin `id` | `publictxt-remotes` | Freezes at the first release. Remotes: repos and vaults elsewhere; a local source is the special case |
 | Display `name` | PublicTxt Remotes | |
 | View types | `publictxt-check`, `publictxt-upstream` | Freeze at the first release |
-| Command ids | `check-sources`, `open-check-view`, `mirror-file`, `stop-mirroring`, `fork-mirror`, `fork-file`, `compare-fork`, `convert-links`, `convert-links-all`, `snapshot-local-sources`, `update-fork-lists` | Freeze at the first release |
+| Command ids | `check-sources`, `open-check-view`, `mirror-file`, `stop-mirroring`, `fork-mirror`, `fork-file`, `compare-fork`, `convert-links`, `convert-links-all`, `snapshot-local-sources`, `update-page-lists` | Freeze at the first release |
 
 ## Vocabulary
 
@@ -32,7 +32,8 @@ and command ids freeze at the first release.
 | fork folder | Where forks go when not to the folder they are in in the source (`forkFolder`, the vault root) |
 | clones folder | The hidden folder of git clones (`clonesFolder`, `.clones`) |
 | remote | The technical word for a source: the plugin's name, the remote name, `fork_remote`, `mirror_remote`. Not a folder |
-| fork list | The "Forked pages" section the plugin keeps in a follow note |
+| mirror list | The "Mirrored pages" section the plugin keeps in a follow note (`listMirrors`, `list_mirrors`) |
+| fork list | The "Forked pages" section the plugin keeps in a follow note (`listForks`, `list_forks`) |
 | convert links | Point a fork's links at the vault's copies, in the vault's link style |
 | link by name | A link with no path, `[[b]]` or `[b](b.md)`: lands on the vault's note of that name, or dangles |
 | links to fix | The follow note section listing links converting left as they were, and why |
@@ -51,7 +52,7 @@ and command ids freeze at the first release.
 
 | Name | What |
 |---|---|
-| `PublicTxtData` | Everything in `data.json`: `{ version, communityFolder, forkFolder, matchFolders, listForks, clonesFolder, gitPath, state, localPaths }` |
+| `PublicTxtData` | Everything in `data.json`: `{ version, communityFolder, forkFolder, matchFolders, listMirrors, listForks, clonesFolder, gitPath, state, localPaths }` |
 | `Source` | One followed repo, read from its follow note |
 | `FOLLOWS_FOLDER` | `follows` |
 | `readFollow()` / `followProps()` | Front matter ↔ `Source` |
@@ -103,11 +104,12 @@ and command ids freeze at the first release.
 | `renderForkPreview()` | What the fork modal's choices would write, or the error |
 | `suggestFolders()` | The vault's folders under a text field, to pick from while typing |
 | `forkFromSource()` / `mirrorFromSource()` / `forkActiveMirror()` | The `fork-file`, `mirror-file` and `fork-mirror` commands |
-| `renderForkList()` | A follow note's fork list section. Pure |
+| `renderMirrorList()` / `renderForkList()` | A follow note's mirror list / fork list section. Pure |
 | `withSection()` / `withSections()` | A note with a plugin-owned `## …` section (or several) replaced. Pure |
 | `writeSections()` | Writes plugin-owned sections into a note, once, only if they changed |
-| `wantsForkList()` | Whether a follow note keeps a fork list: its `list_forks`, else the setting |
-| `syncForkLists()` / `ForkLists` | Rewrites changed fork lists / keeps them current after vault changes |
+| `wantsMirrorList()` / `wantsForkList()` | Whether a follow note keeps each list: its `list_mirrors` / `list_forks`, else the setting |
+| `listedAs()` | What the lists say of a note: mirror or fork, and of which source. A sync is due only when it changes |
+| `syncForkLists()` / `ForkLists` | Rewrites the mirror and fork lists that changed / keeps them current after vault changes |
 | `remoteName()` / `remoteNameProblem()` / `defaultRemoteName()` | A follow note's name / why a name is invalid / the suggested name. Pure |
 | `localKey()` / `isLocalRepo()` / `localName()` / `sourceKey()` | `local:<name>` / whether a key is local / its name / a valid key from data. Pure |
 | `localPathInput()` / `fileUrl()` | A typed folder or `file:///` URL → absolute path / a path → `file:///` URL for git. Pure |

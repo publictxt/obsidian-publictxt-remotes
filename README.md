@@ -58,9 +58,11 @@ records where it came from in its front matter.
   follow note lists **Links to fix** (images, and the rare link that can't be converted) and
   **Links to check** (where upstream could mean more than one file). Converting doesn't count
   as editing your copy.
-- **Fork lists.** With **List forks in follow notes** on, each follow note ends with a **Forked
-  pages** list of links to the pages forked from it. A follow note's `list_forks: true` or
-  `false` overrides the setting for that note. The plugin rewrites that section only.
+- **Mirror and fork lists.** With **List mirrors in follow notes** on, each follow note ends
+  with a **Mirrored pages** list of links to the pages mirrored from it; with **List forks in
+  follow notes** on, a **Forked pages** list of the pages forked from it. The two are separate
+  switches. A follow note's `list_mirrors` or `list_forks` (`true` or `false`) overrides the
+  setting for that note. The plugin rewrites those sections only.
 
 ## Local sources
 
@@ -97,7 +99,7 @@ A source can be a git repo on your computer, such as another vault. Enter its fo
 | **Convert links in this fork** | Points the note's links at your copies, in your vault's link style |
 | **Convert links in every fork** | The same for every fork of every source |
 | **Snapshot local sources** | Commits what changed in each local source's folder |
-| **Update fork lists in follow notes** | Rewrites every follow note's **Forked pages** list now |
+| **Update mirror and fork lists in follow notes** | Rewrites every follow note's **Mirrored pages** and **Forked pages** lists now |
 
 ## Settings
 
@@ -106,6 +108,7 @@ A source can be a git repo on your computer, such as another vault. Enter its fo
 | **Community folder** | `community` | Mirrors go here, each source in a folder named for it (`community/ann-notes/`) unless the source sets its own, with the source's folders kept. If you publish with publictxt-pages, name the same folder in its settings |
 | **Fork folder** | vault root | Where your forks go when they don't go to the folder they are in in the source. You can change it at each fork |
 | **Match source folders** | on | Offer the same folder as in the source first when your vault has it. You can change it at each fork |
+| **List mirrors in follow notes** | off | Keep a **Mirrored pages** list of links at the end of each follow note |
 | **List forks in follow notes** | off | Keep a **Forked pages** list of links at the end of each follow note |
 | **Clones folder** | `.clones` | Where the git clones live |
 | **Git executable** | `git` | Path to git |

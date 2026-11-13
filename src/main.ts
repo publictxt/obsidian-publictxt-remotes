@@ -21,7 +21,7 @@ export default class PublicTxtPlugin extends Plugin {
 	lastRun: CheckRun | null = null;
 	/** Progress text while a check runs; `null` otherwise. */
 	checking: string | null = null;
-	/** Keeps follow notes' fork lists current. */
+	/** Keeps follow notes' mirror and fork lists current. */
 	forkLists!: ForkLists;
 
 	async onload() {
@@ -42,7 +42,7 @@ export default class PublicTxtPlugin extends Plugin {
 		this.addCommand({ id: 'convert-links', name: 'Convert links in this fork', callback: () => void convertActiveFork(this.app, this.data) });
 		this.addCommand({ id: 'convert-links-all', name: 'Convert links in every fork', callback: () => void convertAllForks(this.app, this.data) });
 		this.addCommand({ id: 'snapshot-local-sources', name: 'Snapshot local sources', callback: () => void this.snapshot() });
-		this.addCommand({ id: 'update-fork-lists', name: 'Update fork lists in follow notes', callback: () => void this.forkLists.update(true) });
+		this.addCommand({ id: 'update-page-lists', name: 'Update mirror and fork lists in follow notes', callback: () => void this.forkLists.update(true) });
 
 		this.forkLists = new ForkLists(this);
 		this.forkLists.register();
