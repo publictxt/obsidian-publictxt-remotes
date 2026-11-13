@@ -75,10 +75,11 @@ remote name, `fork_remote`).
 
 ## Not in this work
 
-- **publictxt-pages:** read `mirror_*` as well as `fork_*` for a page's source, label a
-  mirror "From *source*" (a fork stays "Forked from"), default `hiddenCollections` to
-  `community`, move the golden content under `content/remotes/`.
-- **publictext spec:** the community folder and the `mirror_*` keys, beside §3.2 and §5.2.
+- **publictxt-pages** (its own repo, branch `feat/mirrors`): reads `mirror_*` as well as
+  `fork_*` for a page's source, labels a mirror "From *source*" (a fork stays "Forked
+  from"), and defaults `hiddenCollections` to `community`.
+- **publictext spec** (its own repo): mirrors are §5.5, with ADR-0017. `community/` was
+  pencilled in there for profiles, groups and discussion; where those live is now open.
 - **Existing vaults:** nothing is migrated. Rename `.remotes/` to `.clones/` (or it clones
   again). Forks already under `remotes/<source>/` stay forks where they are.
 - Attachments: only Markdown is mirrored, so a mirror's embedded images don't come with it.

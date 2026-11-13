@@ -102,8 +102,9 @@ source's folder, again only when asked.
     that and the copy. A check reports mirrors that changed and overwrites nothing itself.
   - The earlier remotes root (forks in `remotes/<source>/`) became the community folder; the
     global fork folder came back for forks. Details: `docs/plans/community-folder.md`.
-  - Still to do elsewhere: publictxt-pages reads `mirror_*` and hides `community` by default;
-    the publictext spec gains the folder and the keys.
+  - Elsewhere: the publictext spec has mirrors as §5.5 (ADR-0017), and publictxt-pages reads
+    `mirror_*`, shows a mirror as "From *source*", and hides `community` by default
+    (`hiddenCollections`).
 - **Folder selection reuses the manifest's convention**: repo-relative folder prefixes ending in
   `/` (as `types` and `ignore` in `publictxt.yaml`), not a new glob grammar. Tag filters need
   file contents, so they wait.
