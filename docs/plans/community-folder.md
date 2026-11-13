@@ -77,7 +77,8 @@ remote name, `fork_remote`).
 
 - **publictxt-pages** (its own repo, branch `feat/mirrors`): reads `mirror_*` as well as
   `fork_*` for a page's source, labels a mirror "From *source*" (a fork stays "Forked
-  from"), and defaults `hiddenCollections` to `community`.
+  from"), defaults `hiddenCollections` to `community`, and has a Copy filter
+  (`?copy=forked`, `?copy=mirrored`).
 - **publictext spec** (its own repo): mirrors are §5.5, with ADR-0017. `community/` was
   pencilled in there for profiles, groups and discussion; where those live is now open.
 - **Existing vaults:** nothing is migrated. Rename `.remotes/` to `.clones/` (or it clones
