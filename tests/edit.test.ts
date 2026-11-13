@@ -60,3 +60,21 @@ test('form round-trip', () => {
 	const mirrors = ok(checkAdd([], form({ url: 'https://github.com/a/b', listMirrors: 'off' }))).source;
 	assert.deepEqual([mirrors.listMirrors, mirrors.listForks], [false, null]);
 });
+
+test('local copy: a hosted source stays hosted; its folder is this computer\'s, and can be cleared', () => {
+	const r = ok(checkAdd([], form({ url: 'https://github.com/a/b', localCopy: 'file:///home/me/b/' })));
+	assert.equal(r.source.url, 'https://github.com/a/b');
+	assert.equal(r.localPath, '/home/me/b');
+	assert.equal(checkAdd([], form({ url: 'https://github.com/a/b', localCopy: 'b' })).ok, false);
+
+	const a = follow(r);
+	assert.equal(sourceToForm(a, '/home/me/b').localCopy, '/home/me/b');
+	assert.equal(sourceToForm(a, '/home/me/b').url, 'https://github.com/a/b');
+	assert.equal(ok(checkUpdate(a, form({ localCopy: '/mnt/b' }))).localPath, '/mnt/b');
+	assert.equal(ok(checkUpdate(a, form())).localPath, null);
+
+	// A local source's folder is its URL field: a local copy there is ignored.
+	const l = ok(checkAdd([], form({ url: '/home/me/notes', localCopy: '/elsewhere' })));
+	assert.equal(l.localPath, '/home/me/notes');
+	assert.equal(sourceToForm(follow(l), '/home/me/notes').localCopy, '');
+});

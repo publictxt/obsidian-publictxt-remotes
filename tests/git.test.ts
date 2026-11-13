@@ -141,6 +141,27 @@ test('a local source: fetched from the folder the mapping gives, which can move'
 	await assert.rejects(unset.head(key, null), (e) => e instanceof RemoteError && e.kind === 'not-found');
 });
 
+test('a hosted source with a local copy: fetched from the folder while the mapping gives it, then from its URL again', async () => {
+	const key = 'https://example.com/a/copied';
+	let from = up;
+	const h = new GitHost({ run: gitRunner(), cacheDir: join(root, 'remotes'), join, exists: pathExists, remote: () => from });
+	const hosted = (await h.head(key, null)).commit;
+
+	// A working copy, one commit ahead of what is hosted.
+	const copy = join(root, 'working copy');
+	execFileSync('git', ['clone', '-q', up, copy]);
+	writeFileSync(join(copy, 'draft.md'), 'd\n');
+	execFileSync('git', ['add', '-A'], { cwd: copy });
+	execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'draft'], { cwd: copy });
+	const ahead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: copy, encoding: 'utf8' }).trim();
+	from = fileUrl(copy);
+	assert.equal((await h.head(key, null)).commit, ahead);
+	assert.ok(await pathExists(join(root, 'remotes', 'example.com', 'a', 'copied.git')), 'the same clone');
+
+	from = up;
+	assert.equal((await h.head(key, null)).commit, hosted);
+});
+
 test('a clone folder that is not a repo: refused, and the repo around it left alone', async () => {
 	// A vault repo whose .clones/ was committed then reset away: empty folders where a clone was.
 	const vault = join(root, 'husk-vault');

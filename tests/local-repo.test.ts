@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { gitRunner, localFs } from '../src/remote/git-process.ts';
-import { initLocal, inspectLocal, localProblem, localWarnings, newRepoGitignore } from '../src/remote/local-repo.ts';
+import { copyProblem, hasRemote, initLocal, inspectLocal, localProblem, localWarnings, newRepoGitignore } from '../src/remote/local-repo.ts';
 
 const run = gitRunner();
 process.env.GIT_AUTHOR_NAME = process.env.GIT_COMMITTER_NAME = 't';
@@ -101,4 +101,23 @@ test('initLocal: keeps a .gitignore; inside another repo makes a separate one', 
 	assert.equal(readFileSync(join(v, '.gitignore'), 'utf8'), 'drafts/\n');
 	assert.equal(g(v, 'rev-parse', '--show-toplevel'), v);
 	assert.equal(g(outer, 'rev-list', '--all', '--count'), '0');
+});
+
+test('local copy: a repo with a remote for the source\'s URL, however that remote is written', async () => {
+	const url = 'https://github.com/ann/notes';
+	const w = folder('copy');
+	g(w, 'init', '-q');
+	assert.equal(await hasRemote(run, w, url), false);
+	g(w, 'remote', 'add', 'origin', 'git@github.com:ann/notes.git');
+	assert.equal(await hasRemote(run, w, url), true);
+	assert.equal(await hasRemote(run, w, 'https://github.com/ann/other'), false);
+	g(w, 'remote', 'add', 'fork', 'https://GitHub.com/me/other.git');
+	assert.equal(await hasRemote(run, w, 'https://github.com/me/other'), true);
+	assert.equal(await hasRemote(run, folder('copy-plain'), url), false);
+
+	const work = await inspectLocal(run, localFs, w, null);
+	assert.equal(copyProblem(work, w, true, url), null);
+	assert.match(copyProblem(work, w, false, url) ?? '', /different repo/);
+	assert.match(copyProblem({ kind: 'not-repo', within: false }, w, false, url) ?? '', /isn't a git repo/);
+	assert.match(copyProblem({ kind: 'missing' }, w, false, url) ?? '', /No such folder/);
 });

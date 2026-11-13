@@ -33,8 +33,9 @@ export interface GitHostOptions {
 	/** Whether a path exists. */
 	exists: (path: string) => Promise<boolean>;
 	/**
-	 * Source key → what git clones and fetches from. Throws if it can't be resolved (a local
-	 * source with no folder on this computer). Absent: the key is the URL.
+	 * Source key → what git clones and fetches from: a local source's folder, a hosted source's
+	 * local copy, else its URL. Throws if it can't be resolved (a local source with no folder
+	 * on this computer). Absent: the key is the URL.
 	 */
 	remote?: (repo: string) => string;
 	/**
@@ -168,7 +169,7 @@ export class GitHost implements RemoteHost {
 		return gitOrThrow(this.run, args, cwd, ok);
 	}
 
-	/** The clone of `repo`, made on first use. A local source's origin is set to `remote` each time, as its folder can move. */
+	/** The clone of `repo`, made on first use. Its origin is set to `remote` each time: a folder can move, and a hosted source's local copy can come and go. */
 	private async ensureClone(repo: string): Promise<string> {
 		const dir = this.dir(repo);
 		const remote = this.o.remote ? this.o.remote(repo) : repo;
@@ -179,7 +180,7 @@ export class GitHost implements RemoteHost {
 			if (bare.code !== 0 || bare.stdout.trim() !== 'true') {
 				throw new RemoteError('git', `${dir} is there but isn't a clone. Delete that folder and check again: it is cloned anew.`);
 			}
-			if (this.o.remote && isLocalRepo(repo)) await this.git(['remote', 'set-url', 'origin', remote], dir);
+			if (this.o.remote) await this.git(['remote', 'set-url', 'origin', remote], dir);
 			return dir;
 		}
 		await this.git(['clone', '--bare', '--filter=blob:none', '--quiet', '--', remote, dir], null);

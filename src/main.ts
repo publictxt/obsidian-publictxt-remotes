@@ -151,11 +151,12 @@ export default class PublicTxtPlugin extends Plugin {
 	}
 
 	/**
-	 * Commits what changed in one local source's folder (by URL), or in every local source's.
+	 * Commits what changed in one source's folder on this computer (by URL), or in each one's:
+	 * local sources and hosted sources' local copies.
 	 * Checks again if anything was committed and the view shows a check.
 	 */
 	async snapshot(url?: string): Promise<void> {
-		const follows = localFollows(this.app).filter((f) => url === undefined || f.url === url);
+		const follows = localFollows(this.app, this.data).filter((f) => url === undefined || f.url === url);
 		await snapshotAndTell(this.app, this.data, follows, async () => {
 			if (this.lastRun) await this.check();
 		});

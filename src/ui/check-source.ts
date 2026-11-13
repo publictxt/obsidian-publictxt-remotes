@@ -108,9 +108,9 @@ interface Drawing {
 	unsettled: ReadonlySet<string>;
 }
 
-export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi): void {
+export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi, snapshot: boolean): void {
 	const source = parent.createDiv({ cls: 'publictxt-source', attr: { 'data-source': r.follow.url } });
-	const el = header(source, r, sourceOpen(r, ui));
+	const el = header(source, r, sourceOpen(r, ui), snapshot);
 	if (!el) return;
 
 	if (r.error !== null) {
@@ -141,7 +141,7 @@ function actions(el: HTMLElement, c: SourceCheck, ui: SourceUi): void {
 }
 
 /** The row that opens and closes the source. Returns where its details go, or `null` when closed. */
-function header(source: HTMLElement, r: SourceResult, open: boolean): HTMLElement | null {
+function header(source: HTMLElement, r: SourceResult, open: boolean, snapshot: boolean): HTMLElement | null {
 	const local = isLocalRepo(r.follow.url);
 	const item = treeItem(source, open);
 	item.self.addClass('publictxt-source-head');
@@ -149,8 +149,8 @@ function header(source: HTMLElement, r: SourceResult, open: boolean): HTMLElemen
 	item.inner.createEl('a', { text: r.follow.name, attr: { 'data-open': r.follow.path, 'aria-label': local ? 'Local source' : r.follow.url } });
 	if (r.check) item.inner.createSpan({ cls: 'publictxt-branch', text: ` · ${r.check.head.branch}` });
 	treeFlair(item, summary(r));
-	if (local) {
-		item.self.createEl('button', { text: 'Snapshot', attr: { ...actionAttrs('snapshot'), 'aria-label': 'Commit what changed in this folder, then check again' } });
+	if (snapshot) {
+		item.self.createEl('button', { text: 'Snapshot', attr: { ...actionAttrs('snapshot'), 'aria-label': local ? 'Commit what changed in this folder, then check again' : 'Commit what changed in the local copy, then check again' } });
 	}
 	return item.children;
 }

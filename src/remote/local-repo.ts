@@ -2,6 +2,7 @@
 // Pure: git and the file system are injected.
 
 import type { RunGit } from './git.ts';
+import { canonicalRepoUrl } from '../sources/repo-url.ts';
 import { snapshot, type SnapshotResult } from './snapshot.ts';
 
 export type LocalRepo =
@@ -64,6 +65,25 @@ export async function initLocal(run: RunGit, fs: LocalFs, dir: string, branch: s
 export function localProblem(l: LocalRepo, dir: string): string | null {
 	if (l.kind === 'missing') return `No such folder: ${dir}.`;
 	if (l.kind === 'unusable') return `${dir} is inside a git repo's own folder. Use the repo's top folder.`;
+	return null;
+}
+
+/** Whether the repo at `dir` has a remote whose canonical URL is `url`: that it is a copy of that hosted repo. */
+export async function hasRemote(run: RunGit, dir: string, url: string): Promise<boolean> {
+	const r = await run(['config', '--get-regexp', '^remote\\..*\\.url$'], dir);
+	if (r.code !== 0) return false;
+	return r.stdout.split('\n').some((line) => canonicalRepoUrl(line.slice(line.indexOf(' ') + 1)) === url);
+}
+
+/**
+ * Why `l`, the folder `dir`, can't be the local copy of the hosted source `url`, or `null` if it
+ * can. `sameRepo`: `hasRemote()` for it. A copy is never made a repo: it must be one already.
+ */
+export function copyProblem(l: LocalRepo, dir: string, sameRepo: boolean, url: string): string | null {
+	const problem = localProblem(l, dir);
+	if (problem) return problem;
+	if (l.kind === 'not-repo') return `${dir} isn't a git repo, so it can't be a copy of ${url}.`;
+	if (!sameRepo) return `${dir} has no remote for ${url}: it looks like a different repo.`;
 	return null;
 }
 

@@ -46,7 +46,7 @@ export interface PublicTxtData {
 	gitPath: string;
 	/** Keyed by `Source.url`. Sources themselves are notes, not data. */
 	state: Record<string, SourceState>;
-	/** Remote name → absolute folder of a local source, on this computer only. Never in a note. */
+	/** Remote name → absolute folder on this computer only: a local source's, or a hosted source's local copy. Never in a note. */
 	localPaths: Record<string, string>;
 }
 
