@@ -34,10 +34,10 @@ export interface Remote {
 }
 
 /**
- * Whether `meta` is a fork from `remote`: by `fork_remote` when the fork has one (names compared
+ * Whether `meta` is a fork (or a mirror) from `remote`: by `fork_remote` when the fork has one (names compared
  * without case, as file names are), else by `fork_repo`.
  */
-export function isForkOf(meta: ForkMeta, remote: Remote): boolean {
+export function isForkOf(meta: Pick<ForkMeta, 'remote' | 'repo'>, remote: Remote): boolean {
 	if (meta.remote !== null) return meta.remote.toLowerCase() === remote.name.toLowerCase();
 	return meta.repo === remote.url;
 }

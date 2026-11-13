@@ -29,7 +29,7 @@ export interface LocalFs {
  */
 export function newRepoGitignore(configDir: string): string {
 	const config = configDir.replace(/^\/+|\/+$/g, '');
-	const dirs = [...(config ? [`${config}/`] : []), '.trash/', '.remotes/'];
+	const dirs = [...(config ? [`${config}/`] : []), '.trash/', '.clones/'];
 	return ['# Written by PublicTxt Remotes when it made this folder a git repo.', ...dirs, '.DS_Store', ''].join('\n');
 }
 
@@ -70,7 +70,7 @@ export function localProblem(l: LocalRepo, dir: string): string | null {
 /** The question before making `dir` a repo. */
 export function initQuestion(dir: string, within: boolean): string {
 	const where = within ? ' It is inside another repo; this makes a separate one here.' : '';
-	return `${dir} isn't a git repo.${where} Make it one and commit everything in it? Unless the folder has a .gitignore, one is written that leaves out a vault's app folders (config, .trash/, .remotes/).`;
+	return `${dir} isn't a git repo.${where} Make it one and commit everything in it? Unless the folder has a .gitignore, one is written that leaves out a vault's app folders (config, .trash/, .clones/).`;
 }
 
 /** Warnings for a source that can be added but won't check yet. */

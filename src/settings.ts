@@ -13,10 +13,10 @@ import { isLocalRepo } from './sources/repo-url.ts';
 import { prepareLocalFolder } from './snapshot/run.ts';
 import { errorText } from './remote/vault-host.ts';
 import { SourceModal } from './ui/source-modal.ts';
-import { sourceFolderOf } from './fork/destination.ts';
+import { mirrorFolderOf } from './mirror/mirror.ts';
 
-type TextField = 'remotesRoot' | 'remotesFolder' | 'gitPath';
-type ToggleField = 'matchFolders' | 'listForks';
+type TextField = 'communityFolder' | 'forkFolder' | 'clonesFolder' | 'gitPath';
+type ToggleField = 'matchFolders' | 'listMirrors' | 'listForks';
 
 export class PublicTxtSettingTab extends PluginSettingTab {
 	private readonly plugin: PublicTxtPlugin;
@@ -30,12 +30,16 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 		const { containerEl } = this;
 		containerEl.empty();
 
-		this.text('remotesRoot', 'Remotes root', 'Forks from each source go in a folder under it, named for the source unless its fork folder is set, with the source\'s folders kept. Empty: the vault root. If you publish with publictxt-pages, set remotesRoot under [params] in settings/site.toml to match.', true, '');
-		this.toggle('matchFolders', 'Match source folders', 'Offer the same folder as in the source first when your vault has that folder, instead of the remotes root. You can change it at each fork.');
+		this.text('communityFolder', 'Community folder', 'Mirrors go here: upstream\'s copies of the pages you mirror, each source in a folder named for it unless its mirror folder is set, with the source\'s folders kept. Empty: the vault root. If you publish with publictxt-pages, name the same folder in its settings.', true, '');
+		this.text('forkFolder', 'Fork folder', 'Where your forks go when they don\'t go to the folder they are in in the source. Empty: the vault root. You can change it at each fork.', true, '');
+		this.toggle('matchFolders', 'Match source folders', 'Offer the same folder as in the source first when your vault has that folder, instead of the fork folder. You can change it at each fork.');
+		this.toggle('listMirrors', 'List mirrors in follow notes', 'Keep a list of links to the pages mirrored from each source at the end of its follow note, under Mirrored pages. The plugin rewrites that section; the rest of the note is yours.', (on) => {
+			if (on) void this.plugin.forkLists.update(false);
+		});
 		this.toggle('listForks', 'List forks in follow notes', 'Keep a list of links to the pages forked from each source at the end of its follow note, under Forked pages. The plugin rewrites that section; the rest of the note is yours.', (on) => {
 			if (on) void this.plugin.forkLists.update(false);
 		});
-		this.text('remotesFolder', 'Clones folder', 'Hidden vault folder holding the git clones of your sources.');
+		this.text('clonesFolder', 'Clones folder', 'Hidden vault folder holding the git clones of your sources.');
 		this.text('gitPath', 'Git executable', 'Path to git. Set it if Obsidian can\'t find git on your PATH.');
 
 		const scan = scanFollows(this.app);
@@ -69,7 +73,7 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 		const folder = local ? (this.plugin.data.localPaths[f.name] ?? null) : null;
 		const row = new Setting(this.containerEl)
 			.setName(f.name)
-			.setDesc(summary(f, folder, this.plugin.data.remotesRoot))
+			.setDesc(summary(f, folder, this.plugin.data.communityFolder))
 			.addExtraButton((b) =>
 				b
 					.setIcon('pencil')
@@ -82,7 +86,7 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 				b
 					.setIcon('trash')
 					.setTooltip('Remove')
-					.onClick(() => this.remove(f.path, `Unfollow ${f.name} and move ${f.path} to the trash? What you wrote in it goes too.`, f.name)),
+					.onClick(() => this.remove(f.path, `Unfollow ${f.name} and move ${f.path} to the trash? What you wrote in it goes too. Its mirrors and your forks stay.`, f.name)),
 			);
 		if (local && !folder) row.setClass('publictxt-problem');
 	}
@@ -204,8 +208,8 @@ function summary(f: Follow, folder: string | null, root: string): string {
 		`branch: ${f.branch ?? 'default'}`,
 		f.include.length ? `include: ${f.include.join(', ')}` : 'whole repo',
 	];
-	if (f.watch.length) parts.push(`watch: ${f.watch.length}`);
-	parts.push(`forks to: ${sourceFolderOf(root, f.folder, f.name)}`);
+	parts.push(`mirrors to: ${mirrorFolderOf(root, f.folder, f.name)}`);
+	if (f.listMirrors !== null) parts.push(`mirror list: ${f.listMirrors ? 'on' : 'off'}`);
 	if (f.listForks !== null) parts.push(`fork list: ${f.listForks ? 'on' : 'off'}`);
 	parts.push(f.path);
 	return parts.join(' · ');

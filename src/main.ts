@@ -7,7 +7,8 @@ import { errorText } from './remote/vault-host.ts';
 import { PublicTxtSettingTab } from './settings.ts';
 import { CheckView, VIEW_TYPE_CHECK } from './ui/check-view.ts';
 import { UpstreamView } from './ui/upstream-view.ts';
-import { forkFromSource } from './fork/command.ts';
+import { forkActiveMirror, forkFromSource, mirrorFromSource } from './fork/command.ts';
+import { stopMirroringActive } from './mirror/run.ts';
 import { compareActiveFork, VIEW_TYPE_UPSTREAM } from './fork/compare-run.ts';
 import { ForkLists } from './fork/fork-lists.ts';
 import { convertActiveFork, convertAllForks } from './fork/links-run.ts';
@@ -20,7 +21,7 @@ export default class PublicTxtPlugin extends Plugin {
 	lastRun: CheckRun | null = null;
 	/** Progress text while a check runs; `null` otherwise. */
 	checking: string | null = null;
-	/** Keeps follow notes' fork lists current. */
+	/** Keeps follow notes' mirror and fork lists current. */
 	forkLists!: ForkLists;
 
 	async onload() {
@@ -33,12 +34,15 @@ export default class PublicTxtPlugin extends Plugin {
 		this.addRibbonIcon('git-compare', 'Check sources', () => void this.showAndCheck());
 		this.addCommand({ id: 'check-sources', name: 'Check sources', callback: () => void this.showAndCheck() });
 		this.addCommand({ id: 'open-check-view', name: 'Open check view', callback: () => void this.showCheckView() });
-		this.addCommand({ id: 'fork-file', name: 'Fork a file from a source', callback: () => forkFromSource(this.app, this.data) });
+		this.addCommand({ id: 'mirror-file', name: 'Mirror a file from a source', callback: () => mirrorFromSource(this) });
+		this.addCommand({ id: 'stop-mirroring', name: 'Stop mirroring this note', callback: () => stopMirroringActive(this) });
+		this.addCommand({ id: 'fork-mirror', name: 'Fork this mirror', callback: () => forkActiveMirror(this) });
+		this.addCommand({ id: 'fork-file', name: 'Fork a file from a source', callback: () => forkFromSource(this) });
 		this.addCommand({ id: 'compare-fork', name: 'Compare this fork with upstream', callback: () => void compareActiveFork(this.app, this.data) });
 		this.addCommand({ id: 'convert-links', name: 'Convert links in this fork', callback: () => void convertActiveFork(this.app, this.data) });
 		this.addCommand({ id: 'convert-links-all', name: 'Convert links in every fork', callback: () => void convertAllForks(this.app, this.data) });
 		this.addCommand({ id: 'snapshot-local-sources', name: 'Snapshot local sources', callback: () => void this.snapshot() });
-		this.addCommand({ id: 'update-fork-lists', name: 'Update fork lists in follow notes', callback: () => void this.forkLists.update(true) });
+		this.addCommand({ id: 'update-page-lists', name: 'Update mirror and fork lists in follow notes', callback: () => void this.forkLists.update(true) });
 
 		this.forkLists = new ForkLists(this);
 		this.forkLists.register();
@@ -99,13 +103,28 @@ export default class PublicTxtPlugin extends Plugin {
 		}
 	}
 
-	/** Moves a source's `seenCommit` and `watched` to the last check's head. */
+	/** Moves a source's `seenCommit` to the last check's head. */
 	async acknowledge(url: string): Promise<void> {
 		const c = this.checkOf(url);
 		if (!c) return;
 		await this.save({ ...this.data, state: { ...this.data.state, [url]: acknowledged(c, new Date().toISOString()) } });
-		// Forks stay: each is dealt with on its own (docs/spec.md → Fork update).
-		this.replaceCheck(c, { ...c, changes: [], reason: null, watched: [] });
+		// Mirrors and forks stay: each is dealt with on its own (docs/spec.md → Mirror, Fork update).
+		this.replaceCheck(c, { ...c, changes: [], reason: null });
+	}
+
+	/**
+	 * Brings the last check of the source `url` in line with what was just done to its mirrors:
+	 * `add` (upstream path → its new mirror note), `drop` (no longer mirrored), `settled` (updated
+	 * to what is at head). The metadata cache lags a write, so the check isn't read from it.
+	 */
+	mirrorsNow(url: string, now: { add?: ReadonlyMap<string, string>; drop?: readonly string[]; settled?: readonly string[] }): void {
+		const c = this.checkOf(url);
+		if (!c) return;
+		const mirrored = new Map(c.mirrored);
+		for (const [path, note] of now.add ?? []) mirrored.set(path, note);
+		for (const path of now.drop ?? []) mirrored.delete(path);
+		const off = new Set([...(now.drop ?? []), ...(now.settled ?? [])]);
+		this.replaceCheck(c, { ...c, mirrored, mirrors: c.mirrors.filter((m) => !off.has(m.path)) });
 	}
 
 	/** Drops an upstream file from the last check's forks: every note forked from it is settled. */

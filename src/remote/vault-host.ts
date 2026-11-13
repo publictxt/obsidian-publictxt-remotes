@@ -14,12 +14,12 @@ export function localFolder(data: PublicTxtData, key: string): string {
 	return path;
 }
 
-/** The git host with clones under the vault's `remotesFolder`; local sources fetch from their folder. Desktop only. */
+/** The git host with clones under the vault's `clonesFolder`; local sources fetch from their folder. Desktop only. */
 export function vaultHost(app: App, data: PublicTxtData): RemoteHost {
 	const adapter = app.vault.adapter;
 	if (!(adapter instanceof FileSystemAdapter)) throw new Error('This needs the desktop app.');
 	const remote = (key: string) => (isLocalRepo(key) ? fileUrl(localFolder(data, key)) : key);
-	return gitHost(data.gitPath, adapter.getBasePath(), data.remotesFolder, remote);
+	return gitHost(data.gitPath, adapter.getBasePath(), data.clonesFolder, remote);
 }
 
 /** An error as one line for the user; a missing git points at the setting. */

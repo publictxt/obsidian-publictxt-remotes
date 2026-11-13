@@ -12,12 +12,12 @@ test('garbage in, defaults out', () => {
 
 test('normalizeSource: canonical, defaults filled, paths cleaned, invalid dropped', () => {
 	assert.deepEqual(
-		normalizeSource({ url: 'https://github.com/a/b.git', include: ['/wiki', 'notes/', 'wiki/', '../x', 3], watch: ['/wiki/x.md', 'wiki/x.md'], extra: 1 }),
-		{ url: 'https://github.com/a/b', branch: null, include: ['wiki/', 'notes/'], watch: ['wiki/x.md'], folder: null, listForks: null },
+		normalizeSource({ url: 'https://github.com/a/b.git', include: ['/wiki', 'notes/', 'wiki/', '../x', 3], watch: ['wiki/x.md'], extra: 1 }),
+		{ url: 'https://github.com/a/b', branch: null, include: ['wiki/', 'notes/'], folder: null, listMirrors: null, listForks: null },
 	);
 	assert.deepEqual(
 		normalizeSource({ url: 'https://github.com/c/d', branch: ' main ', folder: '/forks/c/' }),
-		{ url: 'https://github.com/c/d', branch: 'main', include: [], watch: [], folder: 'forks/c', listForks: null },
+		{ url: 'https://github.com/c/d', branch: 'main', include: [], folder: 'forks/c', listMirrors: null, listForks: null },
 	);
 	assert.equal(normalizeSource({ url: 'not a url' }), null);
 });
@@ -31,13 +31,13 @@ test('state: keys canonical, invalid values dropped, old sources key dropped', (
 		},
 	});
 	assert.deepEqual(d.state, {
-		'https://github.com/a/b': { seenCommit: B, checkedAt: '2026-11-03T10:00:00+02:00', watched: { 'x.md': B } },
+		'https://github.com/a/b': { seenCommit: B, checkedAt: '2026-11-03T10:00:00+02:00' },
 	});
 	assert.equal('sources' in d, false);
 });
 
 test('local sources: state under local keys; folders by valid name, as absolute paths', () => {
-	const st = { seenCommit: B, checkedAt: null, watched: {} };
+	const st = { seenCommit: B, checkedAt: null };
 	const d = normalizeData({
 		state: { 'local:notes': st, 'local:a/b': st },
 		localPaths: { notes: '/home/me/notes/', 'a/b': '/x', rel: 'notes', gone: 3 },
@@ -48,18 +48,23 @@ test('local sources: state under local keys; folders by valid name, as absolute 
 	assert.equal(normalizeSource({ local: true }), null);
 });
 
-test('folders trimmed of slashes; remotesFolder and gitPath never empty', () => {
-	const d = normalizeData({ remotesRoot: '/Remotes/', forkFolder: 'old', remotesFolder: '/', gitPath: ' /usr/bin/git ' });
-	assert.equal(d.remotesRoot, 'Remotes');
-	assert.ok(!('forkFolder' in d));
-	assert.equal(normalizeData({}).remotesRoot, 'remotes');
-	assert.equal(normalizeData({ remotesRoot: '' }).remotesRoot, '');
-	assert.equal(d.remotesFolder, '.remotes');
+test('folders trimmed of slashes; clonesFolder and gitPath never empty', () => {
+	const d = normalizeData({ communityFolder: '/Community/', forkFolder: '/notes/forks/', remotesRoot: 'old', clonesFolder: '/', gitPath: ' /usr/bin/git ' });
+	assert.equal(d.communityFolder, 'Community');
+	assert.equal(d.forkFolder, 'notes/forks');
+	assert.ok(!('remotesRoot' in d));
+	assert.equal(normalizeData({}).communityFolder, 'community');
+	assert.equal(normalizeData({}).forkFolder, '');
+	assert.equal(normalizeData({ communityFolder: '' }).communityFolder, '');
+	assert.equal(normalizeData({ communityFolder: '/' }).communityFolder, '');
+	assert.equal(d.clonesFolder, '.clones');
 	assert.equal(d.gitPath, '/usr/bin/git');
-	assert.equal(d.matchFolders, false);
-	assert.equal(normalizeData({ matchFolders: true }).matchFolders, true);
-	assert.equal(normalizeData({ matchFolders: 'yes' }).matchFolders, false);
+	assert.equal(d.matchFolders, true);
+	assert.equal(normalizeData({ matchFolders: false }).matchFolders, false);
+	assert.equal(normalizeData({ matchFolders: 'no' }).matchFolders, true);
 	assert.equal(d.listForks, false);
 	assert.equal(normalizeData({ listForks: true }).listForks, true);
-	assert.equal(normalizeData({ remotesFolder: 'x/clones/' }).remotesFolder, 'x/clones');
+	assert.equal(d.listMirrors, false);
+	assert.deepEqual([normalizeData({ listMirrors: true })].map((x) => [x.listMirrors, x.listForks]), [[true, false]]);
+	assert.equal(normalizeData({ clonesFolder: 'x/clones/' }).clonesFolder, 'x/clones');
 });

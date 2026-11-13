@@ -1,13 +1,23 @@
-// The fork list in a follow note: the "Forked pages" section, which the plugin owns
-// (docs/spec.md → Fork list); and replacing any such section. Pure.
+// The mirror and fork lists in a follow note: the "Mirrored pages" and "Forked pages" sections,
+// which the plugin owns (docs/spec.md → Mirror and fork lists); and replacing any such section. Pure.
 
+export const MIRROR_LIST_HEADING = '## Mirrored pages';
 export const FORK_LIST_HEADING = '## Forked pages';
 
 /** The section listing these links to fork notes, sorted; `null` when there are none. */
 export function renderForkList(links: readonly string[]): string | null {
+	return renderPageList(FORK_LIST_HEADING, links);
+}
+
+/** The section listing these links to mirror notes, sorted; `null` when there are none. */
+export function renderMirrorList(links: readonly string[]): string | null {
+	return renderPageList(MIRROR_LIST_HEADING, links);
+}
+
+function renderPageList(heading: string, links: readonly string[]): string | null {
 	if (links.length === 0) return null;
 	const items = [...new Set(links)].sort(cmp).map((l) => `- ${l}`);
-	return [FORK_LIST_HEADING, '', ...items].join('\n');
+	return [heading, '', ...items].join('\n');
 }
 
 /**

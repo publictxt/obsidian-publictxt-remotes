@@ -1,29 +1,41 @@
-// Keeps the fork list in each follow note current (docs/spec.md → Fork list): the Obsidian side
-// of fork-list.ts.
+// Keeps the mirror and fork lists in each follow note current (docs/spec.md → Mirror and fork
+// lists): the Obsidian side of fork-list.ts.
 
 import { App, debounce, Notice, TFile, type TAbstractFile } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
-import { scanForks } from '../sources/forks.ts';
-import { readForkMeta, type ForkMeta } from '../sources/fork-meta.ts';
+import { scanForks, scanMirrors } from '../sources/forks.ts';
+import { readForkMeta, readMirrorMeta, type ForkMeta } from '../sources/fork-meta.ts';
 import { isFollowPath, type Follow } from '../sources/follow-note.ts';
 import { scanFollows } from '../sources/follows.ts';
 import { errorText } from '../remote/vault-host.ts';
-import { FORK_LIST_HEADING, renderForkList, withSections } from './fork-list.ts';
+import { FORK_LIST_HEADING, MIRROR_LIST_HEADING, renderForkList, renderMirrorList, withSections } from './fork-list.ts';
 import { isForkOf } from './fork.ts';
 
 export interface SyncResult {
 	/** Follow notes rewritten. */
 	written: string[];
-	/** Follow notes left alone: the heading appears more than once. */
+	/** Follow notes with a list left alone: its heading appears more than once. */
 	skipped: string[];
 }
 
+/** Which of its two lists a follow note keeps. */
+export interface Wanted {
+	mirrors: boolean;
+	forks: boolean;
+}
+
 /**
- * What the fork lists say of a note: which source it is a fork of (`null`: not a fork). A list
- * changes only when this does, or the note moves; not when its text or other keys do.
+ * What the lists say of a note: whether it is a mirror or a fork, and of which source (`null`:
+ * neither). A list changes only when this does, or the note moves; not when its text or other
+ * keys do. A mirror that is forked changes kind, so it changes lists.
  */
-export function listedAs(meta: ForkMeta | null): string | null {
-	return meta ? `${meta.remote ?? ''}\0${meta.repo ?? ''}` : null;
+export function listedAs(kind: 'mirror' | 'fork', meta: Pick<ForkMeta, 'remote' | 'repo'> | null): string | null {
+	return meta ? `${kind}\0${meta.remote ?? ''}\0${meta.repo ?? ''}` : null;
+}
+
+/** `listedAs` for a note's front matter. */
+function listedNow(front: Record<string, unknown> | undefined): string | null {
+	return listedAs('fork', readForkMeta(front)) ?? listedAs('mirror', readMirrorMeta(front));
 }
 
 /** Whether a follow note keeps a fork list: its `list_forks`, else the setting. */
@@ -31,22 +43,37 @@ export function wantsForkList(follow: Follow, setting: boolean): boolean {
 	return follow.listForks ?? setting;
 }
 
-/** Rewrites the fork list of each follow note in `wanted` where it changed; others aren't touched. */
-export async function syncForkLists(app: App, wanted: (follow: Follow) => boolean): Promise<SyncResult> {
-	const follows = scanFollows(app).follows.filter(wanted);
-	const forks = follows.length ? scanForks(app) : [];
+/** Whether a follow note keeps a mirror list: its `list_mirrors`, else the setting. */
+export function wantsMirrorList(follow: Follow, setting: boolean): boolean {
+	return follow.listMirrors ?? setting;
+}
+
+/**
+ * Rewrites the lists each follow note keeps (`wanted`) where they changed: "Mirrored pages",
+ * then "Forked pages". A list it doesn't keep isn't touched, and neither is a note keeping none.
+ */
+export async function syncForkLists(app: App, wanted: (follow: Follow) => Wanted): Promise<SyncResult> {
+	const follows = scanFollows(app).follows.map((follow) => ({ follow, want: wanted(follow) })).filter(({ want }) => want.mirrors || want.forks);
+	const forks = follows.some(({ want }) => want.forks) ? scanForks(app) : [];
+	const mirrors = follows.some(({ want }) => want.mirrors) ? scanMirrors(app) : [];
 	const out: SyncResult = { written: [], skipped: [] };
-	for (const follow of follows) {
+	for (const { follow, want } of follows) {
 		const note = app.vault.getFileByPath(follow.path);
 		if (!note) continue;
-		const links: string[] = [];
-		for (const f of forks) {
-			const file = isForkOf(f.meta, follow) ? app.vault.getFileByPath(f.path) : null;
-			if (file) links.push(app.fileManager.generateMarkdownLink(file, follow.path));
-		}
-		const r = await writeSections(app, note, [[FORK_LIST_HEADING, renderForkList(links)]]);
+		const links = (notes: readonly { path: string; meta: Pick<ForkMeta, 'remote' | 'repo'> }[]): string[] => {
+			const out: string[] = [];
+			for (const n of notes) {
+				const file = isForkOf(n.meta, follow) ? app.vault.getFileByPath(n.path) : null;
+				if (file) out.push(app.fileManager.generateMarkdownLink(file, follow.path));
+			}
+			return out;
+		};
+		const sections: [string, string | null][] = [];
+		if (want.mirrors) sections.push([MIRROR_LIST_HEADING, renderMirrorList(links(mirrors))]);
+		if (want.forks) sections.push([FORK_LIST_HEADING, renderForkList(links(forks))]);
+		const r = await writeSections(app, note, sections);
 		if (r.skipped.length) out.skipped.push(follow.path);
-		else if (r.written) out.written.push(follow.path);
+		if (r.written) out.written.push(follow.path);
 	}
 	return out;
 }
@@ -65,10 +92,10 @@ export async function writeSections(app: App, note: TFile, sections: readonly (r
 	return { written, skipped: r.skipped };
 }
 
-/** Updates fork lists after vault changes, for the follow notes that keep one. */
+/** Updates mirror and fork lists after vault changes, for the follow notes that keep one. */
 export class ForkLists {
 	private readonly plugin: PublicTxtPlugin;
-	/** Each fork note and what the lists say of it (`listedAs`), kept current: a sync is due only when this changes. */
+	/** Each mirror and fork note and what the lists say of it (`listedAs`), kept current: a sync is due only when this changes. */
 	private known = new Map<string, string>();
 	private running = false;
 	private again = false;
@@ -82,16 +109,19 @@ export class ForkLists {
 		const { plugin } = this;
 		const { app } = plugin;
 		plugin.register(() => this.soon.cancel());
-		// Read-only: which notes are forks, and of what.
+		// Read-only: which notes are mirrors or forks, and of what.
 		app.workspace.onLayoutReady(() => {
-			this.known = new Map(scanForks(app).map((f) => [f.path, listedAs(f.meta) ?? '']));
+			this.known = new Map([
+				...scanMirrors(app).map((m): [string, string] => [m.path, listedAs('mirror', m.meta) ?? '']),
+				...scanForks(app).map((f): [string, string] => [f.path, listedAs('fork', f.meta) ?? '']),
+			]);
 		});
-		// Most changes to a fork note are to its text, which no list shows: only a note that
-		// becomes a fork, stops being one or changes source is synced. A follow note always is:
+		// Most changes to a mirror or a fork are to its text, which no list shows: only a note that
+		// becomes one, stops being one, changes kind or changes source is synced. A follow note always is:
 		// its list may have been edited, or turned on or off.
 		plugin.registerEvent(
 			app.metadataCache.on('changed', (f, _data, cache) => {
-				const now = listedAs(readForkMeta(cache.frontmatter));
+				const now = listedNow(cache.frontmatter);
 				const was = this.known.get(f.path) ?? null;
 				if (now === null) this.known.delete(f.path);
 				else this.known.set(f.path, now);
@@ -106,7 +136,7 @@ export class ForkLists {
 		plugin.registerEvent(app.vault.on('rename', (f, oldPath) => this.renamed(f, oldPath)));
 	}
 
-	/** A fork note that moved is linked by its new path; a follow note that moved has another name, so other forks. */
+	/** A mirror or fork that moved is linked by its new path; a follow note that moved has another name, so other forks. */
 	private renamed(f: TAbstractFile, oldPath: string): void {
 		if (!(f instanceof TFile)) return;
 		const was = this.known.get(oldPath);
@@ -119,12 +149,14 @@ export class ForkLists {
 
 	/**
 	 * Syncs the follow notes that keep a list. `manual`: from the command, so every note but those
-	 * with `list_forks: false`, whatever the setting, and it reports what it did.
+	 * lists turned off in the note (`list_mirrors: false`, `list_forks: false`), whatever the settings, and it reports what it did.
 	 */
 	async update(manual: boolean): Promise<void> {
 		const { app, data } = this.plugin;
 		if (!manual && !app.workspace.layoutReady) return;
-		const wanted = manual ? (f: Follow) => f.listForks !== false : (f: Follow) => wantsForkList(f, data.listForks);
+		const wanted = manual
+			? (f: Follow): Wanted => ({ mirrors: f.listMirrors !== false, forks: f.listForks !== false })
+			: (f: Follow): Wanted => ({ mirrors: wantsMirrorList(f, data.listMirrors), forks: wantsForkList(f, data.listForks) });
 		if (this.running) {
 			this.again = true;
 			return;
@@ -132,8 +164,8 @@ export class ForkLists {
 		this.running = true;
 		try {
 			const r = await syncForkLists(app, wanted);
-			if (r.skipped.length) new Notice(`Fork list not updated in ${r.skipped.join(', ')}: it has more than one "Forked pages" heading.`);
-			if (manual) new Notice(r.written.length ? `Updated the fork list in ${r.written.length} follow notes.` : 'Fork lists are up to date.');
+			if (r.skipped.length) new Notice(`A list was not updated in ${r.skipped.join(', ')}: it has more than one "Mirrored pages" or "Forked pages" heading.`);
+			if (manual) new Notice(r.written.length ? `Updated the lists in ${r.written.length} follow notes.` : 'Mirror and fork lists are up to date.');
 		} catch (e) {
 			new Notice(errorText(e));
 		} finally {

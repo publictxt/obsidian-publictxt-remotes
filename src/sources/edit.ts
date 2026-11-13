@@ -13,13 +13,14 @@ export interface SourceForm {
 	url: string;
 	branch: string;
 	include: string;
-	watch: string;
 	folder: string;
+	/** `''`: the setting decides. */
+	listMirrors: '' | 'on' | 'off';
 	/** `''`: the setting decides. */
 	listForks: '' | 'on' | 'off';
 }
 
-export const EMPTY_FORM: SourceForm = { name: '', url: '', branch: '', include: '', watch: '', folder: '', listForks: '' };
+export const EMPTY_FORM: SourceForm = { name: '', url: '', branch: '', include: '', folder: '', listMirrors: '', listForks: '' };
 
 /** A source to write, its remote name, and a local source's folder (`null`: hosted). */
 export type Checked = { ok: true; source: Source; name: string; localPath: string | null } | { ok: false; error: string };
@@ -35,8 +36,8 @@ export function sourceToForm(f: Follow, localPath: string | null): SourceForm {
 		url: isLocalRepo(f.url) ? (localPath ?? '') : f.url,
 		branch: f.branch ?? '',
 		include: f.include.join('\n'),
-		watch: f.watch.join('\n'),
 		folder: f.folder ?? '',
+		listMirrors: f.listMirrors === null ? '' : f.listMirrors ? 'on' : 'off',
 		listForks: f.listForks === null ? '' : f.listForks ? 'on' : 'off',
 	};
 }
@@ -52,8 +53,8 @@ export function formToSource(f: SourceForm, name: string): Checked {
 			local: localPath !== null,
 			branch: f.branch,
 			include: lines(f.include),
-			watch: lines(f.watch),
 			folder: f.folder,
+			list_mirrors: f.listMirrors === '' ? null : f.listMirrors === 'on',
 			list_forks: f.listForks === '' ? null : f.listForks === 'on',
 		},
 		name,

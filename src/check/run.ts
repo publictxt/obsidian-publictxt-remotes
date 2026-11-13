@@ -1,7 +1,7 @@
 // A check of every source, from the vault (docs/spec.md → Check): the Obsidian side of check.ts.
 
 import type { App } from 'obsidian';
-import { scanForks } from '../sources/forks.ts';
+import { scanForks, scanMirrors } from '../sources/forks.ts';
 import { scanFollows } from '../sources/follows.ts';
 import type { Follow } from '../sources/follow-note.ts';
 import type { PublicTxtData } from '../sources/schema.ts';
@@ -27,6 +27,7 @@ export async function runCheck(app: App, data: PublicTxtData, progress: (done: n
 	const host = vaultHost(app, data);
 	const scan = scanFollows(app);
 	const forks = scanForks(app);
+	const mirrors = scanMirrors(app);
 	const at = new Date().toISOString();
 
 	const results: SourceResult[] = [];
@@ -34,7 +35,7 @@ export async function runCheck(app: App, data: PublicTxtData, progress: (done: n
 		progress(i, scan.follows.length);
 		const before = data.state[follow.url];
 		try {
-			const check = await checkSource(host, follow, before, forks);
+			const check = await checkSource(host, follow, before, forks, mirrors);
 			results.push({ follow, check, error: null });
 		} catch (e) {
 			results.push({ follow, check: null, error: errorText(e) });

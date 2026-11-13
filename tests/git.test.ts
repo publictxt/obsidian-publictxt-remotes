@@ -142,14 +142,14 @@ test('a local source: fetched from the folder the mapping gives, which can move'
 });
 
 test('a clone folder that is not a repo: refused, and the repo around it left alone', async () => {
-	// A vault repo whose .remotes/ was committed then reset away: empty folders where a clone was.
+	// A vault repo whose .clones/ was committed then reset away: empty folders where a clone was.
 	const vault = join(root, 'husk-vault');
 	mkdirSync(vault);
 	const vg = (...args: string[]) => execFileSync('git', args, { cwd: vault, encoding: 'utf8' }).trim();
 	vg('init', '-q', '-b', 'main');
 	vg('remote', 'add', 'origin', 'https://example.com/vault.git');
 	const key = 'local:husk';
-	const cache = join(vault, '.remotes');
+	const cache = join(vault, '.clones');
 	mkdirSync(join(cache, ...cachePath(key), 'refs', 'heads'), { recursive: true });
 
 	const h = new GitHost({ run: gitRunner(), cacheDir: cache, join, exists: pathExists, remote: () => fileUrl(up) });
@@ -164,7 +164,7 @@ test('the cache folder ignores its clones, so a vault repo never sees them', asy
 	mkdirSync(vault);
 	const vg = (...args: string[]) => execFileSync('git', args, { cwd: vault, encoding: 'utf8' }).trim();
 	vg('init', '-q', '-b', 'main');
-	const cache = join(vault, '.remotes');
+	const cache = join(vault, '.clones');
 	const make = () => new GitHost({ run: gitRunner(), cacheDir: cache, join, exists: pathExists, remote: () => fileUrl(up), writeIfMissing });
 
 	await make().head('local:a', null);
@@ -173,7 +173,7 @@ test('the cache folder ignores its clones, so a vault repo never sees them', asy
 
 	// A cache folder from before, with no .gitignore, gets one at its next use.
 	rmSync(join(cache, '.gitignore'));
-	assert.match(vg('status', '--porcelain'), /^\?\? \.remotes\/$/);
+	assert.match(vg('status', '--porcelain'), /^\?\? \.clones\/$/);
 	await make().head('local:a', null);
 	assert.equal(vg('status', '--porcelain', '--untracked-files=all'), '');
 

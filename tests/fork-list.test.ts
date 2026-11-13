@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FORK_LIST_HEADING, renderForkList, withSection, withSections } from '../src/fork/fork-list.ts';
+import { FORK_LIST_HEADING, MIRROR_LIST_HEADING, renderForkList, renderMirrorList, withSection, withSections } from '../src/fork/fork-list.ts';
 
 const withForkList = (text: string, section: string | null) => withSection(text, FORK_LIST_HEADING, section);
 
@@ -50,4 +50,17 @@ test('withSections: each in place in one pass; a heading twice is skipped, the r
 	const fix = '## Links to fix\n\n- a';
 	assert.deepEqual(withSections('Prose.\n', [[FORK_LIST_HEADING, S], ['## Links to fix', fix]]), { text: `Prose.\n\n${S}\n\n${fix}\n`, skipped: [] });
 	assert.deepEqual(withSections(`${S}\n\n${S}\n`, [[FORK_LIST_HEADING, S2], ['## Links to fix', fix]]), { text: `${S}\n\n${S}\n\n${fix}\n`, skipped: [FORK_LIST_HEADING] });
+});
+
+test('renderMirrorList: its own heading; with the fork list, each section in its place', () => {
+	assert.equal(renderMirrorList([]), null);
+	const M = renderMirrorList(['[[b]]', '[[a]]']);
+	assert.equal(M, '## Mirrored pages\n\n- [[a]]\n- [[b]]');
+	// Both new: in the order given, mirrors first.
+	assert.equal(withSections('Prose.\n', [[MIRROR_LIST_HEADING, M], [FORK_LIST_HEADING, S]]).text, `Prose.\n\n${M}\n\n${S}\n`);
+	// A mirror forked: off one list and onto the other, the rest untouched.
+	const after = withSections(`Prose.\n\n${M}\n\n${S}\n`, [[MIRROR_LIST_HEADING, renderMirrorList(['[[a]]'])], [FORK_LIST_HEADING, S2]]).text;
+	assert.equal(after, `Prose.\n\n## Mirrored pages\n\n- [[a]]\n\n${S2}\n`);
+	// The last mirror gone: its section goes, the fork list stays.
+	assert.equal(withSections(after, [[MIRROR_LIST_HEADING, null]]).text, `Prose.\n\n${S2}\n`);
 });

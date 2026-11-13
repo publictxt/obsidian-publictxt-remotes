@@ -1,5 +1,5 @@
 // One source in the check view: a header that opens and closes it, then an error, "nothing
-// new", or what's new, watched and forks; then all files, when asked for (docs/spec.md → Check view). Draws only: clicks are
+// new", or what's new, mirrors and forks; then all files, when asked for (docs/spec.md → Check view). Draws only: clicks are
 // the view's. An element says what a click on it does with `data-open` (a note to open) or
 // `data-action`; the source it belongs to is the nearest `data-source` (the source's key).
 
@@ -11,7 +11,7 @@ import { isLocalRepo } from '../sources/repo-url.ts';
 import { treeFlair, treeItem, type TreeItem } from './tree.ts';
 
 /** What a click in the view can do: the `data-action` of the element clicked. */
-export const CHECK_ACTIONS = ['check', 'snapshot', 'ack', 'fork', 'fork-selected', 'toggle-source', 'toggle-folder', 'select', 'select-folder', 'browse', 'toggle-all-folder', 'select-all-folder', 'compare', 'detach', 'keep-gone'] as const;
+export const CHECK_ACTIONS = ['check', 'snapshot', 'ack', 'mirror', 'mirror-selected', 'unmirror', 'update-mirror', 'update-mirrors', 'fork', 'fork-selected', 'toggle-source', 'toggle-folder', 'select', 'select-folder', 'browse', 'toggle-all-folder', 'select-all-folder', 'compare', 'detach', 'keep-gone'] as const;
 
 export type CheckAction = (typeof CHECK_ACTIONS)[number];
 
@@ -41,7 +41,7 @@ export interface SourceUi {
 	open: boolean | null;
 	/** Folders in what's new the user opened (`true`) or closed, by path. */
 	folders: Map<string, boolean>;
-	/** Repo paths of the files ticked for forking. */
+	/** Repo paths of the files ticked, to mirror or fork. */
 	selected: Set<string>;
 	/** Whether all files are shown. */
 	browse: boolean;
@@ -91,6 +91,9 @@ function listed(c: SourceCheck, list: FileList): ListedFiles {
 	return n;
 }
 
+/** What a mirrored file's row says, where one not mirrored offers "Mirror". Lower case, as "forked" is. */
+const MIRRORED: string = 'mirrored';
+
 /** What a click on a folder row, or its tick box, does: in what's new, or in all files. */
 const FOLDER_ACTIONS: Record<FileList, { toggle: CheckAction; select: Extract<CheckAction, 'select-folder' | 'select-all-folder'> }> = {
 	new: { toggle: 'toggle-folder', select: 'select-folder' },
@@ -119,19 +122,22 @@ export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi)
 	if (!hasNews(c)) el.createEl('p', { cls: 'publictxt-quiet', text: 'Nothing new since you last looked.' });
 	actions(el, c, ui);
 	changes(el, d);
-	watched(el, d);
+	mirrors(el, c);
 	forks(el, c);
 	allFiles(el, d);
 }
 
 /** What can be done with the whole source: before the lists, which can be long. */
 function actions(el: HTMLElement, c: SourceCheck, ui: SourceUi): void {
-	const seeable = c.changes.length > 0 || c.watched.length > 0 || c.reason !== null;
+	const seeable = c.changes.length > 0 || c.reason !== null;
 	const selected = selectedPaths(c, ui.selected).length;
+	const stale = c.mirrors.filter((m) => m.status === 'modified').length;
 	const row = el.createDiv({ cls: 'publictxt-actions' });
 	if (seeable) row.createEl('button', { text: 'Mark as seen', attr: actionAttrs('ack') });
 	row.createEl('button', { text: ui.browse ? 'Hide all files' : 'Browse all files', attr: { ...actionAttrs('browse'), 'aria-label': 'Every file at head, whatever you have seen' } });
-	if (selected) row.createEl('button', { text: `Fork selected (${selected})`, cls: 'mod-cta', attr: actionAttrs('fork-selected') });
+	if (stale) row.createEl('button', { text: `Update mirrors (${stale})`, attr: { ...actionAttrs('update-mirrors'), 'aria-label': 'Overwrite each mirror with what is upstream now. Edited ones are left.' } });
+	if (selected) row.createEl('button', { text: `Mirror selected (${selected})`, cls: 'mod-cta', attr: { ...actionAttrs('mirror-selected'), 'aria-label': 'Copy them into the community folder, as upstream\'s' } });
+	if (selected) row.createEl('button', { text: `Fork selected (${selected})`, attr: { ...actionAttrs('fork-selected'), 'aria-label': 'Take them into your notes, as yours' } });
 }
 
 /** The row that opens and closes the source. Returns where its details go, or `null` when closed. */
@@ -149,12 +155,12 @@ function header(source: HTMLElement, r: SourceResult, open: boolean): HTMLElemen
 	return item.children;
 }
 
-/** What a closed source still says: `New 4 · Forks 1`. */
+/** What a closed source still says: `New 4 · Mirrors 2 · Forks 1`. */
 function summary(r: SourceResult): string {
 	if (r.check === null) return 'Error';
 	const counts: [string, number][] = [
 		['New', r.check.changes.length],
-		['Watched', r.check.watched.length],
+		['Mirrors', r.check.mirrors.length],
 		['Forks', r.check.forks.length],
 	];
 	const parts = counts.filter(([, n]) => n > 0).map(([label, n]) => `${label} ${n}`);
@@ -195,11 +201,25 @@ function folderRows(parent: HTMLElement, folder: TreeFolder<RemoteFile>, d: Draw
 	for (const file of folder.files) fileRow(parent, file.name, file.item, d);
 }
 
-function watched(el: HTMLElement, d: Drawing): void {
-	const { c } = d;
-	if (!c.watched.length) return;
-	el.createEl('h5', { text: `Watched (${c.watched.length})` });
-	for (const w of c.watched) fileRow(el, w.path, w, d);
+/** One row per upstream file whose mirror isn't what is at head, then a row per mirror note. */
+function mirrors(el: HTMLElement, c: SourceCheck): void {
+	if (!c.mirrors.length) return;
+	el.createEl('h5', { text: `Mirrors changed upstream (${c.mirrors.length})` });
+	for (const m of c.mirrors) {
+		const { inner } = treeItem(el);
+		inner.createSpan({ cls: `publictxt-status-${m.status}`, text: m.status === 'removed' ? 'gone upstream' : 'changed upstream' });
+		inner.appendText(` ${m.path}`);
+		if (m.status === 'modified') rowAction(inner, 'update-mirror', m.path, 'Update', 'Overwrite the mirror with what is upstream now');
+		else {
+			rowAction(inner, 'unmirror', m.path, 'Remove', 'Stop mirroring: the mirror goes to the trash');
+			rowAction(inner, 'fork', m.path, 'Fork', 'Keep it: the mirror moves into your notes, as your fork');
+		}
+		for (const note of m.notes) {
+			const row = treeItem(el);
+			row.self.addClass('publictxt-copy');
+			row.inner.createEl('a', { text: note.path, attr: { 'data-open': note.path } });
+		}
+	}
 }
 
 /** One row per upstream file, then a row per note forked from it, latest first. */
@@ -210,10 +230,10 @@ function forks(el: HTMLElement, c: SourceCheck): void {
 		const { inner } = treeItem(el);
 		inner.createSpan({ cls: `publictxt-status-${f.status}`, text: f.status === 'removed' ? 'gone upstream' : 'changed upstream' });
 		inner.appendText(` ${f.path}`);
-		if (f.status === 'modified') forkAction(inner, 'compare', f.path, 'Compare', 'Compare the latest copy with upstream');
+		if (f.status === 'modified') rowAction(inner, 'compare', f.path, 'Compare', 'Compare the latest copy with upstream');
 		else {
-			forkAction(inner, 'detach', f.path, 'Detach', 'Make these notes no longer forks');
-			forkAction(inner, 'keep-gone', f.path, 'Keep', 'Keep them as forks, and stop listing this');
+			rowAction(inner, 'detach', f.path, 'Detach', 'Make these notes no longer forks');
+			rowAction(inner, 'keep-gone', f.path, 'Keep', 'Keep them as forks, and stop listing this');
 		}
 		for (const [i, copy] of f.copies.entries()) {
 			const row = treeItem(el);
@@ -224,13 +244,13 @@ function forks(el: HTMLElement, c: SourceCheck): void {
 	}
 }
 
-/** A link at the end of a fork's row that does `action` for the upstream file `path`. */
-function forkAction(inner: HTMLElement, action: Extract<CheckAction, 'compare' | 'detach' | 'keep-gone'>, path: string, text: string, label: string): void {
+/** A link at the end of a row that does `action` for the upstream file `path`. */
+function rowAction(inner: HTMLElement, action: CheckAction, path: string, text: string, label: string): void {
 	inner.appendText(' ');
 	inner.createEl('a', { text, cls: 'publictxt-fork', attr: { ...actionAttrs(action, path), 'aria-label': label } });
 }
 
-/** A remote file, as a change, a watched path, or a file at head (no status). */
+/** A remote file, as a change or a file at head (no status). */
 interface RemoteFile {
 	path: string;
 	status: string | null;
@@ -239,9 +259,10 @@ interface RemoteFile {
 }
 
 /**
- * A file's row: a tick box and a "fork" action if it can be forked, what happened to it, then
- * `label` (its name, or its path where there is no tree). One already forked has "compare"
- * before "fork" while its forks aren't settled, else the word "forked".
+ * A file's row: what happened to it, then `label` (its name), then, if it is Markdown and at
+ * head, a tick box and its actions. "Mirror", or for one already mirrored the word "mirrored"
+ * (which opens the mirror) and "stop". Then "fork"; one already forked has "compare" before
+ * it while its forks aren't settled, else the word "forked".
  */
 function fileRow(parent: HTMLElement, label: string, file: RemoteFile, d: Drawing): void {
 	const { c, ui } = d;
@@ -255,16 +276,22 @@ function fileRow(parent: HTMLElement, label: string, file: RemoteFile, d: Drawin
 	if (file.from) inner.appendText(` (from ${file.from})`);
 	if (!canFork({ path: file.path, status: file.status ?? '' })) return;
 	tickBox(item, 'select', file.path, ui.selected.has(file.path) ? 'all' : 'none');
+	const mirror = c.mirrored.get(file.path);
+	if (mirror === undefined) rowAction(inner, 'mirror', file.path, 'Mirror', `Copy ${file.path} into the community folder, as upstream's`);
+	else {
+		inner.appendText(' ');
+		inner.createEl('a', { cls: 'publictxt-quiet', text: MIRRORED, attr: { 'data-open': mirror, 'aria-label': `Open ${mirror}` } });
+		rowAction(inner, 'unmirror', file.path, 'Stop', 'Stop mirroring: the mirror goes to the trash');
+	}
 	// Already forked: say so, and offer the compare when a copy hasn't seen this version.
-	if (d.unsettled.has(file.path)) forkAction(inner, 'compare', file.path, 'Compare', 'Compare your fork with upstream');
+	if (d.unsettled.has(file.path)) rowAction(inner, 'compare', file.path, 'Compare', 'Compare your fork with upstream');
 	else if (c.forked.has(file.path)) inner.createSpan({ cls: 'publictxt-quiet', text: ' forked' });
-	inner.appendText(' ');
-	inner.createEl('a', { text: 'Fork', cls: 'publictxt-fork', attr: { ...actionAttrs('fork', file.path), 'aria-label': `Fork ${file.path} into the vault` } });
+	rowAction(inner, 'fork', file.path, 'Fork', mirror === undefined ? `Fork ${file.path} into your notes` : 'Move the mirror into your notes, as your fork');
 }
 
 /** A tick box at the start of a row, for the file or folder `path`: ticked, half ticked or clear. */
 function tickBox(item: TreeItem, action: Extract<CheckAction, 'select' | 'select-folder' | 'select-all-folder'>, path: string, state: Ticked): void {
-	const box = item.self.createEl('input', { type: 'checkbox', prepend: true, attr: { ...actionAttrs(action, path), 'aria-label': `Select ${path} to fork` } });
+	const box = item.self.createEl('input', { type: 'checkbox', prepend: true, attr: { ...actionAttrs(action, path), 'aria-label': `Select ${path}` } });
 	box.checked = state === 'all';
 	box.indeterminate = state === 'some';
 }

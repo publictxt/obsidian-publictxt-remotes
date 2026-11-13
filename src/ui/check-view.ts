@@ -10,6 +10,7 @@ import { forkableUnder, selectedPaths, toggleAll, type FileList } from '../check
 import { compareChange } from '../fork/compare-run.ts';
 import { startFork, type ForkSource } from '../fork/run.ts';
 import { detach, keepGone } from '../fork/update-run.ts';
+import { mirrorFiles, stopMirroring, updateMirror, updateMirrors } from '../mirror/run.ts';
 import { errorText } from '../remote/vault-host.ts';
 import { ConfirmModal } from './confirm-modal.ts';
 import { actionAttrs, checkAction, folderOpen, newSourceUi, renderSource, sourceOpen, type CheckAction, type SourceUi } from './check-source.ts';
@@ -98,6 +99,21 @@ export class CheckView extends ItemView {
 			case 'ack':
 				void this.plugin.acknowledge(url);
 				break;
+			case 'mirror':
+				if (path) this.mirror(url, [path]);
+				break;
+			case 'mirror-selected':
+				this.mirrorSelected(url);
+				break;
+			case 'unmirror':
+				if (path) this.unmirror(url, path);
+				break;
+			case 'update-mirror':
+				if (path) this.updateMirror(url, path);
+				break;
+			case 'update-mirrors':
+				this.updateMirrors(url);
+				break;
 			case 'fork':
 				if (path) this.fork(url, path);
 				break;
@@ -170,7 +186,7 @@ export class CheckView extends ItemView {
 		return this.plugin.lastRun?.results.find((r) => r.follow.url === url);
 	}
 
-	/** Ticks `paths` for forking, or clears them when all were ticked. */
+	/** Ticks `paths`, or clears them when all were ticked. */
 	private select(url: string, paths: readonly string[]): void {
 		toggleAll(this.uiOf(url).selected, paths);
 		this.render();
@@ -181,7 +197,7 @@ export class CheckView extends ItemView {
 		if (c) this.select(url, forkableUnder(c, folder, list));
 	}
 
-	/** The source `url` as the last check saw it: forks come from the head the user is looking at. */
+	/** The source `url` as the last check saw it: mirrors and forks come from the head the user is looking at. */
 	private forkSource(url: string): { from: ForkSource; check: SourceCheck } | null {
 		const r = this.result(url);
 		if (!r?.check) return null;
@@ -190,7 +206,40 @@ export class CheckView extends ItemView {
 
 	private fork(url: string, path: string): void {
 		const source = this.forkSource(url);
-		if (source) void startFork(this.app, this.plugin.data, source.from, [path]);
+		if (source) void startFork(this.plugin, source.from, [path]);
+	}
+
+	private mirror(url: string, paths: readonly string[], done?: () => void): void {
+		const source = this.forkSource(url);
+		if (source) void mirrorFiles(this.plugin, source.from, paths, done);
+	}
+
+	/** Mirrors the ticked files, then clears the ticks. */
+	private mirrorSelected(url: string): void {
+		const c = this.result(url)?.check;
+		if (!c) return;
+		const { selected } = this.uiOf(url);
+		this.mirror(url, selectedPaths(c, selected), () => {
+			selected.clear();
+			this.render();
+		});
+	}
+
+	private unmirror(url: string, path: string): void {
+		const r = this.result(url);
+		if (r) stopMirroring(this.plugin, r.follow, path);
+	}
+
+	/** Overwrites one upstream file's mirrors with what the last check found at head. */
+	private updateMirror(url: string, path: string): void {
+		const c = this.result(url)?.check;
+		const change = c?.mirrors.find((m) => m.path === path);
+		if (c && change) void updateMirror(this.plugin, url, c.head, change).catch((e: unknown) => void new Notice(errorText(e)));
+	}
+
+	private updateMirrors(url: string): void {
+		const r = this.result(url);
+		if (r?.check) void updateMirrors(this.plugin, url, r.follow.name, r.check.head, r.check.mirrors).catch((e: unknown) => void new Notice(errorText(e)));
 	}
 
 	/** Forks the ticked files, then clears the ticks. */
@@ -198,7 +247,7 @@ export class CheckView extends ItemView {
 		const source = this.forkSource(url);
 		if (!source) return;
 		const { selected } = this.uiOf(url);
-		void startFork(this.app, this.plugin.data, source.from, selectedPaths(source.check, selected), () => {
+		void startFork(this.plugin, source.from, selectedPaths(source.check, selected), () => {
 			selected.clear();
 			this.render();
 		});

@@ -14,10 +14,10 @@ export interface Source {
 	branch: string | null;
 	/** Folder prefixes ending in `/`. Empty: the whole repo. */
 	include: string[];
-	/** Repo-relative file paths reported on whenever they change. */
-	watch: string[];
-	/** Folder for forks from this source, under `remotesRoot`; `null`: the remote name. */
+	/** Folder for this source's mirrors, under `communityFolder`; `null`: the remote name. */
 	folder: string | null;
+	/** Keep this follow note's mirror list; `null`: the `listMirrors` setting decides. */
+	listMirrors: boolean | null;
 	/** Keep this follow note's fork list; `null`: the `listForks` setting decides. */
 	listForks: boolean | null;
 }
@@ -26,20 +26,22 @@ export interface Source {
 export interface SourceState {
 	seenCommit: string | null;
 	checkedAt: string | null;
-	/** Watched path → blob SHA last acknowledged. */
-	watched: Record<string, string>;
 }
 
 export interface PublicTxtData {
 	version: number;
-	/** Vault folder holding each source's folder of forks; `''`: the vault root (docs/spec.md → Fork). */
-	remotesRoot: string;
+	/** Vault folder holding each source's folder of mirrors; `''`: the vault root (docs/spec.md → Mirror). */
+	communityFolder: string;
+	/** Vault folder forks go to when they don't go to the folder they are in in the source; `''`: the vault root. */
+	forkFolder: string;
 	/** Open the fork modal on the remote file's folder when the vault has it (docs/spec.md → Fork). */
 	matchFolders: boolean;
-	/** Keep a fork list in each follow note (docs/spec.md → Fork list). */
+	/** Keep a mirror list in each follow note (docs/spec.md → Mirror and fork lists). */
+	listMirrors: boolean;
+	/** Keep a fork list in each follow note (docs/spec.md → Mirror and fork lists). */
 	listForks: boolean;
 	/** Vault folder holding the bare clones (docs/spec.md → Remote host). */
-	remotesFolder: string;
+	clonesFolder: string;
 	/** The git executable; `git`: whatever is on PATH. */
 	gitPath: string;
 	/** Keyed by `Source.url`. Sources themselves are notes, not data. */
@@ -50,10 +52,12 @@ export interface PublicTxtData {
 
 export const DEFAULT_DATA: PublicTxtData = {
 	version: DATA_VERSION,
-	remotesRoot: 'remotes',
-	matchFolders: false,
+	communityFolder: 'community',
+	forkFolder: '',
+	matchFolders: true,
+	listMirrors: false,
 	listForks: false,
-	remotesFolder: '.remotes',
+	clonesFolder: '.clones',
 	gitPath: 'git',
 	state: {},
 	localPaths: {},
@@ -94,25 +98,17 @@ export function normalizeSource(v: unknown, name: string | null = null): Source 
 		url,
 		branch: str(v.branch),
 		include: paths(v.include, true),
-		watch: paths(v.watch, false),
 		folder: folder || null,
+		listMirrors: typeof v.list_mirrors === 'boolean' ? v.list_mirrors : null,
 		listForks: typeof v.list_forks === 'boolean' ? v.list_forks : null,
 	};
 }
 
 function normalizeState(v: unknown): SourceState {
 	const r = isRecord(v) ? v : {};
-	const watched: Record<string, string> = {};
-	if (isRecord(r.watched)) {
-		for (const [k, blob] of Object.entries(r.watched)) {
-			const p = repoPath(k);
-			if (p && isSha(blob)) watched[p] = blob;
-		}
-	}
 	return {
 		seenCommit: isSha(r.seenCommit) ? r.seenCommit : null,
 		checkedAt: str(r.checkedAt),
-		watched,
 	};
 }
 
@@ -136,11 +132,13 @@ export function normalizeData(v: unknown): PublicTxtData {
 		}
 	}
 
-	// An old `forkFolder` is dropped: the remotes root took its place.
-	const remotesRoot = typeof r.remotesRoot === 'string' ? r.remotesRoot.trim().replace(/^\/+|\/+$/g, '') : DEFAULT_DATA.remotesRoot;
-	const remotesFolder = vaultFolder(r.remotesFolder) || DEFAULT_DATA.remotesFolder;
+	// `''` is the vault root, so only a missing key takes the default.
+	const communityFolder = typeof r.communityFolder === 'string' ? (vaultFolder(r.communityFolder) ?? '') : DEFAULT_DATA.communityFolder;
+	const forkFolder = vaultFolder(r.forkFolder) ?? DEFAULT_DATA.forkFolder;
+	const clonesFolder = vaultFolder(r.clonesFolder) || DEFAULT_DATA.clonesFolder;
 	const gitPath = str(r.gitPath) ?? DEFAULT_DATA.gitPath;
 	const matchFolders = typeof r.matchFolders === 'boolean' ? r.matchFolders : DEFAULT_DATA.matchFolders;
+	const listMirrors = typeof r.listMirrors === 'boolean' ? r.listMirrors : DEFAULT_DATA.listMirrors;
 	const listForks = typeof r.listForks === 'boolean' ? r.listForks : DEFAULT_DATA.listForks;
-	return { version: DATA_VERSION, remotesRoot, matchFolders, listForks, remotesFolder, gitPath, state, localPaths };
+	return { version: DATA_VERSION, communityFolder, forkFolder, matchFolders, listMirrors, listForks, clonesFolder, gitPath, state, localPaths };
 }

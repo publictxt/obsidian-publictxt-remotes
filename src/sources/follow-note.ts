@@ -49,8 +49,8 @@ export function followProps(s: Source): Record<string, string | string[] | boole
 		local: local ? true : undefined,
 		branch: s.branch ?? undefined,
 		include: s.include.length ? s.include : undefined,
-		watch: s.watch.length ? s.watch : undefined,
 		folder: s.folder ?? undefined,
+		list_mirrors: s.listMirrors ?? undefined,
 		list_forks: s.listForks ?? undefined,
 	};
 }

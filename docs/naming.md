@@ -11,7 +11,7 @@ and command ids freeze at the first release.
 | Plugin `id` | `publictxt-remotes` | Freezes at the first release. Remotes: repos and vaults elsewhere; a local source is the special case |
 | Display `name` | PublicTxt Remotes | |
 | View types | `publictxt-check`, `publictxt-upstream` | Freeze at the first release |
-| Command ids | `check-sources`, `open-check-view`, `fork-file`, `compare-fork`, `snapshot-local-sources`, `update-fork-lists` | Freeze at the first release |
+| Command ids | `check-sources`, `open-check-view`, `mirror-file`, `stop-mirroring`, `fork-mirror`, `fork-file`, `compare-fork`, `convert-links`, `convert-links-all`, `snapshot-local-sources`, `update-page-lists` | Freeze at the first release |
 
 ## Vocabulary
 
@@ -20,24 +20,29 @@ and command ids freeze at the first release.
 | source | A repo the user follows, hosted or local: a follow note in `follows/` (publictext spec §3.2) |
 | follow note | The note that is a source; front matter holds its fields, the body the user's prose |
 | include | Folder prefixes narrowing a source's "what's new" |
-| watch | Remote files reported on whenever they change |
-| fork | A vault note copied from a source file, carrying `fork_*` provenance |
+| follow | To subscribe to a repo: add it as a source. Only repos are followed; pages are mirrored |
+| mirror | Upstream's copy of a source file, in the vault under the community folder, carrying `mirror_*` provenance. Kept current by overwriting; not for editing. Also the action |
+| fork | The user's own note made from a source file, carrying `fork_*` provenance. Forking a mirrored file moves its mirror |
 | copy | One of the notes forked from the same upstream file. A note written alongside is a copy |
 | latest | The copy with the newest `fork_date`: the one the check view compares |
 | settled | A copy that needs nothing done about an upstream version: its text came from it, or it has seen it (`fork_seen`) |
 | compare | A fork note with the Upstream view beside it |
-| remotes root | The vault folder holding each source's folder of forks (`remotesRoot`, `remotes`) |
-| clones folder | The hidden folder of git clones (`remotesFolder`, `.remotes`) |
-| fork list | The "Forked pages" section the plugin keeps in a follow note |
+| community folder | The vault folder holding each source's folder of mirrors (`communityFolder`, `community`). Named for readers: it is a section of the published site |
+| mirror folder | A source's folder under the community folder: its `folder`, else its remote name |
+| fork folder | Where forks go when not to the folder they are in in the source (`forkFolder`, the vault root) |
+| clones folder | The hidden folder of git clones (`clonesFolder`, `.clones`) |
+| remote | The technical word for a source: the plugin's name, the remote name, `fork_remote`, `mirror_remote`. Not a folder |
+| mirror list | The "Mirrored pages" section the plugin keeps in a follow note (`listMirrors`, `list_mirrors`) |
+| fork list | The "Forked pages" section the plugin keeps in a follow note (`listForks`, `list_forks`) |
 | convert links | Point a fork's links at the vault's copies, in the vault's link style |
 | link by name | A link with no path, `[[b]]` or `[b](b.md)`: lands on the vault's note of that name, or dangles |
 | links to fix | The follow note section listing links converting left as they were, and why |
 | links to check | The follow note section listing links converting made a call on |
-| check | One pass over the sources: what's new, watched, forks |
+| check | One pass over the sources: what's new, mirrors, forks |
 | head | The tracked branch's latest commit |
 | blob | A file's git blob SHA |
-| clone | A source's bare partial clone under `remotesFolder` |
-| remote name | A source's name: its follow note's file name. Forks record it as `fork_remote` |
+| clone | A source's bare partial clone under `clonesFolder`. Never a copy of a page: that is a mirror |
+| remote name | A source's name: its follow note's file name. Mirrors and forks record it (`mirror_remote`, `fork_remote`) |
 | source key | `Source.url`: the canonical URL, or `local:<name>` for a local source |
 | local source | A source on this computer: `local: true` in its note, its folder in `localPaths`; "local repo" in code |
 | snapshot | A commit of everything changed in a local source's folder, made only if something changed |
@@ -47,21 +52,26 @@ and command ids freeze at the first release.
 
 | Name | What |
 |---|---|
-| `PublicTxtData` | Everything in `data.json`: `{ version, remotesRoot, matchFolders, listForks, remotesFolder, gitPath, state, localPaths }` |
+| `PublicTxtData` | Everything in `data.json`: `{ version, communityFolder, forkFolder, matchFolders, listMirrors, listForks, clonesFolder, gitPath, state, localPaths }` |
 | `Source` | One followed repo, read from its follow note |
 | `FOLLOWS_FOLDER` | `follows` |
 | `readFollow()` / `followProps()` | Front matter ↔ `Source` |
 | `collectFollows()` | Follow notes → sources, duplicates and invalid notes |
 | `SourceState` | Per-source cache |
 | `ForkMeta` | A fork's provenance, read from or written to front matter |
+| `MirrorMeta` / `Mirror` | A mirror's provenance (a `ForkMeta` without `seen`) / a mirror note and its provenance |
 | `canonicalRepoUrl()` | v0 canonical repo URL (`https:`), or `null` |
 | `normalizeData()` | Anything loaded → valid `PublicTxtData` |
 | `readForkMeta()` / `forkMetaProps()` | Front matter ↔ `ForkMeta` |
+| `readMirrorMeta()` / `mirrorMetaProps()` / `writeMirrorMeta()` | Front matter ↔ `MirrorMeta`. A note with valid `fork_*` keys is a fork, not a mirror |
+| `PROVENANCE_KEYS` / `clearProvenance()` | Every `fork_*` and `mirror_*` key / removes them all: writing one kind clears the other |
+| `scanForks()` / `scanMirrors()` | Every fork / mirror note in the vault, from the metadata cache |
 | `SourceForm` | The source form's raw text; lists one path per line |
 | `checkAdd()` / `checkUpdate()` | Form → the source to write, or why not. Pure |
 | `SourceModal` | The add/edit source form |
 | `checkSource()` | One source's check against a `RemoteHost`. Pure |
-| `SourceCheck` | Its result: `changes` (with `reason`), `watched`, `forks` |
+| `SourceCheck` | Its result: `changes` (with `reason`), `mirrors` and `mirrored`, `forks` and `forked` |
+| `MirrorChange` | An upstream file whose mirrors aren't what is at head |
 | `checked()` / `acknowledged()` | State after a check / after "mark as seen" |
 | `runCheck()` | Every source, from the vault; returns results and state to save |
 | `CheckView` | The check view: the last check, and its clicks |
@@ -78,25 +88,33 @@ and command ids freeze at the first release.
 | `choose()` | A question with a few answers (`ChoiceModal`) |
 | `vaultHost()` | The `RemoteHost` for this vault's settings. Desktop only |
 | `Destination` | The fork modal's choice: each file's folder as in the source (`same`), or one `folder` |
-| `sourceFolderOf()` | A source's folder for forks: its `folder`, else its name, under the root. Pure |
 | `initialDestination()` | The destination the modal opens with, and which rule chose it (`FolderReason`). Pure |
 | `resolveForks()` | A destination, and a typed name for one file → the plan and its new folders, or the error. Pure |
 | `forkPath()` / `freePath()` | Default vault path for a fork / the first free numbered one. Pure |
 | `newForkMeta()` | Provenance for a file forked now. Pure |
-| `startFork()` / `ForkSource` | Asks where one or several forks go (`ForkModal`), then writes them (`writeFork()`) |
+| `startFork()` / `ForkSource` | Asks where one or several forks go (`ForkModal`), then writes them (`writeFork()`), or moves their mirrors (`forkMirror()`) |
+| `mirrorFolderOf()` / `mirrorPath()` | A source's mirror folder under the community folder / a mirror's vault path in it. Pure |
+| `planMirrors()` / `PlannedMirror` | What mirroring each file comes to: `new`, `mirrored` already, or its place `taken`. Pure |
+| `newMirrorMeta()` / `updatedMirrorMeta()` / `forkedMeta()` | Provenance for a file mirrored now / after an update / as the fork a mirror becomes. Pure |
+| `mirrorFiles()` | Mirrors files from a source at its head, without asking where |
+| `updateMirror()` / `updateMirrors()` | Overwrites one upstream file's mirrors (asking if edited) / all of a check's (edited ones left) |
+| `stopMirroring()` / `stopMirroringActive()` | Trashes a file's mirrors after asking / the `stop-mirroring` command |
+| `mirrorsNow()` | Brings the last check in line with mirrors just added, dropped or updated |
+| `noteParts()` / `writeWithProvenance()` | A note's parsed front matter and body / creates a note and adds its keys, never overwriting |
 | `renderForkPreview()` | What the fork modal's choices would write, or the error |
 | `suggestFolders()` | The vault's folders under a text field, to pick from while typing |
-| `forkFromSource()` | The fork command: pick a source, then a file |
-| `renderForkList()` | A follow note's fork list section. Pure |
+| `forkFromSource()` / `mirrorFromSource()` / `forkActiveMirror()` | The `fork-file`, `mirror-file` and `fork-mirror` commands |
+| `renderMirrorList()` / `renderForkList()` | A follow note's mirror list / fork list section. Pure |
 | `withSection()` / `withSections()` | A note with a plugin-owned `## …` section (or several) replaced. Pure |
 | `writeSections()` | Writes plugin-owned sections into a note, once, only if they changed |
-| `wantsForkList()` | Whether a follow note keeps a fork list: its `list_forks`, else the setting |
-| `syncForkLists()` / `ForkLists` | Rewrites changed fork lists / keeps them current after vault changes |
+| `wantsMirrorList()` / `wantsForkList()` | Whether a follow note keeps each list: its `list_mirrors` / `list_forks`, else the setting |
+| `listedAs()` | What the lists say of a note: mirror or fork, and of which source. A sync is due only when it changes |
+| `syncForkLists()` / `ForkLists` | Rewrites the mirror and fork lists that changed / keeps them current after vault changes |
 | `remoteName()` / `remoteNameProblem()` / `defaultRemoteName()` | A follow note's name / why a name is invalid / the suggested name. Pure |
 | `localKey()` / `isLocalRepo()` / `localName()` / `sourceKey()` | `local:<name>` / whether a key is local / its name / a valid key from data. Pure |
 | `localPathInput()` / `fileUrl()` | A typed folder or `file:///` URL → absolute path / a path → `file:///` URL for git. Pure |
 | `localFolder()` | A local source's folder on this computer, from `localPaths`, or a `not-found` error |
-| `isForkOf()` / `Remote` | Whether a fork belongs to a source: by `fork_remote`, else `fork_repo` |
+| `isForkOf()` / `Remote` | Whether a fork or a mirror belongs to a source: by its remote name, else its repo |
 | `writeForkMeta()` | Sets a fork's `fork_*` keys and removes stale ones |
 | `setForkSeen()` / `clearForkMeta()` | Sets `fork_seen` alone / removes every `fork_*` key |
 | `ForkChange` | An upstream file that changed under its `copies` |
