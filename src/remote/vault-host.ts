@@ -2,23 +2,20 @@
 
 import { App, FileSystemAdapter } from 'obsidian';
 import type { PublicTxtData } from '../sources/schema.ts';
-import { gitHost } from './git-process.ts';
-import { fileUrl, isLocalRepo, localName } from '../sources/repo-url.ts';
+import { gitHost, isFolderNow } from './git-process.ts';
+import { scanFollows } from '../sources/follows.ts';
+import { fetchFrom } from './fetch-from.ts';
 import { RemoteError, type RemoteHost } from './host.ts';
 
-/** The folder of the local source keyed `key` on this computer. Throws if none is set. */
-export function localFolder(data: PublicTxtData, key: string): string {
-	const name = localName(key);
-	const path = data.localPaths[name];
-	if (!path) throw new RemoteError('not-found', 'No folder set on this computer: set one with Edit in the source\'s settings.');
-	return path;
-}
-
-/** The git host with clones under the vault's `clonesFolder`; local sources fetch from their folder. Desktop only. */
+/**
+ * The git host with clones under the vault's `clonesFolder`; a local source, and a hosted one
+ * with a local copy, fetch from their folder. Desktop only.
+ */
 export function vaultHost(app: App, data: PublicTxtData): RemoteHost {
 	const adapter = app.vault.adapter;
 	if (!(adapter instanceof FileSystemAdapter)) throw new Error('This needs the desktop app.');
-	const remote = (key: string) => (isLocalRepo(key) ? fileUrl(localFolder(data, key)) : key);
+	const nameOf = (key: string) => scanFollows(app).follows.find((f) => f.url === key)?.name;
+	const remote = (key: string) => fetchFrom(data, key, nameOf, isFolderNow);
 	return gitHost(data.gitPath, adapter.getBasePath(), data.clonesFolder, remote);
 }
 

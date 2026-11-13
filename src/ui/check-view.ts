@@ -12,6 +12,7 @@ import { startFork, type ForkSource } from '../fork/run.ts';
 import { detach, keepGone } from '../fork/update-run.ts';
 import { mirrorFiles, stopMirroring, updateMirror, updateMirrors } from '../mirror/run.ts';
 import { errorText } from '../remote/vault-host.ts';
+import { hasFolder } from '../snapshot/run.ts';
 import { ConfirmModal } from './confirm-modal.ts';
 import { actionAttrs, checkAction, folderOpen, newSourceUi, renderSource, sourceOpen, type CheckAction, type SourceUi } from './check-source.ts';
 
@@ -64,7 +65,7 @@ export class CheckView extends ItemView {
 		if (lastRun.ignored) {
 			el.createEl('p', { cls: 'publictxt-warning', text: `${lastRun.ignored} follow notes ignored: see settings.` });
 		}
-		for (const r of lastRun.results) renderSource(el, r, this.uiOf(r.follow.url));
+		for (const r of lastRun.results) renderSource(el, r, this.uiOf(r.follow.url), hasFolder(this.plugin.data, r.follow));
 		el.scrollTop = scrolled;
 	}
 

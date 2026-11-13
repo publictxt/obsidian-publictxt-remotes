@@ -3,14 +3,14 @@
 
 import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import type PublicTxtPlugin from './main.ts';
-import { DEFAULT_DATA, type PublicTxtData } from './sources/schema.ts';
+import { DEFAULT_DATA, type PublicTxtData, type Source } from './sources/schema.ts';
 import { checkAdd, checkUpdate, sourceToForm, type SourceForm } from './sources/edit.ts';
 import { FOLLOWS_FOLDER, type Follow } from './sources/follow-note.ts';
 import { createFollow, scanFollows, trashFollow, updateFollow } from './sources/follows.ts';
 import { suggestFolders } from './ui/folder-suggest.ts';
 import { ConfirmModal } from './ui/confirm-modal.ts';
 import { isLocalRepo } from './sources/repo-url.ts';
-import { prepareLocalFolder } from './snapshot/run.ts';
+import { prepareLocalCopy, prepareLocalFolder } from './snapshot/run.ts';
 import { errorText } from './remote/vault-host.ts';
 import { SourceModal } from './ui/source-modal.ts';
 import { mirrorFolderOf } from './mirror/mirror.ts';
@@ -70,7 +70,7 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 	/** One row per source: its name, a summary, edit and remove. */
 	private follow(f: Follow): void {
 		const local = isLocalRepo(f.url);
-		const folder = local ? (this.plugin.data.localPaths[f.name] ?? null) : null;
+		const folder = this.plugin.data.localPaths[f.name] ?? null;
 		const row = new Setting(this.containerEl)
 			.setName(f.name)
 			.setDesc(summary(f, folder, this.plugin.data.communityFolder))
@@ -117,12 +117,17 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 		}).open();
 	}
 
-	/** Adds a source from the form; a local one's folder is looked at first (and maybe made a repo). */
+	/** Looks at `dir` before it is saved for `s`: a local source's folder (maybe made a repo), or a hosted source's local copy. */
+	private prepare(s: Source, dir: string): Promise<string | null> {
+		return isLocalRepo(s.url) ? prepareLocalFolder(this.app, this.plugin.data, s, dir) : prepareLocalCopy(this.plugin.data, s, dir);
+	}
+
+	/** Adds a source from the form; its folder on this computer, if it has one, is looked at first. */
 	private async add(form: SourceForm): Promise<string | null> {
 		const r = checkAdd(scanFollows(this.app).follows, form);
 		if (!r.ok) return r.error;
 		if (r.localPath !== null) {
-			const problem = await prepareLocalFolder(this.app, this.plugin.data, r.source, r.localPath);
+			const problem = await this.prepare(r.source, r.localPath);
 			if (problem !== null) return problem;
 		}
 		// The folder first: the tab redraws when the new note is seen, and should show it.
@@ -132,13 +137,13 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 		});
 	}
 
-	/** Saves an edit of `f`; a new folder for a local source is looked at first. */
+	/** Saves an edit of `f`; a new folder is looked at first. A hosted source's local copy, cleared, is forgotten. */
 	private async edit(f: Follow, form: SourceForm): Promise<string | null> {
 		const r = checkUpdate(f, form);
 		if (!r.ok) return r.error;
-		const folderChanged = r.localPath !== null && r.localPath !== this.plugin.data.localPaths[f.name];
+		const folderChanged = r.localPath !== (this.plugin.data.localPaths[f.name] ?? null);
 		if (folderChanged && r.localPath !== null) {
-			const problem = await prepareLocalFolder(this.app, this.plugin.data, r.source, r.localPath);
+			const problem = await this.prepare(r.source, r.localPath);
 			if (problem !== null) return problem;
 		}
 		return this.write(async () => {
@@ -147,7 +152,7 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 		});
 	}
 
-	/** Sets (or, `null`, forgets) the folder of the local source `name` on this computer. */
+	/** Sets (or, `null`, forgets) the folder of the source `name` on this computer. */
 	private async setLocalPath(name: string, path: string | null): Promise<void> {
 		const localPaths = { ...this.plugin.data.localPaths };
 		if (path === null) delete localPaths[name];
@@ -205,6 +210,7 @@ function summary(f: Follow, folder: string | null, root: string): string {
 	const where = isLocalRepo(f.url) ? (folder ? `Local: ${folder}` : 'Local: no folder on this computer, set one with Edit') : f.url;
 	const parts = [
 		where,
+		...(!isLocalRepo(f.url) && folder ? [`local copy: ${folder}`] : []),
 		`branch: ${f.branch ?? 'default'}`,
 		f.include.length ? `include: ${f.include.join(', ')}` : 'whole repo',
 	];
