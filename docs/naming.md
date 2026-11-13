@@ -45,7 +45,8 @@ and command ids freeze at the first release.
 | remote name | A source's name: its follow note's file name. Mirrors and forks record it (`mirror_remote`, `fork_remote`) |
 | source key | `Source.url`: the canonical URL, or `local:<name>` for a local source |
 | local source | A source on this computer: `local: true` in its note, its folder in `localPaths`; "local repo" in code |
-| snapshot | A commit of everything changed in a local source's folder, made only if something changed |
+| local copy | A hosted source's working copy on this computer: its folder in `localPaths`, fetched from instead of the network. Still one source, keyed by its URL |
+| snapshot | A commit of everything changed in a local source's folder, or a local copy's, made only if something changed |
 | make a repo | `git init` a local source's folder, with a `.gitignore`, then snapshot it |
 
 ## Code identifiers
@@ -113,7 +114,8 @@ and command ids freeze at the first release.
 | `remoteName()` / `remoteNameProblem()` / `defaultRemoteName()` | A follow note's name / why a name is invalid / the suggested name. Pure |
 | `localKey()` / `isLocalRepo()` / `localName()` / `sourceKey()` | `local:<name>` / whether a key is local / its name / a valid key from data. Pure |
 | `localPathInput()` / `fileUrl()` | A typed folder or `file:///` URL → absolute path / a path → `file:///` URL for git. Pure |
-| `localFolder()` | A local source's folder on this computer, from `localPaths`, or a `not-found` error |
+| `localFolder()` | A source's folder on this computer, from `localPaths` by remote name, or a `not-found` error. Pure |
+| `fetchFrom()` | Where git fetches a source key from: a local source's folder, a hosted source's local copy while it is there, else the URL. Pure |
 | `isForkOf()` / `Remote` | Whether a fork or a mirror belongs to a source: by its remote name, else its repo |
 | `writeForkMeta()` | Sets a fork's `fork_*` keys and removes stale ones |
 | `setForkSeen()` / `clearForkMeta()` | Sets `fork_seen` alone / removes every `fork_*` key |
@@ -144,4 +146,6 @@ and command ids freeze at the first release.
 | `initLocal()` / `newRepoGitignore()` | Makes a folder a repo, with a `.gitignore`, and snapshots it. Pure |
 | `snapshot()` / `SnapshotResult` | Commits a working folder's changes, if any. Pure |
 | `prepareLocalFolder()` | Before adding a local source or setting its folder: refuse, offer to make a repo, or warn |
-| `snapshotAndTell()` / `localFollows()` | Snapshots sources and reports each; offers to make a repo for a single non-repo / every local source |
+| `hasRemote()` / `copyProblem()` | Whether a repo has a remote for a hosted URL / why a folder can't be that source's local copy. Pure |
+| `prepareLocalCopy()` | Before setting a hosted source's local copy: refuse a folder that isn't that repo, or warn |
+| `snapshotAndTell()` / `localFollows()` | Snapshots sources and reports each; offers to make a repo for a single non-repo / every source with a folder here: local sources and local copies (`hasFolder()`) |

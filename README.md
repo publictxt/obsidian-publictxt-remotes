@@ -85,6 +85,20 @@ A source can be a git repo on your computer, such as another vault. Enter its fo
 - **Forks name their source.** A fork from a local source records `fork_remote` (the name) and no
   `fork_repo`: there is no public URL to give, and no path is written.
 
+### A local copy of a hosted source
+
+If a repo you follow by URL is also on your computer (your own other vault, cloned from it),
+set its folder as the source's **Local copy** when adding or editing it. It stays one source:
+the note, and what your mirrors and forks record, is the hosted URL.
+
+- **Fetched from the folder.** The plugin reads the copy instead of the network, so a check
+  sees commits you haven't pushed yet. **Snapshot** works on it as on a local source.
+- **Must be that repo.** The folder has to be a git repo with a remote for the source's URL.
+- **This computer only.** The path is kept in the plugin's settings, never in the note. Where
+  the folder isn't there, the source is fetched from its URL as usual.
+- **Push before you publish.** A mirror or fork made from an unpushed commit records that
+  commit; a site's link to the original is broken until the copy is pushed.
+
 ## Commands
 
 | Command | Does |
@@ -98,7 +112,7 @@ A source can be a git repo on your computer, such as another vault. Enter its fo
 | **Compare this fork with upstream** | For the note you are in, if it is a fork: fetches its source and opens the compare |
 | **Convert links in this fork** | Points the note's links at your copies, in your vault's link style |
 | **Convert links in every fork** | The same for every fork of every source |
-| **Snapshot local sources** | Commits what changed in each local source's folder |
+| **Snapshot local sources** | Commits what changed in each local source's folder, and in each local copy |
 | **Update mirror and fork lists in follow notes** | Rewrites every follow note's **Mirrored pages** and **Forked pages** lists now |
 
 ## Settings
@@ -120,8 +134,8 @@ their hosts (GitHub, GitLab, your own server). It is needed to see what changed 
 fork their pages. No other services and no telemetry; git uses your own credentials (SSH keys,
 credential helpers).
 
-**Files outside your vault.** Only for local sources, which live outside the vault by nature.
-The plugin reads a local source's repo to check it. It writes there only when you choose
+**Files outside your vault.** Only for local sources and local copies, which live outside the
+vault by nature. The plugin reads such a folder's repo to check it. It writes there only when you choose
 **Snapshot** or **Make repo**: git commits in that folder, as you, and a `.gitignore` when
 making a repo. Clones of all sources stay inside your vault, in `.clones/`.
 

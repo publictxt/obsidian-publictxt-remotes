@@ -55,6 +55,13 @@ source's folder, again only when asked.
   These are its only writes outside the vault, always into the source's own folder. Snapshot
   refuses a branch mismatch instead of committing to a branch that isn't checked out, which
   would overwrite that branch with the folder's state.
+- **A hosted source can have a local copy** (decided 2026-11-13). A repo followed by URL that
+  is also cloned on this computer (the user's own other vault) is one source, not a hosted and
+  a local one side by side: two follow notes would split its mirrors and forks between two
+  names and show two sources with two ratings on a site. So the note stays the hosted source's,
+  and the copy's folder, in `data.json`, only changes where git fetches from. The folder must
+  be that repo (a remote for the source's URL); a missing folder falls back to the network.
+  Details: `docs/plans/local-copy.md`.
 - **Remotes are named** (decided 2026-11-10). A follow note's file name is the source's name,
   as `git remote` names a URL, and forks record it as `fork_remote`. A hosted fork keeps
   `fork_repo` too: anyone reading a published fork can follow it to the original, which a name
@@ -142,7 +149,8 @@ source's folder, again only when asked.
    the spec uses Markdown links, and it needs checking.
 9. **A local source's state on another computer.** `localPaths` is per computer, but Sync may
    carry `data.json` (plugin settings) between them. A folder set on one then shows on another,
-   where it's likely missing: a check reports it. Not handled yet.
+   where it's likely missing: a check reports it. Not handled yet. (A hosted source's local copy
+   has no such problem: with its folder missing, it is fetched from its URL.)
 
 ## Proposed changes to the publictext spec
 

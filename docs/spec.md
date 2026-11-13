@@ -15,7 +15,7 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 | `listForks` | `false` | Keep a fork list in each follow note (Mirror and fork lists, below) |
 | `clonesFolder` | `.clones` | **Clones folder**: vault folder holding the clones; never empty. Hidden, so Obsidian doesn't index it and Sync skips it |
 | `gitPath` | `git` | The git executable. Set it when Obsidian doesn't see the shell's PATH (macOS apps started from Finder) |
-| `localPaths` | `{}` | Remote name → absolute folder of each local source on this computer (Local sources, below). Never in a note |
+| `localPaths` | `{}` | Remote name → absolute folder on this computer: a local source's, or a hosted source's local copy (Local sources and Local copies, below). Never in a note |
 
 ## Source
 
@@ -74,15 +74,18 @@ folder** here, and **Mirror folder** in the form, offer the vault's folders as t
   free, suggested when empty (`owner-repo`, or the folder's name). Creates `follows/<name>.md`
   with the front matter and an empty body; a file clash is an error, never an overwrite. A local
   source's folder is looked at first (Local sources → Folder kinds), then saved in `localPaths`.
-  A hosted repo is not contacted: a wrong URL or branch shows at the first check.
+  A hosted repo is not contacted: a wrong URL or branch shows at the first check. A hosted
+  source may also be given a **Local copy** (Local copies, below): its folder is looked at, then
+  saved in `localPaths`.
 - Edit: rewrites the keys above in the note's front matter (`processFrontMatter`); other keys and
   the body are kept. The name and a hosted URL are read-only (mirrors and forks record the name; a
   different repo: remove, add). A local source's **Folder** can change: it is this computer's,
   looked at as on add, and saved in `localPaths`. A local source with no folder here is marked,
-  and Edit sets one.
+  and Edit sets one. A hosted source's **Local copy** can be set, changed or cleared; cleared, it
+  is forgotten and the source fetches from the network again.
 - No "open note" button yet: a note opened from settings opens behind the settings window.
 - Remove: after confirming, moves the note to the trash (`trashFile`, the user's trash setting),
-  and forgets a local source's folder. Its mirrors and forks stay in the vault.
+  and forgets the source's folder on this computer. Its mirrors and forks stay in the vault.
   The clone stays under `clonesFolder` (open question).
 
 ## State
@@ -209,8 +212,8 @@ the lists:
   apart from What's new's. Tick boxes, **Mirror**, "mirrored", **Stop**, **Fork**, **Compare** and "forked" as in What's new; a
   tick is one tick per file, whichever list it was made in. Browsing changes no state, and
   stays on across checks until the view is closed.
-- **Snapshot**: local sources only, in the header, so shown whatever the result and when closed
-  (Local sources → Snapshot).
+- **Snapshot**: local sources and hosted sources with a local copy, in the header, so shown
+  whatever the result and when closed (Local sources → Snapshot).
 
 Needs Obsidian 1.14.4: the API the plugin is built and linted against.
 
@@ -222,7 +225,9 @@ Needs Obsidian 1.14.4: the API the plugin is built and linted against.
 local source (`<hash>`: 32-bit FNV-1a of the key, so names that clean up the same don't share a
 clone). git fetches a local source from `fileUrl()` of its folder in `localPaths`, and the
 clone's origin is set to it before each fetch (`remote set-url`), so a moved folder is followed;
-no folder here is a `not-found` error. Every command in a clone runs as that repo alone
+no folder here is a `not-found` error. A hosted source with a local copy keeps its clone and
+fetches from the copy's folder the same way (`fetchFrom()`, `src/remote/fetch-from.ts`; Local
+copies, below). Every command in a clone runs as that repo alone
 (`--git-dir=.`): git in a folder that isn't one would otherwise look up the tree and act on the
 vault's own repo. A clone folder that is there but isn't a bare repo (say, emptied by a
 `reset` of a vault that had committed `.clones/`) is a `git` error saying to delete it; it is
@@ -257,6 +262,29 @@ changed. Both run the user's git with their identity and hooks, one at a time pe
 logic in `src/remote/local-repo.ts` and `src/remote/snapshot.ts`; the vault side in
 `src/snapshot/run.ts`.
 
+### Local copies
+
+A hosted source can also have a working copy on this computer: a clone of it, such as the
+user's own other vault. That is one source, not two. The follow note is the hosted source's and
+says nothing of the copy: `url` is its identity, so its key, clone, `fork_repo` and
+`mirror_repo` are the hosted URL, and a published site shows one source with one rating. The
+copy's folder is in `localPaths` under the remote name, and only changes where git fetches from.
+`local: true` stays for a repo with no public URL. The reasons: `docs/plans/local-copy.md`.
+
+- **Setting it.** **Local copy** in the source form, for a hosted source. The folder must be a
+  git repo, at its top, with a remote whose canonical URL is the source's (`hasRemote()`,
+  `copyProblem()`): a different repo would list every file as new. It is never made a repo.
+  The settings row says `local copy: /path`.
+- **Fetching.** While the folder is there, git fetches from it (`fileUrl()`), not the network.
+  When it is not (another computer that got this `data.json`, an unplugged drive), the source
+  fetches from its URL, with no error.
+- **Snapshot.** Offered as for a local source: the copy is a working folder. A copy that is no
+  longer a repo is an error, not an offer to make one.
+- **Ahead of its origin.** The copy can hold commits not pushed yet. A mirror or fork made then
+  records a `mirror_commit` or `fork_commit` the host doesn't have until the copy is pushed, and
+  a published site's link to the original at that commit is broken until then. Not warned of
+  yet.
+
 ### Folder kinds
 
 `inspectLocal()` says what the folder (from `localPaths`) is, from
@@ -285,7 +313,7 @@ again finds a repo with nothing committed and warns.
 
 Commits everything changed in the folder, so the next check sees it. **Snapshot** in the check
 view does one source, then checks again if it committed. **Snapshot local sources** (command)
-does each local source in turn, and checks again if anything was committed and the view shows a
+does each local source, and each hosted source with a local copy, in turn, and checks again if anything was committed and the view shows a
 check. One notice lists each folder's outcome.
 
 `snapshot()` stops with a `bad-input` error when:
@@ -618,4 +646,5 @@ Pure logic in `src/fork/links.ts` and `src/fork/link-report.ts`; the vault side 
 8. Fork update: compare with upstream, overwrite, write alongside, keep; `fork_seen`. Done.
 9. Convert links: to the vault's copies, in its style; the offer after forking; the report. Done.
 10. Mirror: upstream's copies under the community folder, updated by overwriting; a fork moves its mirror; watch removed. Done.
-11. Later: merge a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.
+11. Local copies: a hosted source fetched from a folder on this computer. Done.
+12. Later: merge a fork (`git merge-file` on `fork_blob`), propose upstream, tag filters.
