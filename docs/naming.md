@@ -115,7 +115,7 @@ and command ids freeze at the first release.
 | `localKey()` / `isLocalRepo()` / `localName()` / `sourceKey()` | `local:<name>` / whether a key is local / its name / a valid key from data. Pure |
 | `localPathInput()` / `fileUrl()` | A typed folder or `file:///` URL → absolute path / a path → `file:///` URL for git. Pure |
 | `localFolder()` | A source's folder on this computer, from `localPaths` by remote name, or a `not-found` error. Pure |
-| `fetchFrom()` | Where git fetches a source key from: a local source's folder; a hosted source's URL, or its local copy when that is chosen (a missing folder throws). Pure |
+| `fetchFrom()` | Where git fetches a source key from: a local source's folder; a hosted source's URL, or its local copy when that is chosen. Pure |
 | `checkFromOf()` | Where a hosted source with a local copy is checked from, `local` or `remote`; `null` when there is no choice. Pure |
 | `checkOne()` | Checks one source again, for its result in the last run to be replaced |
 | `isForkOf()` / `Remote` | Whether a fork or a mirror belongs to a source: by its remote name, else its repo |

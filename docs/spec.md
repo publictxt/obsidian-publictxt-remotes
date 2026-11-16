@@ -285,8 +285,8 @@ copy's folder is in `localPaths` under the remote name, and only changes where g
   either checks that source alone, at once (`checkOne()`), so the two can be compared by
   switching. **Check now**, mirrors and forks use the choice as it stands.
 - **A missing folder is an error.** With **Local** chosen and the folder not there (another
-  computer that got this `data.json`, an unplugged drive), the check fails with `not-found`
-  and names the folder. The network is never fetched in its place: the user selects **Remote**.
+  computer that got this `data.json`, an unplugged drive), the check fails with git's own error,
+  which names the folder, as a local source's does. The network is never fetched in its place: the user selects **Remote**.
 - **Snapshot.** Offered as for a local source: the copy is a working folder. A copy that is no
   longer a repo is an error, not an offer to make one.
 - **Ahead of its origin.** The copy can hold commits not pushed yet. A mirror or fork made then

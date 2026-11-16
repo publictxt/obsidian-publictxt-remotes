@@ -2,7 +2,7 @@
 
 import { App, FileSystemAdapter } from 'obsidian';
 import type { PublicTxtData } from '../sources/schema.ts';
-import { gitHost, isFolderNow } from './git-process.ts';
+import { gitHost } from './git-process.ts';
 import { scanFollows } from '../sources/follows.ts';
 import { fetchFrom } from './fetch-from.ts';
 import { RemoteError, type RemoteHost } from './host.ts';
@@ -14,8 +14,9 @@ import { RemoteError, type RemoteHost } from './host.ts';
 export function vaultHost(app: App, data: PublicTxtData): RemoteHost {
 	const adapter = app.vault.adapter;
 	if (!(adapter instanceof FileSystemAdapter)) throw new Error('This needs the desktop app.');
-	const nameOf = (key: string) => scanFollows(app).follows.find((f) => f.url === key)?.name;
-	const remote = (key: string) => fetchFrom(data, key, nameOf, isFolderNow);
+	// Once per host, not per fetch: a host is made for each operation, so the names are current.
+	const names = new Map(scanFollows(app).follows.map((f) => [f.url, f.name]));
+	const remote = (key: string) => fetchFrom(data, key, (k) => names.get(k));
 	return gitHost(data.gitPath, adapter.getBasePath(), data.clonesFolder, remote);
 }
 

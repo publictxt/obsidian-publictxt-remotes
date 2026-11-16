@@ -26,17 +26,12 @@ export function checkFromOf(data: PublicTxtData, name: string, key: string): Che
 
 /**
  * Where git fetches the source keyed `key` from: a local source's folder; a hosted source's
- * URL, or its local copy when it has one and that is what is chosen (`checkFromOf()`). A copy
- * chosen whose folder is missing (another computer, an unplugged drive) throws: the network is
- * never fetched in its place. `nameOf`: the remote name of a hosted key, `isFolder`: whether a
- * path is a folder now. Pure.
+ * URL, or its local copy when it has one and that is what is chosen (`checkFromOf()`). A folder
+ * that is missing (another computer, an unplugged drive) is git's error to give: the network is
+ * never fetched in its place. `nameOf`: the remote name of a hosted key. Pure.
  */
-export function fetchFrom(data: PublicTxtData, key: string, nameOf: (key: string) => string | undefined, isFolder: (path: string) => boolean): string {
+export function fetchFrom(data: PublicTxtData, key: string, nameOf: (key: string) => string | undefined): string {
 	if (isLocalRepo(key)) return fileUrl(localFolder(data, localName(key)));
-	if (Object.keys(data.localPaths).length === 0) return key;
 	const name = nameOf(key);
-	if (name === undefined || checkFromOf(data, name, key) !== 'local') return key;
-	const copy = localFolder(data, name);
-	if (!isFolder(copy)) throw new RemoteError('not-found', `The local copy's folder is missing: ${copy}. Choose Remote to check from the network, or set the local copy again with Edit in the source's settings.`);
-	return fileUrl(copy);
+	return name !== undefined && checkFromOf(data, name, key) === 'local' ? fileUrl(localFolder(data, name)) : key;
 }
