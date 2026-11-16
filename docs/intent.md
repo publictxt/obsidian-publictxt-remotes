@@ -60,7 +60,9 @@ source's folder, again only when asked.
   a local one side by side: two follow notes would split its mirrors and forks between two
   names and show two sources with two ratings on a site. So the note stays the hosted source's,
   and the copy's folder, in `data.json`, only changes where git fetches from. The folder must
-  be that repo (a remote for the source's URL); a missing folder falls back to the network.
+  be that repo (a remote for the source's URL); which is fetched from is the
+  user's choice in the check view, local or remote, never made for them (decided 2026-11-16):
+  a missing folder is an error, not a quiet fetch from the network.
   Details: `docs/plans/local-copy.md`.
 - **Remotes are named** (decided 2026-11-10). A follow note's file name is the source's name,
   as `git remote` names a URL, and forks record it as `fork_remote`. A hosted fork keeps
@@ -150,7 +152,7 @@ source's folder, again only when asked.
 9. **A local source's state on another computer.** `localPaths` is per computer, but Sync may
    carry `data.json` (plugin settings) between them. A folder set on one then shows on another,
    where it's likely missing: a check reports it. Not handled yet. (A hosted source's local copy
-   has no such problem: with its folder missing, it is fetched from its URL.)
+   is reported the same way, and can be checked from **Remote** instead.)
 
 ## Proposed changes to the publictext spec
 

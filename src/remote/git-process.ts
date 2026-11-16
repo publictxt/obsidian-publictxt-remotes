@@ -2,7 +2,6 @@
 // Node: the plugin is desktop-only (docs/intent.md).
 
 import { execFile } from 'child_process';
-import { statSync } from 'fs';
 import { access, mkdir, stat, writeFile } from 'fs/promises';
 import { dirname, join } from 'path';
 import { RemoteError } from './host.ts';
@@ -56,15 +55,6 @@ export async function pathExists(path: string): Promise<boolean> {
 	try {
 		await access(path);
 		return true;
-	} catch {
-		return false;
-	}
-}
-
-/** Whether `path` is a folder, without waiting: for choosing where to fetch from. */
-export function isFolderNow(path: string): boolean {
-	try {
-		return statSync(path).isDirectory();
 	} catch {
 		return false;
 	}

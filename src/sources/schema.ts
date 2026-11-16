@@ -48,7 +48,15 @@ export interface PublicTxtData {
 	state: Record<string, SourceState>;
 	/** Remote name → absolute folder on this computer only: a local source's, or a hosted source's local copy. Never in a note. */
 	localPaths: Record<string, string>;
+	/**
+	 * Remote name → where a hosted source with a local copy is checked from, as chosen in the
+	 * check view. Absent: the local copy. This computer's, as `localPaths` is.
+	 */
+	checkFrom: Record<string, CheckFrom>;
 }
+
+/** Where a hosted source with a local copy is fetched from: the copy's folder, or its URL. */
+export type CheckFrom = 'local' | 'remote';
 
 export const DEFAULT_DATA: PublicTxtData = {
 	version: DATA_VERSION,
@@ -61,6 +69,7 @@ export const DEFAULT_DATA: PublicTxtData = {
 	gitPath: 'git',
 	state: {},
 	localPaths: {},
+	checkFrom: {},
 };
 
 /** Vault-relative folder without surrounding slashes, or `null`. */
@@ -131,6 +140,12 @@ export function normalizeData(v: unknown): PublicTxtData {
 			if (!remoteNameProblem(name) && p) localPaths[name] = p;
 		}
 	}
+	const checkFrom: Record<string, CheckFrom> = {};
+	if (isRecord(r.checkFrom)) {
+		for (const [name, from] of Object.entries(r.checkFrom)) {
+			if (name in localPaths && (from === 'local' || from === 'remote')) checkFrom[name] = from;
+		}
+	}
 
 	// `''` is the vault root, so only a missing key takes the default.
 	const communityFolder = typeof r.communityFolder === 'string' ? (vaultFolder(r.communityFolder) ?? '') : DEFAULT_DATA.communityFolder;
@@ -140,5 +155,5 @@ export function normalizeData(v: unknown): PublicTxtData {
 	const matchFolders = typeof r.matchFolders === 'boolean' ? r.matchFolders : DEFAULT_DATA.matchFolders;
 	const listMirrors = typeof r.listMirrors === 'boolean' ? r.listMirrors : DEFAULT_DATA.listMirrors;
 	const listForks = typeof r.listForks === 'boolean' ? r.listForks : DEFAULT_DATA.listForks;
-	return { version: DATA_VERSION, communityFolder, forkFolder, matchFolders, listMirrors, listForks, clonesFolder, gitPath, state, localPaths };
+	return { version: DATA_VERSION, communityFolder, forkFolder, matchFolders, listMirrors, listForks, clonesFolder, gitPath, state, localPaths, checkFrom };
 }

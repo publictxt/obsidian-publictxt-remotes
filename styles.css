@@ -39,6 +39,25 @@
 	margin-left: var(--size-4-2);
 }
 
+/* Local / Remote: one control, its two buttons joined. */
+.publictxt-check .publictxt-source-head .publictxt-from {
+	display: inline-flex;
+	margin-left: var(--size-4-2);
+}
+
+.publictxt-check .publictxt-source-head .publictxt-from button {
+	margin-left: 0;
+	border-radius: 0;
+}
+
+.publictxt-check .publictxt-source-head .publictxt-from button:first-child {
+	border-radius: var(--button-radius) 0 0 var(--button-radius);
+}
+
+.publictxt-check .publictxt-source-head .publictxt-from button:last-child {
+	border-radius: 0 var(--button-radius) var(--button-radius) 0;
+}
+
 .publictxt-check [class^='publictxt-status-'] {
 	font-size: var(--font-ui-smaller);
 	color: var(--text-muted);

@@ -67,7 +67,7 @@ async function initFolder(app: App, data: PublicTxtData, dir: string, branch: st
 }
 
 /** Whether `follow` has a folder to snapshot: a local source, or a hosted one with a local copy here. */
-export function hasFolder(data: PublicTxtData, follow: Follow): boolean {
+function hasFolder(data: PublicTxtData, follow: Follow): boolean {
 	return isLocalRepo(follow.url) || follow.name in data.localPaths;
 }
 

@@ -68,3 +68,8 @@ test('folders trimmed of slashes; clonesFolder and gitPath never empty', () => {
 	assert.deepEqual([normalizeData({ listMirrors: true })].map((x) => [x.listMirrors, x.listForks]), [[true, false]]);
 	assert.equal(normalizeData({ clonesFolder: 'x/clones/' }).clonesFolder, 'x/clones');
 });
+
+test('checkFrom: local or remote, only for a name with a folder here', () => {
+	const d = normalizeData({ localPaths: { a: '/a', b: '/b', c: '/c' }, checkFrom: { a: 'remote', b: 'local', c: 'network', gone: 'remote' } });
+	assert.deepEqual(d.checkFrom, { a: 'remote', b: 'local' });
+});

@@ -16,6 +16,7 @@ What the plugin does. Why in `intent.md`, names in `naming.md`. Draft: nothing r
 | `clonesFolder` | `.clones` | **Clones folder**: vault folder holding the clones; never empty. Hidden, so Obsidian doesn't index it and Sync skips it |
 | `gitPath` | `git` | The git executable. Set it when Obsidian doesn't see the shell's PATH (macOS apps started from Finder) |
 | `localPaths` | `{}` | Remote name → absolute folder on this computer: a local source's, or a hosted source's local copy (Local sources and Local copies, below). Never in a note |
+| `checkFrom` | `{}` | Remote name → `local` or `remote`: where a hosted source with a local copy is checked from, as chosen in the check view (Local copies, below). Absent: `local`. Kept only for a name in `localPaths` |
 
 ## Source
 
@@ -82,7 +83,7 @@ folder** here, and **Mirror folder** in the form, offer the vault's folders as t
   different repo: remove, add). A local source's **Folder** can change: it is this computer's,
   looked at as on add, and saved in `localPaths`. A local source with no folder here is marked,
   and Edit sets one. A hosted source's **Local copy** can be set, changed or cleared; cleared, it
-  is forgotten and the source fetches from the network again.
+  is forgotten, with its `checkFrom`, and the source fetches from the network again.
 - No "open note" button yet: a note opened from settings opens behind the settings window.
 - Remove: after confirming, moves the note to the trash (`trashFile`, the user's trash setting),
   and forgets the source's folder on this computer. Its mirrors and forks stay in the vault.
@@ -212,8 +213,12 @@ the lists:
   apart from What's new's. Tick boxes, **Mirror**, "mirrored", **Stop**, **Fork**, **Compare** and "forked" as in What's new; a
   tick is one tick per file, whichever list it was made in. Browsing changes no state, and
   stays on across checks until the view is closed.
-- **Snapshot**: local sources and hosted sources with a local copy, in the header, so shown
-  whatever the result and when closed (Local sources → Snapshot).
+- **Snapshot**: local sources, and hosted sources checked from their local copy (**Local**,
+  next), in the header, so shown whatever the result and when closed (Local sources →
+  Snapshot). Not while **Remote** is chosen: the check after would show nothing of the commit.
+- **Local** / **Remote**: hosted sources with a local copy, in the header, the one in use
+  marked. Selecting one saves it (`checkFrom`) and checks that source alone from there; the
+  other sources keep the last check's results (Local copies, below). Disabled while a check runs.
 
 Needs Obsidian 1.14.4: the API the plugin is built and linted against.
 
@@ -226,7 +231,7 @@ local source (`<hash>`: 32-bit FNV-1a of the key, so names that clean up the sam
 clone). git fetches a local source from `fileUrl()` of its folder in `localPaths`, and the
 clone's origin is set to it before each fetch (`remote set-url`), so a moved folder is followed;
 no folder here is a `not-found` error. A hosted source with a local copy keeps its clone and
-fetches from the copy's folder the same way (`fetchFrom()`, `src/remote/fetch-from.ts`; Local
+fetches from the copy's folder the same way, or from its URL, as chosen (`fetchFrom()`, `src/remote/fetch-from.ts`; Local
 copies, below). Every command in a clone runs as that repo alone
 (`--git-dir=.`): git in a folder that isn't one would otherwise look up the tree and act on the
 vault's own repo. A clone folder that is there but isn't a bare repo (say, emptied by a
@@ -275,10 +280,16 @@ copy's folder is in `localPaths` under the remote name, and only changes where g
   git repo, at its top, with a remote whose canonical URL is the source's (`hasRemote()`,
   `copyProblem()`): a different repo would list every file as new. It is never made a repo.
   The settings row says `local copy: /path`.
-- **Fetching.** While the folder is there, git fetches from it (`fileUrl()`), not the network.
-  When it is not (another computer that got this `data.json`, an unplugged drive), the source
-  fetches from its URL, with no error.
-- **Snapshot.** Offered as for a local source: the copy is a working folder. A copy that is no
+- **Local or remote.** The user chooses where it is checked from, in the check view: **Local**
+  (the copy's folder, `fileUrl()`) or **Remote** (its URL). The choice is `checkFrom`, kept on
+  this computer; until one is made, a source just given a copy is checked from it. Selecting
+  either checks that source alone, at once (`checkOne()`), so the two can be compared by
+  switching. **Check now**, mirrors and forks use the choice as it stands.
+- **A missing folder is an error.** With **Local** chosen and the folder not there (another
+  computer that got this `data.json`, an unplugged drive), the check fails with git's own error,
+  which names the folder, as a local source's does. The network is never fetched in its place: the user selects **Remote**.
+- **Snapshot.** Offered as for a local source while **Local** is chosen: the copy is a working
+  folder. The **Snapshot local sources** command does every copy, whatever is chosen. A copy that is no
   longer a repo is an error, not an offer to make one.
 - **Ahead of its origin.** The copy can hold commits not pushed yet. A mirror or fork made then
   records a `mirror_commit` or `fork_commit` the host doesn't have until the copy is pushed, and

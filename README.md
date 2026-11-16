@@ -91,11 +91,14 @@ If a repo you follow by URL is also on your computer (your own other vault, clon
 set its folder as the source's **Local copy** when adding or editing it. It stays one source:
 the note, and what your mirrors and forks record, is the hosted URL.
 
-- **Fetched from the folder.** The plugin reads the copy instead of the network, so a check
-  sees commits you haven't pushed yet. **Snapshot** works on it as on a local source.
+- **Local or remote, as you choose.** In the check view the source has **Local** and
+  **Remote**. Select one to check it from there: the copy, with commits you haven't pushed
+  yet, or the network. The choice is remembered, and **Check now** uses it. While **Local** is
+  selected, **Snapshot** works on the copy as on a local source.
 - **Must be that repo.** The folder has to be a git repo with a remote for the source's URL.
 - **This computer only.** The path is kept in the plugin's settings, never in the note. Where
-  the folder isn't there, the source is fetched from its URL as usual.
+  the folder isn't there, a check from **Local** says so: select **Remote** to check from the
+  network.
 - **Push before you publish.** A mirror or fork made from an unpushed commit records that
   commit; a site's link to the original is broken until the copy is pushed.
 
