@@ -51,7 +51,7 @@ export class SourceModal extends Modal {
 		if (!this.local) {
 			new Setting(contentEl)
 				.setName('Local copy')
-				.setDesc('Optional, for a repo URL: a clone of it on this computer, such as your own other vault. The plugin fetches from that folder instead of the network. Kept in the plugin\'s settings, never in the note.')
+				.setDesc('Optional, for a repo URL: a clone of it on this computer, such as your own other vault. The check view then lets you choose, per check, between that folder and the network. Kept in the plugin\'s settings, never in the note.')
 				.addText((t) => t.setPlaceholder('/home/me/notes').setValue(this.form.localCopy).onChange((v) => (this.form.localCopy = v)));
 		}
 		new Setting(contentEl)

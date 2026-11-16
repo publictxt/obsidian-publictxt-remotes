@@ -45,7 +45,7 @@ and command ids freeze at the first release.
 | remote name | A source's name: its follow note's file name. Mirrors and forks record it (`mirror_remote`, `fork_remote`) |
 | source key | `Source.url`: the canonical URL, or `local:<name>` for a local source |
 | local source | A source on this computer: `local: true` in its note, its folder in `localPaths`; "local repo" in code |
-| local copy | A hosted source's working copy on this computer: its folder in `localPaths`, fetched from instead of the network. Still one source, keyed by its URL |
+| local copy | A hosted source's working copy on this computer: its folder in `localPaths`, fetched from instead of the network when **Local** is chosen in the check view (`checkFrom`). Still one source, keyed by its URL |
 | snapshot | A commit of everything changed in a local source's folder, or a local copy's, made only if something changed |
 | make a repo | `git init` a local source's folder, with a `.gitignore`, then snapshot it |
 
@@ -115,7 +115,9 @@ and command ids freeze at the first release.
 | `localKey()` / `isLocalRepo()` / `localName()` / `sourceKey()` | `local:<name>` / whether a key is local / its name / a valid key from data. Pure |
 | `localPathInput()` / `fileUrl()` | A typed folder or `file:///` URL → absolute path / a path → `file:///` URL for git. Pure |
 | `localFolder()` | A source's folder on this computer, from `localPaths` by remote name, or a `not-found` error. Pure |
-| `fetchFrom()` | Where git fetches a source key from: a local source's folder, a hosted source's local copy while it is there, else the URL. Pure |
+| `fetchFrom()` | Where git fetches a source key from: a local source's folder; a hosted source's URL, or its local copy when that is chosen (a missing folder throws). Pure |
+| `checkFromOf()` | Where a hosted source with a local copy is checked from, `local` or `remote`; `null` when there is no choice. Pure |
+| `checkOne()` | Checks one source again, for its result in the last run to be replaced |
 | `isForkOf()` / `Remote` | Whether a fork or a mirror belongs to a source: by its remote name, else its repo |
 | `writeForkMeta()` | Sets a fork's `fork_*` keys and removes stale ones |
 | `setForkSeen()` / `clearForkMeta()` | Sets `fork_seen` alone / removes every `fork_*` key |

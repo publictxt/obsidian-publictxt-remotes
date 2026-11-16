@@ -13,6 +13,7 @@ import { detach, keepGone } from '../fork/update-run.ts';
 import { mirrorFiles, stopMirroring, updateMirror, updateMirrors } from '../mirror/run.ts';
 import { errorText } from '../remote/vault-host.ts';
 import { hasFolder } from '../snapshot/run.ts';
+import { checkFromOf } from '../remote/fetch-from.ts';
 import { ConfirmModal } from './confirm-modal.ts';
 import { actionAttrs, checkAction, folderOpen, newSourceUi, renderSource, sourceOpen, type CheckAction, type SourceUi } from './check-source.ts';
 
@@ -65,7 +66,10 @@ export class CheckView extends ItemView {
 		if (lastRun.ignored) {
 			el.createEl('p', { cls: 'publictxt-warning', text: `${lastRun.ignored} follow notes ignored: see settings.` });
 		}
-		for (const r of lastRun.results) renderSource(el, r, this.uiOf(r.follow.url), hasFolder(this.plugin.data, r.follow));
+		const { data } = this.plugin;
+		for (const r of lastRun.results) {
+			renderSource(el, r, this.uiOf(r.follow.url), { snapshot: hasFolder(data, r.follow), from: checkFromOf(data, r.follow.name, r.follow.url), busy: checking !== null });
+		}
 		el.scrollTop = scrolled;
 	}
 
@@ -94,6 +98,10 @@ export class CheckView extends ItemView {
 	/** Runs `action` on the source `url`; `path` is the file it is about, if any. */
 	private act(action: Exclude<CheckAction, 'check'>, url: string, path: string | undefined): void {
 		switch (action) {
+			case 'from-local':
+			case 'from-remote':
+				void this.plugin.checkFrom(url, action === 'from-local' ? 'local' : 'remote');
+				break;
 			case 'snapshot':
 				void this.plugin.snapshot(url);
 				break;

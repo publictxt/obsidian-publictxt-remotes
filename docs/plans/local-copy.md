@@ -26,8 +26,12 @@ names, the site shows two sources with two ratings, and nothing says they are on
 - **The folder is this computer's.** `localPaths[name]` applies to a hosted source too, as
   "fetch from here". `local: true` stays for a repo with no public URL.
 - **Fetching.** `vaultHost()` sets the clone's origin before each fetch (`remote set-url`), now
-  for every source: a hosted one with a folder fetches from `fileUrl(folder)`, else from its
-  URL (`fetchFrom()`). The clone stays the same; only where it fetches from changes.
+  for every source: a hosted one with a folder fetches from `fileUrl(folder)` or from its URL,
+  as the user chose (`fetchFrom()`, `checkFrom`). The clone stays the same; only where it
+  fetches from changes.
+- **Local or remote (2026-11-16).** The check view's header has **Local** and **Remote** for
+  such a source. Selecting one saves it in `data.json` (`checkFrom`, by remote name) and
+  checks that source alone (`checkOne()`).
 - **Settings.** The source form has an optional **Local copy** field for a hosted source; the
   settings row says `local copy: /path`. Clearing it goes back to the network.
 - **Snapshot.** Offered for a hosted source with a local copy too.
@@ -36,9 +40,10 @@ names, the site shows two sources with two ratings, and nothing says they are on
 
 - **Not the same repo: refused.** The folder must be a repo with a remote whose canonical URL
   is the source's `url`. A folder that isn't a repo is refused too, never made one.
-- **Fall back: to the network.** A missing folder (another computer, an unplugged drive) means
-  the URL is fetched, with no error: `data.json` can travel with the vault, and a hosted source
-  should still check there. A local source still reports its missing folder, having no URL.
+- **A missing folder: an error (changed 2026-11-16).** First built to fall back to the network
+  with no error. Now the user chooses local or remote, and nothing chooses for them: with
+  **Local** chosen and the folder missing (another computer, an unplugged drive), the check
+  reports it, and **Remote** is one click away.
 - **Ahead of origin: accepted, for now.** A fork or mirror made from an unpushed commit records
   a `fork_commit` / `mirror_commit` the host doesn't have, so the site's "↗ original" link 404s
   until pushed. Documented in the README. Still possible: warn when the copy is ahead of the

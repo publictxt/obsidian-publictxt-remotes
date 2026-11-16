@@ -8,10 +8,11 @@ import { fileTree, type TreeFolder } from '../check/file-tree.ts';
 import type { SourceResult } from '../check/run.ts';
 import { canFork, forkableByFolder, selectedPaths, ticked, type FileList, type Ticked } from '../check/selection.ts';
 import { isLocalRepo } from '../sources/repo-url.ts';
+import type { CheckFrom } from '../sources/schema.ts';
 import { treeFlair, treeItem, type TreeItem } from './tree.ts';
 
 /** What a click in the view can do: the `data-action` of the element clicked. */
-export const CHECK_ACTIONS = ['check', 'snapshot', 'ack', 'mirror', 'mirror-selected', 'unmirror', 'update-mirror', 'update-mirrors', 'fork', 'fork-selected', 'toggle-source', 'toggle-folder', 'select', 'select-folder', 'browse', 'toggle-all-folder', 'select-all-folder', 'compare', 'detach', 'keep-gone'] as const;
+export const CHECK_ACTIONS = ['check', 'from-local', 'from-remote', 'snapshot', 'ack', 'mirror', 'mirror-selected', 'unmirror', 'update-mirror', 'update-mirrors', 'fork', 'fork-selected', 'toggle-source', 'toggle-folder', 'select', 'select-folder', 'browse', 'toggle-all-folder', 'select-all-folder', 'compare', 'detach', 'keep-gone'] as const;
 
 export type CheckAction = (typeof CHECK_ACTIONS)[number];
 
@@ -108,9 +109,19 @@ interface Drawing {
 	unsettled: ReadonlySet<string>;
 }
 
-export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi, snapshot: boolean): void {
+/** What a source's header offers besides opening it. */
+export interface HeaderOffers {
+	/** Snapshot: it has a folder on this computer. */
+	snapshot: boolean;
+	/** Where it is checked from, for a hosted source with a local copy; `null`: no choice. */
+	from: CheckFrom | null;
+	/** A check is running: the choice waits. */
+	busy: boolean;
+}
+
+export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi, offers: HeaderOffers): void {
 	const source = parent.createDiv({ cls: 'publictxt-source', attr: { 'data-source': r.follow.url } });
-	const el = header(source, r, sourceOpen(r, ui), snapshot);
+	const el = header(source, r, sourceOpen(r, ui), offers);
 	if (!el) return;
 
 	if (r.error !== null) {
@@ -141,7 +152,7 @@ function actions(el: HTMLElement, c: SourceCheck, ui: SourceUi): void {
 }
 
 /** The row that opens and closes the source. Returns where its details go, or `null` when closed. */
-function header(source: HTMLElement, r: SourceResult, open: boolean, snapshot: boolean): HTMLElement | null {
+function header(source: HTMLElement, r: SourceResult, open: boolean, offers: HeaderOffers): HTMLElement | null {
 	const local = isLocalRepo(r.follow.url);
 	const item = treeItem(source, open);
 	item.self.addClass('publictxt-source-head');
@@ -149,7 +160,19 @@ function header(source: HTMLElement, r: SourceResult, open: boolean, snapshot: b
 	item.inner.createEl('a', { text: r.follow.name, attr: { 'data-open': r.follow.path, 'aria-label': local ? 'Local source' : r.follow.url } });
 	if (r.check) item.inner.createSpan({ cls: 'publictxt-branch', text: ` · ${r.check.head.branch}` });
 	treeFlair(item, summary(r));
-	if (snapshot) {
+	if (offers.from !== null) {
+		// Local or remote: chosen here, never for the user. Selecting one checks this source from there.
+		const pick = item.self.createSpan({ cls: 'publictxt-from' });
+		const choice = (from: CheckFrom, text: string, label: string) =>
+			pick.createEl('button', {
+				text,
+				cls: offers.from === from ? 'mod-cta' : '',
+				attr: { ...actionAttrs(from === 'local' ? 'from-local' : 'from-remote'), 'aria-label': label, 'aria-pressed': String(offers.from === from), ...(offers.busy ? { disabled: 'true' } : {}) },
+			});
+		choice('local', 'Local', 'Check from the local copy on this computer');
+		choice('remote', 'Remote', `Check from ${r.follow.url}`);
+	}
+	if (offers.snapshot) {
 		item.self.createEl('button', { text: 'Snapshot', attr: { ...actionAttrs('snapshot'), 'aria-label': local ? 'Commit what changed in this folder, then check again' : 'Commit what changed in the local copy, then check again' } });
 	}
 	return item.children;

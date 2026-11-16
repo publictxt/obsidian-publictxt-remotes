@@ -1,8 +1,8 @@
 import { debounce, Notice, Plugin, type TAbstractFile } from 'obsidian';
-import { normalizeData, type PublicTxtData } from './sources/schema.ts';
+import { normalizeData, type CheckFrom, type PublicTxtData } from './sources/schema.ts';
 import { isFollowPath } from './sources/follow-note.ts';
-import { acknowledged, checkedAll, type SourceCheck } from './check/check.ts';
-import { runCheck, type CheckRun } from './check/run.ts';
+import { acknowledged, checked, checkedAll, type SourceCheck } from './check/check.ts';
+import { checkOne, runCheck, type CheckRun } from './check/run.ts';
 import { errorText } from './remote/vault-host.ts';
 import { PublicTxtSettingTab } from './settings.ts';
 import { CheckView, VIEW_TYPE_CHECK } from './ui/check-view.ts';
@@ -95,6 +95,31 @@ export default class PublicTxtPlugin extends Plugin {
 			// From the state as it is now: a source acknowledged while this ran keeps that.
 			const sources = run.results.map((r) => ({ url: r.follow.url, ok: r.check !== null }));
 			await this.save({ ...this.data, state: checkedAll(this.data.state, sources, run.at) });
+		} catch (e) {
+			new Notice(errorText(e));
+		} finally {
+			this.checking = null;
+			this.renderViews();
+		}
+	}
+
+	/**
+	 * Chooses where the hosted source `url` is checked from, its local copy or the network, and
+	 * checks it again from there: the others keep the last run's results.
+	 */
+	async checkFrom(url: string, from: CheckFrom): Promise<void> {
+		const run = this.lastRun;
+		const follow = run?.results.find((r) => r.follow.url === url)?.follow;
+		if (!run || !follow || this.checking !== null) return;
+		this.checking = `Checking ${follow.name}…`;
+		this.renderViews();
+		try {
+			await this.save({ ...this.data, checkFrom: { ...this.data.checkFrom, [follow.name]: from } });
+			const result = await checkOne(this.app, this.data, follow);
+			// Into the run as it is now: another source may have been acknowledged meanwhile.
+			const now = this.lastRun ?? run;
+			this.lastRun = { ...now, results: now.results.map((r) => (r.follow.url === url ? result : r)) };
+			if (result.check) await this.save({ ...this.data, state: { ...this.data.state, [url]: checked(this.data.state[url], new Date().toISOString()) } });
 		} catch (e) {
 			new Notice(errorText(e));
 		} finally {
