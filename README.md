@@ -93,8 +93,8 @@ the note, and what your mirrors and forks record, is the hosted URL.
 
 - **Local or remote, as you choose.** In the check view the source has **Local** and
   **Remote**. Select one to check it from there: the copy, with commits you haven't pushed
-  yet, or the network. The choice is remembered, and **Check now** uses it. **Snapshot** works
-  on the copy as on a local source.
+  yet, or the network. The choice is remembered, and **Check now** uses it. While **Local** is
+  selected, **Snapshot** works on the copy as on a local source.
 - **Must be that repo.** The folder has to be a git repo with a remote for the source's URL.
 - **This computer only.** The path is kept in the plugin's settings, never in the note. Where
   the folder isn't there, a check from **Local** says so: select **Remote** to check from the

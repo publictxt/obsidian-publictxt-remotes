@@ -111,8 +111,6 @@ interface Drawing {
 
 /** What a source's header offers besides opening it. */
 export interface HeaderOffers {
-	/** Snapshot: it has a folder on this computer. */
-	snapshot: boolean;
 	/** Where it is checked from, for a hosted source with a local copy; `null`: no choice. */
 	from: CheckFrom | null;
 	/** A check is running: the choice waits. */
@@ -172,7 +170,9 @@ function header(source: HTMLElement, r: SourceResult, open: boolean, offers: Hea
 		choice('local', 'Local', 'Check from the local copy on this computer');
 		choice('remote', 'Remote', `Check from ${r.follow.url}`);
 	}
-	if (offers.snapshot) {
+	// For the folder being checked: a local source's, or a local copy while it is what is checked.
+	// A copy checked from the remote would commit, and the check after show nothing of it.
+	if (local || offers.from === 'local') {
 		item.self.createEl('button', { text: 'Snapshot', attr: { ...actionAttrs('snapshot'), 'aria-label': local ? 'Commit what changed in this folder, then check again' : 'Commit what changed in the local copy, then check again' } });
 	}
 	return item.children;

@@ -12,7 +12,6 @@ import { startFork, type ForkSource } from '../fork/run.ts';
 import { detach, keepGone } from '../fork/update-run.ts';
 import { mirrorFiles, stopMirroring, updateMirror, updateMirrors } from '../mirror/run.ts';
 import { errorText } from '../remote/vault-host.ts';
-import { hasFolder } from '../snapshot/run.ts';
 import { checkFromOf } from '../remote/fetch-from.ts';
 import { ConfirmModal } from './confirm-modal.ts';
 import { actionAttrs, checkAction, folderOpen, newSourceUi, renderSource, sourceOpen, type CheckAction, type SourceUi } from './check-source.ts';
@@ -68,7 +67,7 @@ export class CheckView extends ItemView {
 		}
 		const { data } = this.plugin;
 		for (const r of lastRun.results) {
-			renderSource(el, r, this.uiOf(r.follow.url), { snapshot: hasFolder(data, r.follow), from: checkFromOf(data, r.follow.name, r.follow.url), busy: checking !== null });
+			renderSource(el, r, this.uiOf(r.follow.url), { from: checkFromOf(data, r.follow.name, r.follow.url), busy: checking !== null });
 		}
 		el.scrollTop = scrolled;
 	}

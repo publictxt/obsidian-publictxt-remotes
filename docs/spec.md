@@ -213,8 +213,9 @@ the lists:
   apart from What's new's. Tick boxes, **Mirror**, "mirrored", **Stop**, **Fork**, **Compare** and "forked" as in What's new; a
   tick is one tick per file, whichever list it was made in. Browsing changes no state, and
   stays on across checks until the view is closed.
-- **Snapshot**: local sources and hosted sources with a local copy, in the header, so shown
-  whatever the result and when closed (Local sources → Snapshot).
+- **Snapshot**: local sources, and hosted sources checked from their local copy (**Local**,
+  next), in the header, so shown whatever the result and when closed (Local sources →
+  Snapshot). Not while **Remote** is chosen: the check after would show nothing of the commit.
 - **Local** / **Remote**: hosted sources with a local copy, in the header, the one in use
   marked. Selecting one saves it (`checkFrom`) and checks that source alone from there; the
   other sources keep the last check's results (Local copies, below). Disabled while a check runs.
@@ -287,7 +288,8 @@ copy's folder is in `localPaths` under the remote name, and only changes where g
 - **A missing folder is an error.** With **Local** chosen and the folder not there (another
   computer that got this `data.json`, an unplugged drive), the check fails with git's own error,
   which names the folder, as a local source's does. The network is never fetched in its place: the user selects **Remote**.
-- **Snapshot.** Offered as for a local source: the copy is a working folder. A copy that is no
+- **Snapshot.** Offered as for a local source while **Local** is chosen: the copy is a working
+  folder. The **Snapshot local sources** command does every copy, whatever is chosen. A copy that is no
   longer a repo is an error, not an offer to make one.
 - **Ahead of its origin.** The copy can hold commits not pushed yet. A mirror or fork made then
   records a `mirror_commit` or `fork_commit` the host doesn't have until the copy is pushed, and
