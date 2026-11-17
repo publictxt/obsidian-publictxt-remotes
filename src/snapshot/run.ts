@@ -4,7 +4,8 @@
 
 import { App, Notice } from 'obsidian';
 import { gitRunner, localFs } from '../remote/git-process.ts';
-import { copyProblem, hasRemote, initLocal, initQuestion, newRepoGitignore, inspectLocal, localProblem, localWarnings } from '../remote/local-repo.ts';
+import { copyProblem, initLocal, initQuestion, newRepoGitignore, inspectLocal, localProblem, localWarnings, type LocalRepo } from '../remote/local-repo.ts';
+import type { RunGit } from '../remote/git.ts';
 import { snapshot, type SnapshotResult } from '../remote/snapshot.ts';
 import { localFolder } from '../remote/fetch-from.ts';
 import { errorText } from '../remote/vault-host.ts';
@@ -121,31 +122,16 @@ function offerInit(app: App, data: PublicTxtData, name: string, dir: string, bra
 }
 
 /**
- * Before adding the local source `s` with the folder `dir`, or setting a new folder for it:
- * refuses a folder that can't be one, offers to make a non-repo a repo, and warns when the
- * source won't check yet. Returns the error to show in the form, or `null` to go on.
+ * Looks at `dir`, the folder on this computer for `s`: `decide` returns the error to show in the
+ * form, or `null` to go on, and then warns when the source won't check yet. Any error is shown
+ * in the form too.
  */
-export async function prepareLocalFolder(app: App, data: PublicTxtData, s: Source, dir: string): Promise<string | null> {
+async function prepareFolder(data: PublicTxtData, s: Source, dir: string, decide: (run: RunGit, local: LocalRepo) => Promise<string | null>): Promise<string | null> {
 	const run = gitRunner(data.gitPath);
 	try {
 		const local = await inspectLocal(run, localFs, dir, s.branch);
-		const problem = localProblem(local, dir);
-		if (problem) return problem;
-		if (local.kind === 'not-repo') {
-			const answer = await choose(app, 'Not a git repo', initQuestion(dir, local.within), [
-				{ id: 'init', text: 'Make repo and add', cta: true },
-				{ id: 'add', text: 'Add without' },
-			]);
-			if (answer === null) return 'Not added.';
-			if (answer === 'add') {
-				new Notice(`${dir} isn't a git repo: checks fail until it is one.`, 10_000);
-				return null;
-			}
-			const r = await initFolder(app, data, dir, s.branch);
-			if (!r) return `${dir}: a snapshot is already running.`;
-			new Notice(snapshotText(dir, r), 10_000);
-			return null;
-		}
+		const problem = await decide(run, local);
+		if (problem !== null) return problem;
 		for (const w of localWarnings(local, s.branch)) new Notice(`${dir}: ${w}`, 10_000);
 		return null;
 	} catch (e) {
@@ -154,20 +140,36 @@ export async function prepareLocalFolder(app: App, data: PublicTxtData, s: Sourc
 }
 
 /**
+ * Before adding the local source `s` with the folder `dir`, or setting a new folder for it:
+ * refuses a folder that can't be one, offers to make a non-repo a repo, and warns when the
+ * source won't check yet. Returns the error to show in the form, or `null` to go on.
+ */
+export function prepareLocalFolder(app: App, data: PublicTxtData, s: Source, dir: string): Promise<string | null> {
+	return prepareFolder(data, s, dir, async (_run, local) => {
+		const problem = localProblem(local, dir);
+		if (problem) return problem;
+		if (local.kind !== 'not-repo') return null;
+		const answer = await choose(app, 'Not a git repo', initQuestion(dir, local.within), [
+			{ id: 'init', text: 'Make repo and add', cta: true },
+			{ id: 'add', text: 'Add without' },
+		]);
+		if (answer === null) return 'Not added.';
+		if (answer === 'add') {
+			new Notice(`${dir} isn't a git repo: checks fail until it is one.`, 10_000);
+			return null;
+		}
+		const r = await initFolder(app, data, dir, s.branch);
+		if (!r) return `${dir}: a snapshot is already running.`;
+		new Notice(snapshotText(dir, r), 10_000);
+		return null;
+	});
+}
+
+/**
  * Before setting `dir` as the local copy of the hosted source `s`: refuses a folder that isn't a
  * repo with a remote for the source's URL, and warns when it won't check yet. Returns the error
  * to show in the form, or `null` to go on.
  */
-export async function prepareLocalCopy(data: PublicTxtData, s: Source, dir: string): Promise<string | null> {
-	const run = gitRunner(data.gitPath);
-	try {
-		const local = await inspectLocal(run, localFs, dir, s.branch);
-		const same = local.kind === 'work' || local.kind === 'bare' ? await hasRemote(run, dir, s.url) : false;
-		const problem = copyProblem(local, dir, same, s.url);
-		if (problem) return problem;
-		for (const w of localWarnings(local, s.branch)) new Notice(`${dir}: ${w}`, 10_000);
-		return null;
-	} catch (e) {
-		return `${dir}: ${errorText(e)}`;
-	}
+export function prepareLocalCopy(data: PublicTxtData, s: Source, dir: string): Promise<string | null> {
+	return prepareFolder(data, s, dir, (run, local) => copyProblem(run, local, dir, s.url));
 }
