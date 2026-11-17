@@ -274,7 +274,7 @@ user's own other vault. That is one source, not two. The follow note is the host
 says nothing of the copy: `url` is its identity, so its key, clone, `fork_repo` and
 `mirror_repo` are the hosted URL, and a published site shows one source with one rating. The
 copy's folder is in `localPaths` under the remote name, and only changes where git fetches from.
-`local: true` stays for a repo with no public URL. The reasons: `docs/plans/local-copy.md`.
+`local: true` stays for a repo with no public URL.
 
 - **Setting it.** **Local copy** in the source form, for a hosted source. The folder must be a
   git repo, at its top, with a remote whose canonical URL is the source's (`hasRemote()`,
