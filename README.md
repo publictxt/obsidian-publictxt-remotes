@@ -4,8 +4,6 @@ Follow other people's knowledge bases via their git repos, see what changed sinc
 pages you want at hand, and fork the ones you want to make your own. Each mirror and fork
 records where it came from in its front matter.
 
-> **Status: early development.** Nothing is released.
-
 ## Requirements
 
 - Obsidian desktop 1.14.4 or later (the plugin uses the git CLI, so no mobile).
@@ -36,25 +34,23 @@ your vault is a git repo, add it to `.gitignore`.
 
 ## Install from git
 
-Nothing is released yet, so build it from source. Needs git and Node.js 22.18 or later.
+Source install; needs git and Node.js 22.18+.
 
-1. Clone into your vault's plugins folder. The folder name must be the plugin id:
+```bash
+cd <vault>/.obsidian/plugins
+git clone https://github.com/publictxt/obsidian-publictxt-remotes.git publictxt-remotes
+cd publictxt-remotes
+npm install
+npm run build
+```
 
-   ```bash
-   cd <vault>/.obsidian/plugins
-   git clone https://github.com/publictxt/obsidian-publictxt-remotes.git publictxt-remotes
-   cd publictxt-remotes
-   npm install
-   npm run build
-   ```
+Then in Obsidian: **Settings → Community plugins**, turn off **Restricted mode**, reload plugins,
+and enable **PublicTxt Remotes**.
 
-2. In Obsidian, select **Settings → Community plugins**, turn off **Restricted mode**, reload
-   plugins, and enable **PublicTxt Remotes**.
-3. To update: `git pull`, `npm install`, `npm run build`, then reload Obsidian.
+To update later: `git pull`, `npm install`, `npm run build`, then reload Obsidian.
 
-The build writes `main.js` next to `manifest.json` and `styles.css`, which is all Obsidian loads.
-Add `.obsidian/plugins/publictxt-remotes/` to the vault's `.gitignore` if the vault is a git repo
-and you don't want the clone inside it.
+The build writes `main.js` beside `manifest.json` and `styles.css`; that's all Obsidian loads.
+Add `.obsidian/plugins/publictxt-remotes/` to the vault's `.gitignore` if you do not want the clone inside it.
 
 ## Use it
 
