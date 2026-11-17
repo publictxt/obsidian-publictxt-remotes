@@ -34,6 +34,39 @@ Commands are in the command palette; settings are in **Settings → Community pl
 ([fields](docs/features/sources.md)). Clones live in the hidden `.clones/` folder: if
 your vault is a git repo, add it to `.gitignore`.
 
+## Install from git
+
+Nothing is released yet, so build it from source. Needs git and Node.js 22.18 or later.
+
+1. Clone into your vault's plugins folder. The folder name must be the plugin id:
+
+   ```bash
+   cd <vault>/.obsidian/plugins
+   git clone https://github.com/publictxt/obsidian-publictxt-remotes.git publictxt-remotes
+   cd publictxt-remotes
+   npm install
+   npm run build
+   ```
+
+2. In Obsidian, select **Settings → Community plugins**, turn off **Restricted mode**, reload
+   plugins, and enable **PublicTxt Remotes**.
+3. To update: `git pull`, `npm install`, `npm run build`, then reload Obsidian.
+
+The build writes `main.js` next to `manifest.json` and `styles.css`, which is all Obsidian loads.
+Add `.obsidian/plugins/publictxt-remotes/` to the vault's `.gitignore` if the vault is a git repo
+and you don't want the clone inside it.
+
+## Use it
+
+1. In **Settings → PublicTxt Remotes**, select **Add source**. Enter a name and a repo URL, or
+   the folder of a git repo on your computer.
+2. Run **Check sources** from the command palette (or the ribbon). The check view opens in the
+   right sidebar.
+3. Select **Mirror** or **Fork** next to a file, or tick several and use **Mirror selected** /
+   **Fork selected**.
+4. Check again later. When a mirror or fork changed upstream, select **Update** or **Compare**.
+5. Select **Mark as seen** to start the next check from here.
+
 ## Privacy
 
 The network is used only through git, to fetch the repos you follow, with your own credentials.
@@ -55,9 +88,7 @@ npm test        # unit tests, plus git tests against temporary repos
 npm run lint
 ```
 
-To try it, copy `main.js`, `manifest.json` and `styles.css` into
-`<vault>/.obsidian/plugins/publictxt-remotes/` and enable **PublicTxt Remotes**. Design docs:
-[docs/](docs/README.md).
+Design docs: [docs/](docs/README.md).
 
 ## License
 
