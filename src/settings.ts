@@ -152,16 +152,15 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 		});
 	}
 
-	/** Sets (or, `null`, forgets) the folder of the source `name` on this computer. */
+	/**
+	 * Sets (or, `null`, forgets) the folder of the source `name` on this computer. A forgotten
+	 * folder's `checkFrom` goes with it (`normalizeData`).
+	 */
 	private async setLocalPath(name: string, path: string | null): Promise<void> {
 		const localPaths = { ...this.plugin.data.localPaths };
-		const checkFrom = { ...this.plugin.data.checkFrom };
-		if (path === null) {
-			delete localPaths[name];
-			// The choice was about that folder: gone with it.
-			delete checkFrom[name];
-		} else localPaths[name] = path;
-		await this.plugin.save({ ...this.plugin.data, localPaths, checkFrom });
+		if (path === null) delete localPaths[name];
+		else localPaths[name] = path;
+		await this.plugin.save({ ...this.plugin.data, localPaths });
 	}
 
 	/**
