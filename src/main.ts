@@ -81,9 +81,7 @@ export default class PublicTxtPlugin extends Plugin {
 	/** Checks every source; saves `checkedAt`, keeps the results for the view. */
 	async check(): Promise<void> {
 		if (this.checking !== null) return;
-		this.checking = 'Checking…';
-		this.renderViews();
-		try {
+		await this.whileChecking('Checking…', async () => {
 			// Not as Obsidian starts: with the metadata cache half loaded, follow notes read as
 			// invalid, and the state of every source would be dropped as no longer followed.
 			await new Promise<void>((ready) => this.app.workspace.onLayoutReady(ready));
@@ -95,12 +93,7 @@ export default class PublicTxtPlugin extends Plugin {
 			// From the state as it is now: a source acknowledged while this ran keeps that.
 			const sources = run.results.map((r) => ({ url: r.follow.url, ok: r.check !== null }));
 			await this.save({ ...this.data, state: checkedAll(this.data.state, sources, run.at) });
-		} catch (e) {
-			new Notice(errorText(e));
-		} finally {
-			this.checking = null;
-			this.renderViews();
-		}
+		});
 	}
 
 	/**
@@ -111,15 +104,22 @@ export default class PublicTxtPlugin extends Plugin {
 		const run = this.lastRun;
 		const follow = run?.results.find((r) => r.follow.url === url)?.follow;
 		if (!run || !follow || this.checking !== null) return;
-		this.checking = `Checking ${follow.name}…`;
-		this.renderViews();
-		try {
+		await this.whileChecking(`Checking ${follow.name}…`, async () => {
 			await this.save({ ...this.data, checkFrom: { ...this.data.checkFrom, [follow.name]: from } });
 			const result = await checkOne(this.app, this.data, follow);
 			// Into the run as it is now: another source may have been acknowledged meanwhile.
 			const now = this.lastRun ?? run;
 			this.lastRun = { ...now, results: now.results.map((r) => (r.follow.url === url ? result : r)) };
 			if (result.check) await this.save({ ...this.data, state: { ...this.data.state, [url]: checked(this.data.state[url], new Date().toISOString()) } });
+		});
+	}
+
+	/** Runs `job` with `label` as the views' progress text; an error is a notice. */
+	private async whileChecking(label: string, job: () => Promise<void>): Promise<void> {
+		this.checking = label;
+		this.renderViews();
+		try {
+			await job();
 		} catch (e) {
 			new Notice(errorText(e));
 		} finally {
