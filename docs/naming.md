@@ -144,7 +144,7 @@ and command ids freeze at the first release.
 | `convertCopies()` | Converts (or counts) the links in some sources' copies, forks and mirrors, and rewrites their reports |
 | `convertActiveCopy()` / `convertAllCopies()` | The `convert-links` / `convert-links-all` commands |
 | `offerConvert()` | After a fork or overwrite: the notice with **Convert**, when links would convert |
-| `convertMirrors()` | After mirroring or an update: converts the links in the mirrors just written, unasked |
+| `convertMirrors()` | After mirroring or an update: points the links in the mirrors just written into their mirror folder, against the source's files given, unasked |
 | `mirrorRoot()` / `mirrorLink()` | A mirror's mirror folder, from its path / a mirror's link by full path into it, in the link's own form. Pure |
 | `inspectLocal()` / `LocalRepo` | What a local source's folder is: `missing`, `unusable`, `not-repo`, `bare`, `work`. Pure |
 | `initLocal()` / `newRepoGitignore()` | Makes a folder a repo, with a `.gitignore`, and snapshots it. Pure |

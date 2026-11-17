@@ -240,15 +240,14 @@ export class CheckView extends ItemView {
 
 	/** Overwrites one upstream file's mirrors with what the last check found at head. */
 	private updateMirror(url: string, path: string): void {
-		const r = this.result(url);
-		const c = r?.check;
+		const c = this.result(url)?.check;
 		const change = c?.mirrors.find((m) => m.path === path);
-		if (r && c && change) void updateMirror(this.plugin, r.follow, c.head, change).catch((e: unknown) => void new Notice(errorText(e)));
+		if (c && change) void updateMirror(this.plugin, url, c.head, change).catch((e: unknown) => void new Notice(errorText(e)));
 	}
 
 	private updateMirrors(url: string): void {
 		const r = this.result(url);
-		if (r?.check) void updateMirrors(this.plugin, r.follow, r.check.head, r.check.mirrors).catch((e: unknown) => void new Notice(errorText(e)));
+		if (r?.check) void updateMirrors(this.plugin, url, r.follow.name, r.check.head, r.check.mirrors).catch((e: unknown) => void new Notice(errorText(e)));
 	}
 
 	/** Forks the ticked files, then clears the ticks. */

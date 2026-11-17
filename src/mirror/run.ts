@@ -8,6 +8,7 @@ import type PublicTxtPlugin from '../main.ts';
 import type { MirrorChange } from '../check/check.ts';
 import { isForkable, isForkOf, type Remote } from '../fork/fork.ts';
 import { convertMirrors } from '../fork/links-run.ts';
+import { upstreamFiles } from '../fork/links.ts';
 import { needFrontMatter, noteParts, writeWithProvenance, type ForkSource } from '../fork/run.ts';
 import { isEdited } from '../fork/update.ts';
 import type { Head, RemoteHost } from '../remote/host.ts';
@@ -68,7 +69,7 @@ export async function mirrorFiles(plugin: PublicTxtPlugin, from: ForkSource, pat
 		}
 		plugin.mirrorsNow(from.url, { add: written });
 		done?.();
-		if (notes.length) void convertMirrors(app, host, from, notes);
+		if (notes.length) void convertMirrors(app, upstreamFiles(files.keys()), notes);
 
 		const already = plan.filter((p) => p.state === 'mirrored');
 		const [only] = plan;
@@ -141,6 +142,16 @@ async function overwriteMirrors(app: App, host: RemoteHost, url: string, head: H
 	return { written, edited };
 }
 
+/** Converts the links in the mirrors `written` from `head`, reading the source's files there. Never throws. */
+async function convertUpdated(app: App, host: RemoteHost, url: string, head: Head, written: readonly TFile[]): Promise<void> {
+	if (written.length === 0) return;
+	try {
+		await convertMirrors(app, upstreamFiles((await host.tree(url, head.tree)).files.keys()), written);
+	} catch (e) {
+		new Notice(errorText(e));
+	}
+}
+
 /** What overwriting an edited mirror does, before it is done. */
 function editedQuestion(notes: readonly string[]): string {
 	const [one] = notes;
@@ -152,23 +163,25 @@ function editedQuestion(notes: readonly string[]): string {
  * Updates one upstream file's mirrors from the last check's head, then converts their links. An
  * edited mirror is overwritten only after asking.
  */
-export async function updateMirror(plugin: PublicTxtPlugin, remote: Remote, head: Head, change: MirrorChange): Promise<void> {
+export async function updateMirror(plugin: PublicTxtPlugin, url: string, head: Head, change: MirrorChange): Promise<void> {
 	const { app, data } = plugin;
-	const { url } = remote;
 	const host = vaultHost(app, data);
-	const updated = (written: readonly TFile[]) => {
+	const updated = () => {
 		plugin.mirrorsNow(url, { settled: [change.path] });
 		new Notice(`Updated the mirror of ${change.path}.`);
-		void convertMirrors(app, host, remote, written);
 	};
+	// Converted now, asked or not: the edited ones are what the question is about, not these.
 	const { written, edited } = await overwriteMirrors(app, host, url, head, change, false);
+	void convertUpdated(app, host, url, head, written);
 	if (edited.length === 0) {
-		updated(written);
+		updated();
 		return;
 	}
 	const overwrite = async () => {
 		try {
-			updated((await overwriteMirrors(app, host, url, head, change, true)).written);
+			const again = await overwriteMirrors(app, host, url, head, change, true);
+			updated();
+			void convertUpdated(app, host, url, head, again.written);
 		} catch (e) {
 			new Notice(errorText(e));
 		}
@@ -177,9 +190,8 @@ export async function updateMirror(plugin: PublicTxtPlugin, remote: Remote, head
 }
 
 /** Updates every mirror the last check found changed upstream, then converts their links. Edited ones are left, and named. */
-export async function updateMirrors(plugin: PublicTxtPlugin, remote: Remote, head: Head, changes: readonly MirrorChange[]): Promise<void> {
+export async function updateMirrors(plugin: PublicTxtPlugin, url: string, name: string, head: Head, changes: readonly MirrorChange[]): Promise<void> {
 	const { app, data } = plugin;
-	const { url, name } = remote;
 	const host = vaultHost(app, data);
 	const todo = changes.filter((c) => c.blob !== null);
 	const blobs = todo.map((c) => c.blob).filter((b): b is string => b !== null);
@@ -205,7 +217,7 @@ export async function updateMirrors(plugin: PublicTxtPlugin, remote: Remote, hea
 	if (failed.length) lines.push('Not updated:', ...failed);
 	// With anything left over it stays until dismissed: it is the only record of it.
 	new Notice(lines.join('\n'), lines.length > 1 ? 0 : undefined);
-	if (written.length) void convertMirrors(app, host, remote, written);
+	void convertUpdated(app, host, url, head, written);
 }
 
 /** Moves the notes mirroring `path` from the source `remote` to the trash, after asking. Nothing of the user's is lost: the text is upstream's. */

@@ -1,14 +1,15 @@
 // Converting the links in forks and mirrors (docs/plans/convert-links.md): the Obsidian side
-// of links.ts. A link is read as upstream reads it and pointed at the vault's copy of its file,
-// a fork or a mirror alike.
+// of links.ts. A link is read as upstream reads it. A fork's is pointed at the vault's copy of
+// its file, a fork or a mirror; a mirror's by full path into its mirror folder.
 
-import { App, Notice, TFile, type CachedMetadata, type EventRef } from 'obsidian';
+import { App, getFrontMatterInfo, Notice, parseYaml, TFile, type CachedMetadata, type EventRef } from 'obsidian';
 import { latestFirst } from '../check/check.ts';
 import type { RemoteHost } from '../remote/host.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
 import { readForkMeta, readMirrorMeta, type Copy, type MirrorMeta } from '../sources/fork-meta.ts';
 import { scanFollows } from '../sources/follows.ts';
 import { scanCopies } from '../sources/forks.ts';
+import { isRecord } from '../util/validate.ts';
 import type { PublicTxtData } from '../sources/schema.ts';
 import { forksOf, isForkOf, type Remote } from './fork.ts';
 import { writeSections } from './fork-lists.ts';
@@ -67,16 +68,7 @@ class SourceLinks {
 		const refs = refsOf(cache);
 		if (refs.length === 0) return nothingConverted('');
 		const files = await this.filesAt(copy.meta.commit);
-		const plan = (ref: LinkRef) => this.planLink(ref, file, copy, files);
-		const counted = convertLinks(await this.app.vault.cachedRead(file), refs, plan);
-		if (!write || !counted || counted.converted === 0) return counted;
-		// `process` reads the file itself: the offsets are checked again against what it reads.
-		let result: Converted | null = null;
-		await this.app.vault.process(file, (text) => {
-			result = convertLinks(text, refs, plan);
-			return result?.text ?? text;
-		});
-		return result;
+		return rewriteLinks(this.app, file, refs, (ref) => this.planLink(ref, file, copy, files), write);
 	}
 
 	/**
@@ -136,6 +128,19 @@ class SourceLinks {
 		const shows = linkShows(original);
 		return linkShows(plain) === shows ? plain : fm.generateMarkdownLink(target, from, subpath || undefined, shows);
 	}
+}
+
+/** Rewrites `file`'s links from their plans; with `write` false only counts them. `null`: the cache was stale. */
+async function rewriteLinks(app: App, file: TFile, refs: readonly LinkRef[], plan: (ref: LinkRef) => LinkPlan, write: boolean): Promise<Converted | null> {
+	const counted = convertLinks(await app.vault.cachedRead(file), refs, plan);
+	if (!write || !counted || counted.converted === 0) return counted;
+	// `process` reads the file itself: the offsets are checked again against what it reads.
+	let result: Converted | null = null;
+	await app.vault.process(file, (text) => {
+		result = convertLinks(text, refs, plan);
+		return result?.text ?? text;
+	});
+	return result;
 }
 
 /** The links and embeds Obsidian found in a note's body, in the form `convertLinks` takes. */
@@ -214,18 +219,26 @@ export async function convertAllCopies(app: App, data: PublicTxtData): Promise<v
 }
 
 /**
- * After mirroring from `remote`, or updating its mirrors: converts the links in the mirrors
- * `written`, unasked, since a mirror is upstream's and has no edits to respect. Only those: a
- * mirror's links don't depend on what else is in the vault. Waits for Obsidian to have read
- * them; if it hasn't in time, nothing is converted and the commands remain. Never throws: the
- * mirror stands whatever happens here.
+ * After mirroring or updating mirrors: points the links in the mirrors `written` into their
+ * mirror folder (`mirrorLink`), unasked, since a mirror is upstream's and has no edits to
+ * respect. `files` are the source's files at the commit they were written from. Only those
+ * notes: a mirror's links don't depend on anything else in the vault, and mirrors are never in
+ * the report. Waits for Obsidian to have read them; if it hasn't in time, nothing is converted
+ * and the commands remain. Never throws: the mirror stands whatever happens here.
  */
-export async function convertMirrors(app: App, host: RemoteHost, remote: Remote, written: readonly TFile[]): Promise<void> {
+export async function convertMirrors(app: App, files: UpstreamFiles, written: readonly TFile[]): Promise<void> {
 	try {
 		if (!(await allCached(app, written))) return;
-		const paths = new Set(written.map((f) => f.path));
-		const tally = await convertCopies(app, host, [remote], (c) => paths.has(c.path));
-		if (tally.stale.length) new Notice(tallyText(tally, true));
+		const stale: string[] = [];
+		for (const file of written) {
+			const cache = app.metadataCache.getFileCache(file);
+			const meta = readMirrorMeta(cache?.frontmatter);
+			const root = meta ? mirrorRoot(file.path, meta.path) : null;
+			if (!meta || root === null) continue;
+			const c = await rewriteLinks(app, file, refsOf(cache), (ref) => mirrorLink(ref, meta.path, root, files), true);
+			if (!c) stale.push(file.path);
+		}
+		if (stale.length) new Notice(`Changed while converting links, try again: ${stale.join(', ')}.`);
 	} catch (e) {
 		new Notice(errorText(e));
 	}
@@ -236,8 +249,9 @@ const CACHE_WAIT_MS = 2000;
 
 /**
  * After forking from `remote` (or overwriting a fork), offers to convert the links in its forks
- * when any can be: the notes `written` may be what other copies link to, or link to them. Waits for Obsidian to have read the written notes; if it hasn't in time, there is no
- * offer and the commands remain. Never throws: the fork stands whatever happens here.
+ * when any can be: the notes `written` may be what other copies link to, or link to them. Waits
+ * for Obsidian to have read the written notes; if it hasn't in time, there is no offer and the
+ * commands remain. Never throws: the fork stands whatever happens here.
  */
 export async function offerConvert(app: App, host: RemoteHost, remote: Remote, written: readonly TFile[]): Promise<void> {
 	try {
@@ -275,8 +289,10 @@ async function allCached(app: App, written: readonly TFile[]): Promise<boolean> 
 
 /**
  * Whether Obsidian's cache of `file` matches its text, waiting up to `ms` for it to: the note
- * reads as a fork or a mirror, and every cached link is where the cache says it is. A note just
- * forked or mirrored is written twice (text, then front matter), and each write moves the links.
+ * reads as a fork or a mirror of the blob its text says, and every cached link is where the
+ * cache says it is. A note just forked or mirrored is written twice (text, then front matter),
+ * and each write moves the links. The blob tells an overwritten note from its old cache, which
+ * a note with no links would otherwise match.
  */
 async function whenCached(app: App, file: TFile, ms: number): Promise<boolean> {
 	const deadline = Date.now() + ms;
@@ -290,9 +306,23 @@ async function whenCached(app: App, file: TFile, ms: number): Promise<boolean> {
 
 async function isCached(app: App, file: TFile): Promise<boolean> {
 	const cache = app.metadataCache.getFileCache(file);
-	if (!cache || !readCopyMeta(cache.frontmatter)) return false;
+	const cached = readCopyMeta(cache?.frontmatter);
+	if (!cache || !cached) return false;
 	const text = await app.vault.cachedRead(file);
+	if (readCopyMeta(frontMatterOf(text))?.blob !== cached.blob) return false;
 	return refsOf(cache).every((r) => text.slice(r.start, r.end) === r.original);
+}
+
+/** `text`'s front matter, parsed; `undefined` when it has none or it isn't valid YAML. */
+function frontMatterOf(text: string): Record<string, unknown> | undefined {
+	const fm = getFrontMatterInfo(text);
+	if (!fm.exists) return undefined;
+	try {
+		const front: unknown = parseYaml(fm.frontmatter);
+		return isRecord(front) ? front : undefined;
+	} catch {
+		return undefined;
+	}
 }
 
 /** Resolves when Obsidian next reads `file`, or after `ms`. */

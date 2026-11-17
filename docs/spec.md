@@ -638,8 +638,11 @@ the user's note.
 Mirrors are not asked. After **Mirror** (any way in) and after **Update** or **Update
 mirrors**, the links in the mirrors just written are converted, with the same wait, and
 nothing is said unless one changed while converting. A mirror is upstream's, with no edits to
-respect, and an update overwrites it anyway. Only those mirrors: no other note's links depend
-on them. A fork's link by name to the new mirror's page resolves to it without converting.
+respect, and an update overwrites it anyway. Only those mirrors, against the source's files at
+the head they were written from (the tree mirroring already read; an update reads it from the
+clone): no other note's links depend on them, so the vault isn't scanned, forks aren't
+planned and the report isn't rewritten. A fork's link by name to the new mirror's page resolves
+to it without converting.
 
 A notice says what was converted, how many to notes not in the vault, what was left and what
 to check.
