@@ -16,95 +16,64 @@ records where it came from in its front matter.
 
 ## How it works
 
+Reference for each feature: [docs/features/](docs/features/).
+
 - **Sources** are repos you follow, optionally narrowed to some folders. Each is a note in
-  `follows/`, named for the source (its **remote name**, such as `follows/ann-notes.md`): the
-  repo's `url`, `branch` and `include` in front matter, and why you follow it in the body. Add and edit them in settings or by hand. They are public text, like the rest of
-  your vault.
-- **Clones.** Each source is kept as a bare partial clone in your vault's hidden `.clones/`
-  folder. File contents are fetched only when needed. Obsidian doesn't show it and Sync skips
-  it; if your vault is a git repo, add `.clones/` to its `.gitignore`.
-- **Checking** shows, per source, what's new since you last looked, your mirrors that are
-  behind, and your forks whose original has changed. What's new is a folder tree. Select a source's header to open or close it; one
-  with nothing new starts closed. **Mark as seen** starts the next check from here.
-- A **mirror** is upstream's copy of a page, in your vault so you can read it in place, search
-  it and see its backlinks, without bringing in the whole repo. **Mirror** next to a file in
-  the check view (or tick several and **Mirror selected**, or **Mirror a file from a source**)
-  copies it into the source's folder under the **community folder**, the source's folders
-  kept and its links pointed into that folder: `wiki/cs/git.md` from `research` into
-  `community/research/wiki/cs/git.md`. It carries `mirror_*` keys saying where it came from.
-  Don't edit a mirror: when it changes upstream, **Update** (or **Update mirrors**) overwrites
-  it, asking first only if you did edit it. **Stop** moves it to the trash.
-- A **fork** is your own note, made from a source's page, with `fork_remote` (the source's name),
-  `fork_repo`, `fork_path`, `fork_blob` and related keys in its front matter. Those keys are how the plugin tells when the original has
-  changed. Fork a Markdown file with **Fork** next to it in the check view, or with **Fork a
-  file from a source**. If you mirror the file, its mirror moves into your notes and becomes
-  the fork (links to it follow); otherwise the file is fetched. By default it goes to the same
-  folder as in the source when your vault has that folder, else to your **fork folder**. You
-  can instead pick a folder, with or without the source's folders, and for one file its name. Nothing is overwritten. To fork several, tick files or
-  whole folders in the check view and select **Fork selected**. Either way it shows what would
-  be written before writing any.
-- **Updating a fork.** When a fork's original has changed, **Compare** in the check view opens
-  your note with the new upstream version beside it, saying how many lines changed and whether
-  you have edited your copy. Then **Overwrite** your note with it (it asks first if you edited
-  it), **Write alongside** to save it as a second note, `name (up-01).md`, or **Keep mine**.
-  Either way that version isn't listed again; the plugin records it as `fork_seen`. Nothing is
-  merged. If the original is gone, **Detach** makes your note an ordinary note, and **Keep**
-  leaves it a fork.
-- **Converting links.** A copy's links were written for its source: relative to where the file
-  was, in its link style. Converted links point at your copies, mirrors and forks, in your
-  vault's style (wikilinks or Markdown links, both ways). In a fork, a link to a page you
-  haven't mirrored or forked becomes a link by name: it lands on your note of that name, or
-  waits until you take it. A mirror's links are rewritten by full path into its source's
-  folder under the community folder as it is written and updated, so you can move between a
-  source's mirrors, and a link to a page you haven't mirrored dangles instead of landing on
-  your own note of that name. Forks are asked: after a fork, if links in your
-  forks of that source can now point at your copies, a notice offers **Convert**. The follow
-  note lists **Links to fix** (images, and the rare link that can't be converted) and **Links
-  to check** (where upstream could mean more than one file). Converting doesn't count as
-  editing your copy.
-- **Mirror and fork lists.** With **List mirrors in follow notes** on, each follow note ends
-  with a **Mirrored pages** list of links to the pages mirrored from it; with **List forks in
-  follow notes** on, a **Forked pages** list of the pages forked from it. The two are separate
-  switches. A follow note's `list_mirrors` or `list_forks` (`true` or `false`) overrides the
-  setting for that note. The plugin rewrites those sections only.
+  `follows/` named for the source (its **remote name**, such as `follows/ann-notes.md`), with
+  `url`, `branch` and `include` in front matter and your reasons in the body. Add and edit them
+  in settings or by hand. They are public text, like the rest of your vault.
+- **Clones.** Each source is a bare partial clone in the hidden `.clones/` folder, with file
+  contents fetched on demand. Sync skips it; if your vault is a git repo, add `.clones/` to its
+  `.gitignore`.
+- **Checking** shows, per source, what's new since you last looked, mirrors that are behind, and
+  forks whose original changed. **Mark as seen** starts the next check from here.
+- **Mirror** a page to keep upstream's copy in your vault, to read, search and see backlinks,
+  without bringing in the whole repo. It goes under the **community folder** with the source's
+  folders kept (`wiki/cs/git.md` from `research` → `community/research/wiki/cs/git.md`), carries
+  `mirror_*` keys, and has its links pointed into that folder. Don't edit it: **Update** overwrites
+  it (asking first only if you edited it). **Stop** trashes it.
+- **Fork** a page to make it your own: your note, with `fork_*` keys saying where it came from.
+  A mirrored file's mirror moves into your notes; otherwise the file is fetched. It goes to the
+  same folder as in the source if your vault has it, else your **fork folder**, or a folder you
+  pick. Nothing is overwritten, and you see what would be written first. Tick files or folders
+  and **Fork selected** to fork several.
+- **Updating a fork.** **Compare** opens your note beside the new upstream version, with lines
+  changed and whether you edited your copy. Then **Overwrite**, **Write alongside** as
+  `name (up-01).md`, or **Keep mine**. Nothing is merged. If the original is gone, **Detach** or
+  **Keep**.
+- **Converting links.** Links in a copy were written for its source. After a fork, a notice
+  offers **Convert** to point links at your copies in your vault's link style; links to pages you
+  don't have go by name. A mirror's links are rewritten into its folder automatically, so a link
+  to an unmirrored page dangles rather than landing on your own same-named note. The follow note
+  lists **Links to fix** and **Links to check**. Converting isn't an edit.
+- **Mirror and fork lists.** Optionally, follow notes end with **Mirrored pages** and **Forked
+  pages** lists. Switches are in settings, and `list_mirrors` / `list_forks` override per note.
 
 ## Local sources
 
-A source can be a git repo on your computer, such as another vault. Enter its folder
-(`/home/me/notes`) instead of a repo URL, and give it a name.
+A source can be a git repo on your computer, such as another vault: enter its folder instead of
+a URL, and a name.
 
-- **The folder stays private.** The follow note says `local: true` and nothing about where the
-  folder is; the path is kept in the plugin's settings for this computer. Publish and sync the
-  note freely. On another computer, the source is marked until you set its folder there with
-  **Edit**.
-
-- **Only commits show.** A check sees what's committed, not edits in progress. **Snapshot** in
-  the check view commits everything changed in the folder (if anything did) and checks again. It commits to the folder's current branch, and refuses if
-  that isn't the branch the source follows.
-- **Not a repo yet?** Adding the source offers to make the folder one: `git init`, a
-  `.gitignore` that leaves out a vault's app folders (its config folder, `.trash/`,
-  `.clones/`), and a first snapshot. **Snapshot** makes the same offer for a follow note
-  written by hand. A missing folder is refused.
-- **Forks name their source.** A fork from a local source records `fork_remote` (the name) and no
-  `fork_repo`: there is no public URL to give, and no path is written.
+- **The folder stays private**: the note says `local: true`; the path lives in this computer's
+  settings. On another computer, **Edit** the source to set its folder.
+- **Only commits show.** **Snapshot** in the check view commits everything changed (if any) to
+  the folder's current branch, refusing if that isn't the source's branch.
+- **Not a repo yet?** Adding offers `git init` with a `.gitignore` (vault app folders left out)
+  and a first snapshot.
+- Forks record `fork_remote` and no `fork_repo`.
 
 ### A local copy of a hosted source
 
-If a repo you follow by URL is also on your computer (your own other vault, cloned from it),
-set its folder as the source's **Local copy** when adding or editing it. It stays one source:
-the note, and what your mirrors and forks record, is the hosted URL.
+If a repo you follow by URL is also on your computer, set its folder as the source's **Local
+copy**. It stays one source, keyed by the URL.
 
-- **Local or remote, as you choose.** In the check view the source has **Local** and
-  **Remote**. Select one to check it from there: the copy, with commits you haven't pushed
-  yet, or the network. The choice is remembered, and **Check now** uses it. If the two are at
-  different commits, switching lists every file as new; **Mark as seen** starts from there. While **Local** is
-  selected, **Snapshot** works on the copy as on a local source.
-- **Must be that repo.** The folder has to be a git repo with a remote for the source's URL.
-- **This computer only.** The path is kept in the plugin's settings, never in the note. Where
-  the folder isn't there, a check from **Local** says so: select **Remote** to check from the
-  network.
-- **Push before you publish.** A mirror or fork made from an unpushed commit records that
-  commit; a site's link to the original is broken until the copy is pushed.
+- In the check view, **Local** / **Remote** pick where to check from; the choice is remembered.
+  Switching can list every file as new if the two differ; **Mark as seen** starts from there.
+  **Snapshot** works while **Local** is selected.
+- The folder must be a git repo with a remote for the source's URL.
+- A missing folder is an error from **Local**; select **Remote** to use the network.
+- Push before you publish: a mirror or fork from an unpushed commit links to a commit the host
+  doesn't have yet.
 
 ## Commands
 
