@@ -297,6 +297,35 @@ function linkByName(name: string, subpath: string, original: string, style: Link
 	return style === 'wiki' ? wikilink(name, decoded(subpath), shows) : markdownLink(name, decoded(subpath), shows);
 }
 
+/**
+ * The vault folder a mirror's upstream files sit under: its vault path less its upstream path
+ * (`community/txt/wiki/cs/git.md` mirroring `wiki/cs/git.md` gives `community/txt`). `null`:
+ * the mirror isn't at its upstream path under a folder (moved by hand).
+ */
+export function mirrorRoot(notePath: string, upstreamPath: string): string | null {
+	return notePath.endsWith(`/${upstreamPath}`) ? notePath.slice(0, -upstreamPath.length - 1) : null;
+}
+
+/**
+ * A mirror's link, pointing by full path at where the mirror of the upstream note it names is
+ * or would be: `<root>/<upstream path>`, in the link's own form, showing what it showed. So a
+ * link to a page that is mirrored resolves to that mirror, and one to a page that isn't dangles
+ * where its mirror would be, never landing on a vault note of that name. `null`: left as written,
+ * when it is no one note upstream, or its words can't be the link's.
+ */
+export function mirrorLink(ref: Pick<LinkRef, 'original' | 'link'>, mirrorPath: string, root: string, files: UpstreamFiles): string | null {
+	const upstream = upstreamTarget(ref, mirrorPath, files);
+	if (upstream === null || 'none' in upstream || !/\.md$/i.test(upstream.path)) return null;
+	const { subpath } = splitLink(ref.link);
+	const wiki = isWikilink(ref.original);
+	const name = `${root}/${upstream.path.replace(/\.md$/i, '')}`;
+	if (NOT_IN_NAME.test(name)) return null;
+	const link = linkByName(name, subpath, ref.original, wiki ? 'wiki' : 'markdown');
+	if (link === null) return null;
+	const out = ref.original.startsWith('!') ? `!${link}` : link;
+	return out === ref.original ? null : out;
+}
+
 /** What becomes of a link: its new text, a dangling wikilink, why it is left, or `null`: right as it is. */
 export type LinkOutcome = string | { dangling: string } | { left: Left } | null;
 
