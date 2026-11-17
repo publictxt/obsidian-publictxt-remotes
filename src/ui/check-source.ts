@@ -36,6 +36,18 @@ const REASON: Record<NewReason, string> = {
 	'history-rewritten': 'History was rewritten since you last looked: every file is listed.',
 };
 
+/**
+ * For a hosted source with a local copy, the same finding has a likelier cause: what was last
+ * seen came from the other one (an unpushed commit, or a remote ahead of the copy).
+ */
+const COPY_REWRITTEN = 'This head doesn\'t follow the commit you last saw: the local copy and the remote are likely at different commits, or history was rewritten. Every file is listed.';
+
+/** Why every file is listed, if it is. `copy`: the source has a local copy. */
+function reasonText(reason: NewReason | null, copy: boolean): string | null {
+	if (reason === 'history-rewritten' && copy) return COPY_REWRITTEN;
+	return reason ? REASON[reason] : null;
+}
+
 /** What the user did to a source in the view. The view keeps it, so it outlasts a check. */
 export interface SourceUi {
 	/** Opened or closed by the user; `null`: left alone. */
@@ -107,6 +119,8 @@ interface Drawing {
 	ui: SourceUi;
 	/** Upstream files with forks that aren't settled: `c.forks`, by path. */
 	unsettled: ReadonlySet<string>;
+	/** Why every file is listed, if it is (`reasonText()`). */
+	reason: string | null;
 }
 
 /** What a source's header offers besides opening it. */
@@ -127,7 +141,7 @@ export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi,
 		return;
 	}
 	const c = r.check;
-	const d: Drawing = { c, ui, unsettled: new Set(c.forks.map((f) => f.path)) };
+	const d: Drawing = { c, ui, unsettled: new Set(c.forks.map((f) => f.path)), reason: reasonText(c.reason, offers.from !== null) };
 	if (!hasNews(c)) el.createEl('p', { cls: 'publictxt-quiet', text: 'Nothing new since you last looked.' });
 	actions(el, c, ui);
 	changes(el, d);
@@ -194,7 +208,7 @@ function changes(el: HTMLElement, d: Drawing): void {
 	const { c } = d;
 	if (!c.changes.length) return;
 	el.createEl('h5', { text: `What's new (${c.changes.length})` });
-	if (c.reason) el.createEl('p', { cls: 'publictxt-quiet', text: REASON[c.reason] });
+	if (d.reason) el.createEl('p', { cls: 'publictxt-quiet', text: d.reason });
 	folderRows(el, listed(c, 'new').tree, d, 'new');
 }
 

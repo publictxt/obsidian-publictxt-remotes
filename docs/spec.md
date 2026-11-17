@@ -290,6 +290,10 @@ copy's folder is in `localPaths` under the remote name, and only changes where g
   which names the folder, as a local source's does. The network is never fetched in its place: the user selects **Remote**.
 - **Snapshot.** Offered as for a local source while **Local** is chosen: the copy is a working
   folder. A copy that is no longer a repo is an error, not an offer to make one.
+- **Switching shows every file.** The copy and the remote can be at different commits (unpushed
+  commits, or a remote ahead of the copy). Seen on one and checked on the other, the seen commit
+  isn't an ancestor of head, which reads as history rewritten: every file is listed, and the
+  reason says the two likely differ. **Mark as seen** starts from there.
 - **Ahead of its origin.** The copy can hold commits not pushed yet. A mirror or fork made then
   records a `mirror_commit` or `fork_commit` the host doesn't have until the copy is pushed, and
   a published site's link to the original at that commit is broken until then. Not warned of
