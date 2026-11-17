@@ -132,9 +132,9 @@ export function isSettled(meta: ForkMeta, blob: string | null): boolean {
 	return meta.blob === blob || meta.seen === blob;
 }
 
-/** Forks by `fork_date`, newest first; one without a date is older than any with; ties by path, in byte order. */
-export function latestFirst(forks: readonly Fork[]): Fork[] {
-	const time = (f: Fork) => {
+/** Copies by their date, newest first; one without a date is older than any with; ties by path, in byte order. */
+export function latestFirst<T extends { path: string; meta: { date: string | null } }>(forks: readonly T[]): T[] {
+	const time = (f: T) => {
 		const t = f.meta.date === null ? NaN : Date.parse(f.meta.date);
 		return Number.isNaN(t) ? -Infinity : t;
 	};
