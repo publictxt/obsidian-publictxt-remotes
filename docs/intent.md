@@ -91,16 +91,32 @@ source's folder, again only when asked.
 - **Three steps: follow, mirror, fork** (decided 2026-11-13), so that reading someone's notes
   and owning a copy are apart. **Follow** a repo: a note in `follows/`, and checks show what's
   new. **Mirror** the pages worth having at hand: upstream's copies, in
-  `community/<source>/` with the source's folders kept and its links as written, so Obsidian
-  searches them and shows their backlinks without the whole repo coming in. **Fork** the ones
-  to make your own: the mirror moves into your notes and its links are converted.
+  `community/<source>/` with the source's folders kept and their links pointed into that
+  folder, so Obsidian searches them, shows their backlinks and moves between them without the
+  whole repo coming in. **Fork** the ones to make your own: the mirror moves into your notes and
+  its links are converted.
   - *Upstream's and yours stay apart.* Upstream's copies live under the community folder and
     are overwritten by updates, with no compare; yours are wherever you put them, and
     upstream's changes come through Compare. A fork never opens under the community folder.
   - *The keys say which a note is, not the folder* (`mirror_*`, `fork_*`), so a published note
     says so too, and a note moved by hand doesn't change kind.
-  - *Links are converted once*, when a note leaves upstream's layout: that is when its
-    relative links would break. A mirror's links are never touched.
+  - *A fork's links are offered, a mirror's are not.* A fork is the user's note, so converting
+    its links waits for **Convert**. A mirror is upstream's, with no edits to respect, so its
+    links are rewritten as it is written and after each update. A fork's link to a page that is
+    only mirrored points at the mirror.
+  - *A mirror links only into its mirror folder.* Its links go by full path to
+    `community/<source>/<upstream path>`, in their own form, whatever is in the vault: links
+    between a source's mirrors resolve, and one to a page not mirrored dangles where its mirror
+    would be, instead of landing on the user's note of that name and misrepresenting the
+    source. Obsidian doesn't match a full path by name. Relative links get the full path too:
+    Obsidian reads a bare path from the vault root, not from the note. Mirrors aren't restyled
+    to the vault's link format: nobody writes in them, and Obsidian and publictxt-pages read
+    both forms. The text differs from `mirror_blob` in its links only, and the edited test
+    allows for that. Not done: a per-source switch (little to opt out of), and rewriting links
+    to pages not mirrored into links to the original repo (a local source has none, a web link
+    leaves Obsidian's graph, and it couldn't convert back). That belongs to publictxt-pages,
+    which can render an unresolved link in a mirror as a link to the original from
+    `mirror_repo`.
   - *The folder is named for readers.* It is a section of the published site, so `community`,
     the word publictxt-pages uses for where pages came from; not `mirrors` (the mechanism) or
     `remotes` (git's word for the repos, not their pages). The plugin's action is still

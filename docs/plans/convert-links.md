@@ -6,6 +6,9 @@ A brief for whoever implements it. It is self-contained, but read `AGENTS.md`, `
 > Decisions confirmed 2026-11-12. Built on `feat/convert-links`: steps 1, 2, 4 and 5.
 > Step 3 is the pure part only (decided 2026-11-12): links count as the same when they show
 > the same words; checking where they point in the vault is left out.
+>
+> Mirrors added 2026-11-17 (`feat/convert-links-for-mirrors`; decision 6 below).
+> `docs/spec.md` → Convert links is current.
 
 ## Context
 
@@ -55,6 +58,24 @@ wiki dialects (Gollum's `[[text|Page-Name]]`, MediaWiki, Dendron) are not read.
    later if the button is always selected. A link is rewritten only when what Obsidian would
    write differs from what is there, so in a vault and a source that both use `[[wikilinks]]`
    by name the offer is rare.
+
+6. **Mirrors: by full path into the mirror folder, unasked.** A mirror's links are rewritten
+   as it is written and after each update, with no offer: it is upstream's, with no edits to
+   respect, and an update overwrites it anyway. A link upstream reads as one note becomes
+   `<mirror folder>/<upstream path>`, in the link's own form, showing what it showed
+   (`mirrorLink()`), whatever is in the vault. Links between a source's mirrors resolve; one to
+   a page not mirrored dangles where its mirror would be, since Obsidian doesn't match a full
+   path by name, and works once the page is mirrored with nothing rewritten. Decisions 1 and 3
+   don't apply to mirrors: a link by name would land on the user's note of that name and
+   misrepresent the source, and restyling to the vault's format buys nothing in a note nobody
+   writes in. Relative links get the full path too: Obsidian reads a bare path from the vault
+   root, not from the note. Being pure, it converts only the mirrors just written, with no
+   offer for forks, and mirrors are never in the report. The edited test for an update already
+   ignores link format (decision 4). Mirrors are targets for forks: a fork's link to a page
+   that is only mirrored points at the mirror, found by `mirror_path`. Not done: a per-source
+   switch, and links to the original repo (a local source has no URL, a web link leaves
+   Obsidian's graph and couldn't convert back; rendering an unresolved link in a mirror as one
+   is publictxt-pages' to do, from `mirror_repo`).
 
 ## The design
 

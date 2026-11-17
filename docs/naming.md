@@ -34,7 +34,7 @@ and command ids freeze at the first release.
 | remote | The technical word for a source: the plugin's name, the remote name, `fork_remote`, `mirror_remote`. Not a folder |
 | mirror list | The "Mirrored pages" section the plugin keeps in a follow note (`listMirrors`, `list_mirrors`) |
 | fork list | The "Forked pages" section the plugin keeps in a follow note (`listForks`, `list_forks`) |
-| convert links | Point a fork's links at the vault's copies, in the vault's link style |
+| convert links | Point a fork's links at the vault's copies, in the vault's link style (offered); point a mirror's by full path into its mirror folder (unasked) |
 | link by name | A link with no path, `[[b]]` or `[b](b.md)`: lands on the vault's note of that name, or dangles |
 | links to fix | The follow note section listing links converting left as they were, and why |
 | links to check | The follow note section listing links converting made a call on |
@@ -60,13 +60,13 @@ and command ids freeze at the first release.
 | `collectFollows()` | Follow notes → sources, duplicates and invalid notes |
 | `SourceState` | Per-source cache |
 | `ForkMeta` | A fork's provenance, read from or written to front matter |
-| `MirrorMeta` / `Mirror` | A mirror's provenance (a `ForkMeta` without `seen`) / a mirror note and its provenance |
+| `MirrorMeta` / `Mirror` / `Copy` | A mirror's provenance (a `ForkMeta` without `seen`) / a mirror note and its provenance / a note of either kind, with its `kind` |
 | `canonicalRepoUrl()` | v0 canonical repo URL (`https:`), or `null` |
 | `normalizeData()` | Anything loaded → valid `PublicTxtData` |
 | `readForkMeta()` / `forkMetaProps()` | Front matter ↔ `ForkMeta` |
 | `readMirrorMeta()` / `mirrorMetaProps()` / `writeMirrorMeta()` | Front matter ↔ `MirrorMeta`. A note with valid `fork_*` keys is a fork, not a mirror |
 | `PROVENANCE_KEYS` / `clearProvenance()` | Every `fork_*` and `mirror_*` key / removes them all: writing one kind clears the other |
-| `scanForks()` / `scanMirrors()` | Every fork / mirror note in the vault, from the metadata cache |
+| `scanForks()` / `scanMirrors()` / `scanCopies()` | Every fork / mirror / either kind of note in the vault, from the metadata cache |
 | `SourceForm` | The source form's raw text; lists one path per line |
 | `checkAdd()` / `checkUpdate()` | Form → the source to write, or why not. Pure |
 | `SourceModal` | The add/edit source form |
@@ -141,9 +141,11 @@ and command ids freeze at the first release.
 | `LinkTally` / `tallyText()` | Several notes' results / as a notice. Pure |
 | `matchesExceptLinks()` | Whether two bodies differ only in how their links are written. Pure |
 | `renderLinkReport()` / `renderCheckReport()` | The "Links to fix" / "Links to check" sections. Pure |
-| `convertForks()` | Converts (or counts) the links in some sources' forks and rewrites their reports |
-| `convertActiveFork()` / `convertAllForks()` | The `convert-links` / `convert-links-all` commands |
+| `convertCopies()` | Converts (or counts) the links in some sources' copies, forks and mirrors, and rewrites their reports |
+| `convertActiveCopy()` / `convertAllCopies()` | The `convert-links` / `convert-links-all` commands |
 | `offerConvert()` | After a fork or overwrite: the notice with **Convert**, when links would convert |
+| `convertMirrors()` | After mirroring or an update: converts the links in the mirrors just written, unasked |
+| `mirrorRoot()` / `mirrorLink()` | A mirror's mirror folder, from its path / a mirror's link by full path into it, in the link's own form. Pure |
 | `inspectLocal()` / `LocalRepo` | What a local source's folder is: `missing`, `unusable`, `not-repo`, `bare`, `work`. Pure |
 | `initLocal()` / `newRepoGitignore()` | Makes a folder a repo, with a `.gitignore`, and snapshots it. Pure |
 | `snapshot()` / `SnapshotResult` | Commits a working folder's changes, if any. Pure |
