@@ -1,6 +1,5 @@
 // Sources with a folder on this computer: local sources, and hosted sources' local copies
-// (docs/spec.md → Snapshot, Local source checks, Local copies): the Obsidian
-// side of remote/snapshot.ts and remote/local-repo.ts.
+// (docs/features/local.md): the Obsidian side of remote/snapshot.ts and remote/local-repo.ts.
 
 import { App, Notice } from 'obsidian';
 import { gitRunner, localFs } from '../remote/git-process.ts';

@@ -1,5 +1,5 @@
 // The Upstream view: a file as it is upstream now, read-only, beside a note forked from it, and
-// what to do about the difference (docs/spec.md → Fork update). src/fork/update-run.ts does it.
+// what to do about the difference (docs/features/fork-update.md). src/fork/update-run.ts does it.
 
 import { Component, getFrontMatterInfo, ItemView, MarkdownRenderer, Notice, type ViewStateResult, type WorkspaceLeaf } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';

@@ -1,4 +1,4 @@
-// Converting a fork's links (docs/plans/convert-links.md): what upstream file a link names, what
+// Converting a fork's links (docs/features/convert-links.md): what upstream file a link names, what
 // it shows, and rewriting a note's links. Pure.
 
 /** A link or embed in a note's body, as Obsidian's metadata cache gives it. */
@@ -129,7 +129,7 @@ function decoded(s: string): string {
 /**
  * The upstream path a link in the note forked from `forkPath` names, as upstream would read it,
  * or why there is no one file there: `missing` (none) or `several` (several by name). `null`: not a link
- * to a file (an external URL, or a link within the note). See docs/plans/convert-links.md → Resolving a link, step 2.
+ * to a file (an external URL, or a link within the note). See docs/features/convert-links.md → Resolving a link, step 2.
  */
 export function upstreamTarget(ref: Pick<LinkRef, 'original' | 'link'>, forkPath: string, files: UpstreamFiles): { path: string } | { none: 'missing' | 'several' } | null {
 	const raw = splitLink(ref.link).path.trim();

@@ -1,4 +1,4 @@
-// Fork and mirror notes in the vault (docs/spec.md → Fork provenance, Mirror): the Obsidian side of fork-meta.ts.
+// Fork and mirror notes in the vault (docs/features/fork.md, mirror.md): the Obsidian side of fork-meta.ts.
 
 import type { App } from 'obsidian';
 import { readForkMeta, readMirrorMeta, type Copy, type Fork, type Mirror } from './fork-meta.ts';

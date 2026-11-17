@@ -1,5 +1,5 @@
 // One source in the check view: a header that opens and closes it, then an error, "nothing
-// new", or what's new, mirrors and forks; then all files, when asked for (docs/spec.md → Check view). Draws only: clicks are
+// new", or what's new, mirrors and forks; then all files, when asked for (docs/features/check.md). Draws only: clicks are
 // the view's. An element says what a click on it does with `data-open` (a note to open) or
 // `data-action`; the source it belongs to is the nearest `data-source` (the source's key).
 

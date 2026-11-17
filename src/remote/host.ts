@@ -1,4 +1,4 @@
-// What the plugin needs from a remote repo (docs/spec.md → Check, Fork).
+// What the plugin needs from a remote repo (docs/features/git.md).
 // Pure: no Obsidian runtime imports.
 
 export interface Head {

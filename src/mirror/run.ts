@@ -1,7 +1,7 @@
 // Mirroring source files into the vault, keeping the mirrors current, and stopping
-// (docs/spec.md → Mirror): the Obsidian side of mirror.ts. A mirror is upstream's copy: an
+// (docs/features/mirror.md): the Obsidian side of mirror.ts. A mirror is upstream's copy: an
 // update overwrites it, and asks first only when it was edited. Its links are converted as it
-// is written, unasked (docs/spec.md → Convert links).
+// is written, unasked (docs/features/convert-links.md).
 
 import { App, normalizePath, Notice, type TFile } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';

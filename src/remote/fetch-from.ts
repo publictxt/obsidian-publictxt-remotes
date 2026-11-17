@@ -1,5 +1,5 @@
 // Where git fetches a source from on this computer: its URL, or a folder in `localPaths`
-// (docs/spec.md → Local sources, Local copies). Pure.
+// (docs/features/local.md). Pure.
 
 import type { CheckFrom, PublicTxtData } from '../sources/schema.ts';
 import { fileUrl, isLocalRepo, localName } from '../sources/repo-url.ts';

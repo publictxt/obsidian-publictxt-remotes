@@ -1,4 +1,4 @@
-// The check view: the last check, source by source (docs/spec.md → Check view). It owns the
+// The check view: the last check, source by source (docs/features/check.md). It owns the
 // clicks; check-source.ts draws each source.
 
 import { ItemView, Notice, type WorkspaceLeaf } from 'obsidian';

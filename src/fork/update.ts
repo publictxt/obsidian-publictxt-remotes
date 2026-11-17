@@ -1,4 +1,4 @@
-// Updating a fork from upstream (docs/spec.md → Fork update): what a compare is of, whether a
+// Updating a fork from upstream (docs/features/fork-update.md): what a compare is of, whether a
 // copy was edited, and the names, provenance and sentences the actions need. Pure.
 
 import type { DiffStat, Head } from '../remote/host.ts';

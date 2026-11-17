@@ -1,5 +1,4 @@
-// Settings tab: the top-level fields of data.json and the follow notes (docs/spec.md → Data,
-// Sources settings).
+// Settings tab: the top-level fields of data.json and the follow notes (docs/features/sources.md).
 
 import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import type PublicTxtPlugin from './main.ts';

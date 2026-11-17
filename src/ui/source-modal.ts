@@ -1,4 +1,4 @@
-// The add/edit source form (docs/spec.md → Sources settings).
+// The add/edit source form (docs/features/sources.md).
 
 import { App, Modal, Setting } from 'obsidian';
 import { EMPTY_FORM, type SourceForm } from '../sources/edit.ts';

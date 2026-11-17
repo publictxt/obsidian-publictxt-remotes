@@ -1,4 +1,4 @@
-// Follow notes: one per source in follows/ (docs/spec.md → Source; publictext spec §3.2).
+// Follow notes: one per source in follows/ (docs/features/sources.md; publictext spec §3.2).
 // Pure: front matter in, sources out, and back.
 
 import { normalizeSource, type Source } from './schema.ts';

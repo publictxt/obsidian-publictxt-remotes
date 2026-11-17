@@ -1,4 +1,4 @@
-// Follow notes in the vault: scan, create, update, trash (docs/spec.md → Sources settings).
+// Follow notes in the vault: scan, create, update, trash (docs/features/sources.md).
 // The Obsidian side of follow-note.ts.
 
 import { App, TFile } from 'obsidian';

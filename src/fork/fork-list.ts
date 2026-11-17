@@ -1,5 +1,5 @@
 // The mirror and fork lists in a follow note: the "Mirrored pages" and "Forked pages" sections,
-// which the plugin owns (docs/spec.md → Mirror and fork lists); and replacing any such section. Pure.
+// which the plugin owns (docs/features/lists.md); and replacing any such section. Pure.
 
 export const MIRROR_LIST_HEADING = '## Mirrored pages';
 export const FORK_LIST_HEADING = '## Forked pages';

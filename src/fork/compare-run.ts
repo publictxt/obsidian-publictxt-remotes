@@ -1,4 +1,4 @@
-// Opening a compare (docs/spec.md → Fork update): a fork note, and beside it the Upstream view
+// Opening a compare (docs/features/fork-update.md): a fork note, and beside it the Upstream view
 // with the file as it is upstream now.
 
 import { App, Notice, type WorkspaceLeaf } from 'obsidian';

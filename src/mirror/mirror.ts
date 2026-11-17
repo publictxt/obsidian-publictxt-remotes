@@ -1,4 +1,4 @@
-// Mirroring a source file into the vault (docs/spec.md → Mirror): upstream's copy, in the
+// Mirroring a source file into the vault (docs/features/mirror.md): upstream's copy, in the
 // source's folder under the community folder, at the path it has upstream. Pure.
 
 import type { Head } from '../remote/host.ts';
