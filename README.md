@@ -1,6 +1,6 @@
 # PublicTxt Remotes
 
-Follow other people's PublicTxt repos, see what changed since you last looked, mirror the
+Follow other people's knowlidge bases via their git repos, see what changed since you last looked, mirror the
 pages you want at hand, and fork the ones you want to make your own. Each mirror and fork
 records where it came from in its front matter.
 
