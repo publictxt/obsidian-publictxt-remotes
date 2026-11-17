@@ -12,7 +12,7 @@ import { stopMirroringActive } from './mirror/run.ts';
 import { compareActiveFork, VIEW_TYPE_UPSTREAM } from './fork/compare-run.ts';
 import { ForkLists } from './fork/fork-lists.ts';
 import { convertActiveCopy, convertAllCopies } from './fork/links-run.ts';
-import { localFollows, snapshotAndTell } from './snapshot/run.ts';
+import { snapshotAndTell } from './snapshot/run.ts';
 
 export default class PublicTxtPlugin extends Plugin {
 	/** Everything in data.json, always normalized (docs/spec.md → Data). */
@@ -41,7 +41,6 @@ export default class PublicTxtPlugin extends Plugin {
 		this.addCommand({ id: 'compare-fork', name: 'Compare this fork with upstream', callback: () => void compareActiveFork(this.app, this.data) });
 		this.addCommand({ id: 'convert-links', name: 'Convert links in this note', callback: () => void convertActiveCopy(this.app, this.data) });
 		this.addCommand({ id: 'convert-links-all', name: 'Convert links in every fork and mirror', callback: () => void convertAllCopies(this.app, this.data) });
-		this.addCommand({ id: 'snapshot-local-sources', name: 'Snapshot local sources', callback: () => void this.snapshot() });
 		this.addCommand({ id: 'update-page-lists', name: 'Update mirror and fork lists in follow notes', callback: () => void this.forkLists.update(true) });
 
 		this.forkLists = new ForkLists(this);
@@ -176,15 +175,14 @@ export default class PublicTxtPlugin extends Plugin {
 	}
 
 	/**
-	 * Commits what changed in one source's folder on this computer (by URL), or in each one's:
-	 * local sources and hosted sources' local copies.
-	 * Checks again if anything was committed and the view shows a check.
+	 * Commits what changed in the folder on this computer of the source `url`, as shown in the
+	 * last check: a local source's, or a hosted source's local copy. Checks again if anything was
+	 * committed.
 	 */
-	async snapshot(url?: string): Promise<void> {
-		const follows = localFollows(this.app, this.data).filter((f) => url === undefined || f.url === url);
-		await snapshotAndTell(this.app, this.data, follows, async () => {
-			if (this.lastRun) await this.check();
-		});
+	async snapshot(url: string): Promise<void> {
+		const follow = this.lastRun?.results.find((r) => r.follow.url === url)?.follow;
+		if (!follow) return;
+		await snapshotAndTell(this.app, this.data, follow, () => this.check());
 	}
 
 	private async showAndCheck(): Promise<void> {

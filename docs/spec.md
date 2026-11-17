@@ -289,8 +289,7 @@ copy's folder is in `localPaths` under the remote name, and only changes where g
   computer that got this `data.json`, an unplugged drive), the check fails with git's own error,
   which names the folder, as a local source's does. The network is never fetched in its place: the user selects **Remote**.
 - **Snapshot.** Offered as for a local source while **Local** is chosen: the copy is a working
-  folder. The **Snapshot local sources** command does every copy, whatever is chosen. A copy that is no
-  longer a repo is an error, not an offer to make one.
+  folder. A copy that is no longer a repo is an error, not an offer to make one.
 - **Ahead of its origin.** The copy can hold commits not pushed yet. A mirror or fork made then
   records a `mirror_commit` or `fork_commit` the host doesn't have until the copy is pushed, and
   a published site's link to the original at that commit is broken until then. Not warned of
@@ -305,7 +304,7 @@ copy's folder is in `localPaths` under the remote name, and only changes where g
 |---|---|---|---|
 | `missing` | No such folder | Error, not added | Error |
 | `unusable` | Inside a `.git` folder, or below a bare repo's top | Error, not added | Error |
-| `not-repo` | No repo, or a subfolder of another repo (`within`) | Asks: **Make repo and add**, **Add without**, or close (not added) | View: asks to make a repo. Command: says to use the view |
+| `not-repo` | No repo, or a subfolder of another repo (`within`) | Asks: **Make repo and add**, **Add without**, or close (not added) | Asks to make a repo |
 | `bare` | A bare repo's top | Added; warns if it has no commits | Error: nothing to commit from |
 | `work` | A working repo's top | Added; warns if nothing is committed, or `branch` doesn't exist | Snapshots |
 
@@ -322,10 +321,8 @@ again finds a repo with nothing committed and warns.
 
 ### Snapshot
 
-Commits everything changed in the folder, so the next check sees it. **Snapshot** in the check
-view does one source, then checks again if it committed. **Snapshot local sources** (command)
-does each local source, and each hosted source with a local copy, in turn, and checks again if anything was committed and the view shows a
-check. One notice lists each folder's outcome.
+Commits everything changed in one source's folder, so the next check sees it: **Snapshot** in
+the check view. A notice gives the outcome, and the sources are checked again if it committed.
 
 `snapshot()` stops with a `bad-input` error when:
 
