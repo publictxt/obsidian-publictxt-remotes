@@ -1,6 +1,6 @@
 // The "Links to fix" and "Links to check" sections of a follow note: the links in its source's
 // forks that converting left as they were, and those it made a call on
-// (docs/plans/convert-links.md → The report). Pure.
+// (docs/features/convert-links.md). Pure.
 
 import { CHECK_TEXT, LEFT_TEXT, type CheckLink, type LeftLink } from './links.ts';
 

@@ -1,4 +1,4 @@
-// A check of every source, from the vault (docs/spec.md → Check): the Obsidian side of check.ts.
+// A check of every source, from the vault (docs/features/check.md): the Obsidian side of check.ts.
 
 import type { App } from 'obsidian';
 import { scanForks, scanMirrors } from '../sources/forks.ts';

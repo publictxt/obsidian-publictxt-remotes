@@ -1,4 +1,4 @@
-// What a local source's folder is, and making it a repo (docs/spec.md → Local source checks).
+// What a local source's folder is, and making it a repo (docs/features/local.md).
 // Pure: git and the file system are injected.
 
 import type { RunGit } from './git.ts';

@@ -1,5 +1,5 @@
 // RemoteHost over the git CLI, one bare partial clone per source
-// (docs/spec.md → Remote host). Pure: the process runner is injected, so
+// (docs/features/git.md). Pure: the process runner is injected, so
 // this module has no Node imports; src/remote/git-process.ts is the real one.
 
 import { isLocalRepo, localName } from '../sources/repo-url.ts';
@@ -26,7 +26,7 @@ export async function gitOrThrow(run: RunGit, args: string[], cwd: string | null
 
 export interface GitHostOptions {
 	run: RunGit;
-	/** Absolute folder holding the clones: the vault's `.clones/` by default (docs/spec.md). */
+	/** Absolute folder holding the clones: the vault's `.clones/` by default (docs/features/git.md). */
 	cacheDir: string;
 	/** Joins path segments; `path.join` in the plugin. */
 	join: (...parts: string[]) => string;

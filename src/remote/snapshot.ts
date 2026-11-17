@@ -1,5 +1,5 @@
 // Snapshot: commit everything in a local source's working folder, if anything changed
-// (docs/spec.md → Snapshot). Pure: the process runner is injected.
+// (docs/features/local.md). Pure: the process runner is injected.
 
 import { RemoteError } from './host.ts';
 import { gitOrThrow, type GitResult, type RunGit } from './git.ts';

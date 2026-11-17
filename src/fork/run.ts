@@ -1,4 +1,4 @@
-// Forking source files into the vault (docs/spec.md → Fork): the Obsidian side of fork.ts.
+// Forking source files into the vault (docs/features/fork.md): the Obsidian side of fork.ts.
 
 import { App, getFrontMatterInfo, normalizePath, Notice, parseYaml, TFile } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';

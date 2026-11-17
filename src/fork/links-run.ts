@@ -1,4 +1,4 @@
-// Converting the links in forks and mirrors (docs/plans/convert-links.md): the Obsidian side
+// Converting the links in forks and mirrors (docs/features/convert-links.md): the Obsidian side
 // of links.ts. A link is read as upstream reads it. A fork's is pointed at the vault's copy of
 // its file, a fork or a mirror; a mirror's by full path into its mirror folder.
 

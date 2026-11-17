@@ -15,7 +15,7 @@ import { convertActiveCopy, convertAllCopies } from './fork/links-run.ts';
 import { snapshotAndTell } from './snapshot/run.ts';
 
 export default class PublicTxtPlugin extends Plugin {
-	/** Everything in data.json, always normalized (docs/spec.md → Data). */
+	/** Everything in data.json, always normalized (docs/features/sources.md). */
 	data!: PublicTxtData;
 	/** The last check, in memory only. */
 	lastRun: CheckRun | null = null;
@@ -132,7 +132,7 @@ export default class PublicTxtPlugin extends Plugin {
 		const c = this.checkOf(url);
 		if (!c) return;
 		await this.save({ ...this.data, state: { ...this.data.state, [url]: acknowledged(c, new Date().toISOString()) } });
-		// Mirrors and forks stay: each is dealt with on its own (docs/spec.md → Mirror, Fork update).
+		// Mirrors and forks stay: each is dealt with on its own (docs/features/mirror.md, fork-update.md).
 		this.replaceCheck(c, { ...c, changes: [], reason: null });
 	}
 

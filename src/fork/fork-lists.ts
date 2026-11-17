@@ -1,5 +1,4 @@
-// Keeps the mirror and fork lists in each follow note current (docs/spec.md → Mirror and fork
-// lists): the Obsidian side of fork-list.ts.
+// Keeps the mirror and fork lists in each follow note current (docs/features/lists.md): the Obsidian side of fork-list.ts.
 
 import { App, debounce, Notice, TFile, type TAbstractFile } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';

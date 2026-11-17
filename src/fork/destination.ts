@@ -1,4 +1,4 @@
-// Where forks go in the vault (docs/spec.md → Fork): the choice the fork modal offers, and
+// Where forks go in the vault (docs/features/fork.md): the choice the fork modal offers, and
 // what comes of it. Pure.
 
 import { forkPath, freePath } from './fork.ts';

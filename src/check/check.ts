@@ -1,4 +1,4 @@
-// One check of one source: what's new, mirrors, forks (docs/spec.md → Check). Pure: the remote
+// One check of one source: what's new, mirrors, forks (docs/features/check.md). Pure: the remote
 // host is passed in, so tests use a fake one.
 
 import { SEEN_GONE, type Fork, type ForkMeta, type Mirror } from '../sources/fork-meta.ts';

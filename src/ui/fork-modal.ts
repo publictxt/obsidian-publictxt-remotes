@@ -1,4 +1,4 @@
-// Where to put forks, for one file or several (docs/spec.md → Fork): one folder, a folder with
+// Where to put forks, for one file or several (docs/features/fork.md): one folder, a folder with
 // the source's folders kept under it, or the same folders as in the source; for one file, its
 // name too. It always shows what would be written.
 

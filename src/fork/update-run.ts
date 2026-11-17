@@ -1,4 +1,4 @@
-// Updating forks from upstream (docs/spec.md → Fork update): the Obsidian side of update.ts.
+// Updating forks from upstream (docs/features/fork-update.md): the Obsidian side of update.ts.
 // What a compare shows, and what its actions and the check view's write. Each action ends with
 // every note forked from the file settled, and the file off the last check's list.
 

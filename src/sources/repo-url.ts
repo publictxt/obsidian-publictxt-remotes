@@ -1,4 +1,4 @@
-// Source keys: the canonical repo URL v0 (docs/spec.md → Canonical repo URL), the `local:<name>`
+// Source keys: the canonical repo URL v0 (docs/features/sources.md), the `local:<name>`
 // key of a local source, remote names, and local paths. Pure.
 
 const SCP = /^git@([^:/\s]+):([^\s]+)$/;

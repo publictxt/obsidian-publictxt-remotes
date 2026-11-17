@@ -1,4 +1,4 @@
-// Forking a source file into the vault (docs/spec.md → Fork). Pure.
+// Forking a source file into the vault (docs/features/fork.md). Pure.
 
 import type { Head } from '../remote/host.ts';
 import type { ForkMeta } from '../sources/fork-meta.ts';

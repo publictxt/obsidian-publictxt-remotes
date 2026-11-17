@@ -1,4 +1,4 @@
-// A fork's or a mirror's provenance in front matter (docs/spec.md → Fork provenance, Mirror). Pure.
+// A fork's or a mirror's provenance in front matter (docs/features/fork.md, mirror.md). Pure.
 
 import { canonicalRepoUrl, remoteNameProblem } from './repo-url.ts';
 import { isSha, repoPath, str } from '../util/validate.ts';

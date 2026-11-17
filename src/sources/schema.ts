@@ -1,4 +1,4 @@
-// Sources and what the plugin stores in data.json (docs/spec.md → Data, Source, State).
+// Sources and what the plugin stores in data.json (docs/features/sources.md).
 // Pure: no Obsidian runtime imports, so tests run under plain Node.
 
 import { canonicalRepoUrl, localKey, localPathInput, remoteNameProblem, sourceKey } from './repo-url.ts';
@@ -30,17 +30,17 @@ export interface SourceState {
 
 export interface PublicTxtData {
 	version: number;
-	/** Vault folder holding each source's folder of mirrors; `''`: the vault root (docs/spec.md → Mirror). */
+	/** Vault folder holding each source's folder of mirrors; `''`: the vault root (docs/features/mirror.md). */
 	communityFolder: string;
 	/** Vault folder forks go to when they don't go to the folder they are in in the source; `''`: the vault root. */
 	forkFolder: string;
-	/** Open the fork modal on the remote file's folder when the vault has it (docs/spec.md → Fork). */
+	/** Open the fork modal on the remote file's folder when the vault has it (docs/features/fork.md). */
 	matchFolders: boolean;
-	/** Keep a mirror list in each follow note (docs/spec.md → Mirror and fork lists). */
+	/** Keep a mirror list in each follow note (docs/features/lists.md). */
 	listMirrors: boolean;
-	/** Keep a fork list in each follow note (docs/spec.md → Mirror and fork lists). */
+	/** Keep a fork list in each follow note (docs/features/lists.md). */
 	listForks: boolean;
-	/** Vault folder holding the bare clones (docs/spec.md → Remote host). */
+	/** Vault folder holding the bare clones (docs/features/git.md). */
 	clonesFolder: string;
 	/** The git executable; `git`: whatever is on PATH. */
 	gitPath: string;

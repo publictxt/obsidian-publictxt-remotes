@@ -1,5 +1,5 @@
 // The source form: text ↔ source, and the checks before a follow note is written
-// (docs/spec.md → Sources settings). Pure.
+// (docs/features/sources.md). Pure.
 
 import { normalizeSource, type Source } from './schema.ts';
 import type { Follow } from './follow-note.ts';

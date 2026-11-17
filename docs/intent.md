@@ -1,181 +1,86 @@
-# PublicTxt Remotes — Intent
-
-Why this plugin exists and the decisions behind its shape. What it does is in `spec.md`, names
-in `naming.md`.
+# Intent
 
 ## Why
 
 PublicTxt's v1 aim is to "pull selected pages from other people's PublicTxt repos into a local
-aggregate view" (publictext `README.md`, Roadmap). `obsidian-publictxt-facets` is the browsing
-half and stays offline by design. This plugin is the pulling half: it talks to remote repos and
-writes into the vault, only when the user asks. Outside the vault it writes only to a local
-source's folder, again only when asked.
+aggregate view" (publictext `README.md`). `obsidian-publictxt-facets` is the browsing half and
+stays offline. This plugin is the pulling half: it talks to remote repos and writes into the
+vault, only when the user asks. Outside the vault it writes only to a local source's folder,
+again only when asked.
 
-## First use case
-
-1. Follow a few remote repos.
-2. See what changed in them since I last looked.
-3. Fork a page I want: copy it into a folder I choose, with where it came from in its front
-   matter.
-4. Next check, see which of my forks have changed upstream.
+Use case: follow a few repos; see what changed since I last looked; keep some pages at hand;
+make some my own; see when those change upstream.
 
 ## Decisions
 
-- **The fork records its own provenance.** Source repo, path, branch, commit and blob live in
-  the forked note's front matter. The list of forks is *derived* by scanning the vault, never
-  stored separately: one source of truth, and moving, renaming or deleting a fork needs no
-  bookkeeping. Fork provenance is an authored fact (it can't be recomputed), so storing it
-  doesn't break publictext ADR-0003 (no derived data on disk).
-- **Config and state are separate.** Sources (what I follow) are config. Last-seen commits and
-  acknowledged blobs are state: a cache, safe to delete, at worst everything shows as new.
-- **Change detection by git blob SHA.** The blob SHA of a file is content-addressed and the same
-  on every host. Storing it at fork time also keeps the merge base, which a later
-  "update my fork" (three-way merge) or "propose back upstream" needs.
-- **Desktop only, using the git CLI** (decided 2026-11-03; for good, 2026-11-10). Git gives any
-  host, the user's own auth (SSH keys, credential helpers), no API rate limits, full history,
-  and `git merge-file` for updating forks later. It matches publictext ADR-0004 (git CLI on the
-  .NET side). PublicTxt users keep their notes in git, so desktop users have it. Local sources,
-  snapshots and making repos need a file system and git too, so there is no mobile version to
-  plan for. Node imports stay in `src/remote/git-process.ts`, which keeps the rest pure and
-  testable under plain Node. A GitHub REST adapter, built before this was decided, is parked at
-  tag `archive/github-adapter`.
-- **Clones live in the vault's hidden `.clones/` folder** (setting; `.remotes/` until 2026-11-13, renamed so it isn't taken for the community folder), one bare partial clone per source
-  (`--filter=blob:none`): history and trees up front, file contents fetched on demand. Bare
-  clones have no working files, so no remote `.md` shows up as a note.
-- **Sources are notes** (decided 2026-11-03; publictext ADR-0014). One note per followed repo in
-  `follows/`, its fields in front matter, the user's reasons in the body. Found by
-  scanning, like forks. The folder makes a note a source, so moving it out unfollows. The
-  plugin's own keys (`folder`, `list_mirrors`, `list_forks`) sit beside the spec's and are public with the note.
-- **Follow whole repos, narrow locally** (publictext ADR-0005). A source fetches the whole repo's
-  tree; `include` prefixes filter it on this side.
-- **Local sources are git repos too** (decided 2026-11-10). A folder on this computer is
-  followed through the same clone and check path, so nothing downstream changes. A plain folder can't be a source: without commits there is no history for "what's
-  new", and no old blob to keep as the merge base for updating a fork. So the plugin makes the
-  commits instead, on the user's action: **Snapshot**, and an offer to make a folder a repo.
-  These are its only writes outside the vault, always into the source's own folder. Snapshot
-  refuses a branch mismatch instead of committing to a branch that isn't checked out, which
-  would overwrite that branch with the folder's state.
-- **A hosted source can have a local copy.** A repo followed by URL that is also cloned on
-  this computer (the user's own other vault) is one source, not a hosted and a local one side
-  by side: two follow notes would split its mirrors and forks between two names and show two
-  sources with two ratings on a site. So the note stays the hosted source's, and the copy's
-  folder, in `data.json`, only changes where git fetches from. The folder must be that repo (a
-  remote for the source's URL); which is fetched from is the user's choice in the check view,
-  local or remote, never made for them: a missing folder is an error, not a quiet fetch from
-  the network.
-- **Remotes are named** (decided 2026-11-10). A follow note's file name is the source's name,
-  as `git remote` names a URL, and forks record it as `fork_remote`. A hosted fork keeps
-  `fork_repo` too: anyone reading a published fork can follow it to the original, which a name
-  alone can't give. A local source's folder is never written into a note: a published repo's
-  files are public even when a page isn't, and a path means nothing on another computer anyway.
-  It lives in `data.json`, per computer. Names are read-only, since forks record them; making
-  `fork_remote` a link that Obsidian updates on rename is parked.
-- **Updating a fork is a compare, not a merge** (decided 2026-11-11). The new upstream version
-  opens in a pane beside the note; the user overwrites the note, writes upstream alongside as
-  `name (up-nn).md`, or keeps theirs. The alongside note is itself a fork, so one upstream file
-  can have several copies, and the newest is compared next time. `fork_seen` records the
-  upstream version dealt with, so `fork_blob` stays what the note's text came from: the merge
-  base, should merging come later.
-- **Forks' links point at the vault's copies, in the vault's style** (decided 2026-11-12). A
-  link means what it means upstream: it is read against the source's files at the fork's
-  commit, and pointed at the vault's copy of that file, never at a note that merely shares its
-  name. Obsidian writes the new link, so converting to wikilinks or to Markdown links is one
-  code path. A link to a note not in the vault becomes a link by name: it lands on the user's
-  note of that name, or dangles until it is forked. That is the wiki way, not a hazard, so
-  there are no guards against it. Converting is offered after a fork, never automatic, and a
-  converted link is not an edit, so **Overwrite** doesn't ask because of it. What converting
-  left, and the calls it made, are listed in the follow note, which is public like the forks.
-  Offering to fork the notes those links name may come later. Details:
-  `docs/plans/convert-links.md`.
-- **Three steps: follow, mirror, fork** (decided 2026-11-13), so that reading someone's notes
-  and owning a copy are apart. **Follow** a repo: a note in `follows/`, and checks show what's
-  new. **Mirror** the pages worth having at hand: upstream's copies, in
-  `community/<source>/` with the source's folders kept and their links pointed into that
-  folder, so Obsidian searches them, shows their backlinks and moves between them without the
-  whole repo coming in. **Fork** the ones to make your own: the mirror moves into your notes and
-  its links are converted.
-  - *Upstream's and yours stay apart.* Upstream's copies live under the community folder and
-    are overwritten by updates, with no compare; yours are wherever you put them, and
-    upstream's changes come through Compare. A fork never opens under the community folder.
-  - *The keys say which a note is, not the folder* (`mirror_*`, `fork_*`), so a published note
-    says so too, and a note moved by hand doesn't change kind.
-  - *A fork's links are offered, a mirror's are not.* A fork is the user's note, so converting
-    its links waits for **Convert**. A mirror is upstream's, with no edits to respect, so its
-    links are rewritten as it is written and after each update. A fork's link to a page that is
-    only mirrored points at the mirror.
-  - *A mirror links only into its mirror folder.* Its links go by full path to
-    `community/<source>/<upstream path>`, in their own form, whatever is in the vault: links
-    between a source's mirrors resolve, and one to a page not mirrored dangles where its mirror
-    would be, instead of landing on the user's note of that name and misrepresenting the
-    source. Obsidian doesn't match a full path by name. Relative links get the full path too:
-    Obsidian reads a bare path from the vault root, not from the note. Mirrors aren't restyled
-    to the vault's link format: nobody writes in them, and Obsidian and publictxt-pages read
-    both forms. The text differs from `mirror_blob` in its links only, and the edited test
-    allows for that. Not done: a per-source switch (little to opt out of), and rewriting links
-    to pages not mirrored into links to the original repo (a local source has none, a web link
-    leaves Obsidian's graph, and it couldn't convert back). That belongs to publictxt-pages,
-    which can render an unresolved link in a mirror as a link to the original from
-    `mirror_repo`.
-  - *The folder is named for readers.* It is a section of the published site, so `community`,
-    the word publictxt-pages uses for where pages came from; not `mirrors` (the mechanism) or
-    `remotes` (git's word for the repos, not their pages). The plugin's action is still
-    Mirror.
-  - *Follows stay in `follows/`*: the note is the user's own (their reasons, the mirror and fork lists),
-    and on the site it is the page saying who they follow.
-  - *Watch went.* A watched file was "tell me when it changes" without a copy; a mirror is
-    that and the copy. A check reports mirrors that changed and overwrites nothing itself.
-  - The earlier remotes root (forks in `remotes/<source>/`) became the community folder; the
-    global fork folder came back for forks. Details: `docs/plans/community-folder.md`.
-  - Elsewhere: the publictext spec has mirrors as §5.5 (ADR-0017), and publictxt-pages reads
-    `mirror_*`, shows a mirror as "From *source*", hides `community` by default
-    (`hiddenCollections`), and filters on copy (`?copy=forked`, `?copy=mirrored`; spec §5.4).
-- **Folder selection reuses the manifest's convention**: repo-relative folder prefixes ending in
-  `/` (as `types` and `ignore` in `publictxt.yaml`), not a new glob grammar. Tag filters need
-  file contents, so they wait.
+- **Follow, mirror, fork.** Reading someone's notes and owning a copy stay apart. *Follow* a
+  repo (a note in `follows/`). *Mirror* pages worth having at hand: upstream's copies under
+  `community/<source>/`, overwritten by updates, not for editing. *Fork* the ones to make your
+  own: your note, wherever you put it; upstream changes come through Compare. A file can't be
+  both: forking a mirror moves it.
+- **Notes carry their own facts.** Sources are follow notes (publictext ADR-0014); mirrors and
+  forks carry `mirror_*` / `fork_*` provenance. All lists of them are derived by scanning, never
+  stored: one source of truth, and moving, renaming or deleting needs no bookkeeping.
+  Provenance is authored (it can't be recomputed), so it doesn't break publictext ADR-0003. The
+  keys, not the folder, say what a note is, so a published note says so too.
+- **Config, state and per-computer data are separate.** Sources are notes (public).
+  `data.json` holds settings, a safe-to-delete cache, and per-computer paths (`localPaths`):
+  a path is private and meaningless elsewhere, so it's never in a note.
+- **Change detection by git blob SHA**: content-addressed and the same on every host. Stored at
+  fork time it is also the merge base, should merging come.
+- **Desktop only, git CLI.** Any host, the user's own auth, no rate limits, full history,
+  `git merge-file` later; matches publictext ADR-0004. Local sources and snapshots need a file
+  system anyway. Node stays in `src/remote/git-process.ts`; the rest is pure and tested under
+  plain Node.
+- **One bare partial clone per source** in a hidden `.clones/` (blob-less: trees up front,
+  contents on demand). Hidden: not indexed, skipped by Sync. Bare: no remote note shows up.
+- **Follow whole repos, narrow locally** (publictext ADR-0005): `include` folder prefixes, the
+  manifest's convention (`types`, `ignore`), not a new glob grammar.
+- **Remotes are named**: the follow note's file name, recorded as `fork_remote` /
+  `mirror_remote`. Hosted copies keep `*_repo` too, so a published copy leads to the original.
+  Names are read-only, since copies record them.
+- **Local sources are git repos.** A folder is followed through the same clone and check path.
+  Without commits there's no "what's new" and no merge base, so the plugin offers to make the
+  commits (**Snapshot**, **make a repo**), only into that folder and never onto a branch that
+  isn't checked out.
+- **A hosted source can have a local copy**: still one source (two notes would split its copies
+  and show twice on a site). The folder only changes where git fetches from; the user chooses
+  local or remote, and a missing folder is an error, never a silent network fetch.
+- **Updating a fork is a compare, not a merge.** Overwrite, write alongside as a new copy, or
+  keep mine. `fork_seen` records what was dealt with, so `fork_blob` stays the merge base.
+- **Links mean what they mean upstream.** A fork's links are read against the source and pointed
+  at the vault's copies in the vault's style, when the user accepts the offer; links to pages not
+  copied go by name (the wiki way, unguarded). A mirror's links go by full path into its mirror
+  folder, unasked, so a mirror never lands on the user's same-named note. Converted links aren't
+  edits.
+- **The community folder is named for readers**: it's a section of the published site, and
+  publictxt-pages uses "community" for where pages came from.
 
 ## Open questions
 
-1. **Where sources live.** Decided 2026-11-03: one note per repo in `follows/`
-   (publictext ADR-0014), read and written by the plugin. Public text, readable, one source of
-   truth, the same shape as forks. State stays in `data.json`.
-2. **Front matter prefix.** `fork_*` (see `spec.md`). `upstream_*` is the git word, `source_*`
-   collides with the spec's open `source_repo` (§5), which means "repo this doc lives in".
-3. **Canonical repo URL** (publictext spec §13 q2). We need one now, as the key for sources and
-   forks. v0 rule in `spec.md`; propose it upstream. Local sources have no URL in their notes,
-   so nothing local goes into the proposal.
-4. **`.clones/` and sync.** Decided 2026-11-03: the clones default to a hidden folder (`.clones/`),
-   which Obsidian neither shows nor indexes and Sync skips. A vault git repo still needs
-   `.clones/` in its `.gitignore`: git doesn't skip dot folders. Public follow notes live
-   apart, in `follows/`, so the ignore rule stays one line.
-5. **Local edits to a fork.** Detecting them needs a hash of the body without the `fork_*` keys.
-   Deferred until "update my fork" is built. Answered 2026-11-11 without a stored hash: the
-   compare fetches the version at `fork_blob` and compares it with the note, body and parsed
-   front matter, `fork_*` keys aside. It costs a fetch, so only the compare does it, not the
-   check.
-6. **Removing a source leaves its clone** (`<clonesFolder>/<host>/<owner>/<repo>.git`, or
-   `<clonesFolder>/local/<name>-<hash>.git` for a local source). Options: delete it on remove
-   (asking first), offer a "clean up clones" command, or leave it. Left for now: re-adding is
-   then cheap.
-7. **Create the remote's folders on fork.** Folder matching uses the remote file's folder only
-   when the vault already has it. An option to create it instead would mirror the remote's
-   layout. Parked 2026-11-10. Answered per fork 2026-11-11: the fork modal's **Same folder as in
-   the source** creates the folder when the user turns it on. A setting to always do so stays
-   parked.
-8. **`fork_remote` as a link.** `[[follows/name]]` would be clickable and follow renames, if
-   Obsidian updates links in properties; then names needn't be read-only. Parked 2026-11-10:
-   the spec uses Markdown links, and it needs checking.
-9. **A local source's state on another computer.** `localPaths` is per computer, but Sync may
-   carry `data.json` (plugin settings) between them. A folder set on one then shows on another,
-   where it's likely missing: a check reports it. Not handled yet. (A hosted source's local copy
-   is reported the same way, and can be checked from **Remote** instead.)
+1. **Canonical repo URL** (publictext spec §13 q2): v0 rule in
+   [features/sources.md](features/sources.md); propose it upstream.
+2. **Removing a source leaves its clone.** Delete on remove (asking), a clean-up command, or
+   leave it (re-adding is cheap). Left for now.
+3. **`fork_remote` as a link** (`[[follows/name]]`): clickable and rename-safe if Obsidian
+   updates links in properties; then names needn't be read-only. Needs checking.
+4. **Sync carries `data.json`**: a `localPaths` folder set on one computer shows on another,
+   where it's likely missing. A check reports it; not otherwise handled.
+5. **A setting to always create the source's folders on fork**; the modal does it per fork.
 
-## Proposed changes to the publictext spec
+## Later
 
-Not authoritative there yet; raise when this settles.
+Merge a fork (`git merge-file` on `fork_blob`); propose changes upstream (converting links
+back); tag filters (need file contents); offer to fork or mirror the notes dangling links name;
+warn when a local copy is ahead of its origin; mirror attachments; update mirrors at each check
+if wanted; per-source link style.
 
-- Reserve `fork_remote`, `fork_repo`, `fork_path`, `fork_branch`, `fork_commit`, `fork_blob`, `fork_date`
-  (§5), as authored provenance.
-- Reserve `fork_seen` too: the upstream blob a reader has looked at without taking, or `gone`.
-- `follows` entries gain `branch` (default: the remote's default branch) and `include` (folder
-  prefixes): the first, simplest piece of the open filter grammar (§13 q1).
+## Proposed for the publictext spec
+
+Not authoritative there yet.
+
+- Reserve `fork_remote`, `fork_repo`, `fork_path`, `fork_branch`, `fork_commit`, `fork_blob`,
+  `fork_date`, `fork_seen` (§5) as authored provenance. (Mirrors are §5.5, ADR-0017.)
+- `follows` entries gain `branch` and `include`: the simplest piece of the filter grammar
+  (§13 q1).
 - A v0 canonical repo URL (§13 q2).
