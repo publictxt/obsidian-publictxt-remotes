@@ -77,13 +77,13 @@ export async function hasRemote(run: RunGit, dir: string, url: string): Promise<
 
 /**
  * Why `l`, the folder `dir`, can't be the local copy of the hosted source `url`, or `null` if it
- * can. `sameRepo`: `hasRemote()` for it. A copy is never made a repo: it must be one already.
+ * can: it must be a repo already (a copy is never made one), with a remote for `url`.
  */
-export function copyProblem(l: LocalRepo, dir: string, sameRepo: boolean, url: string): string | null {
+export async function copyProblem(run: RunGit, l: LocalRepo, dir: string, url: string): Promise<string | null> {
 	const problem = localProblem(l, dir);
 	if (problem) return problem;
 	if (l.kind === 'not-repo') return `${dir} isn't a git repo, so it can't be a copy of ${url}.`;
-	if (!sameRepo) return `${dir} has no remote for ${url}: it looks like a different repo.`;
+	if (!(await hasRemote(run, dir, url))) return `${dir} has no remote for ${url}: it looks like a different repo.`;
 	return null;
 }
 

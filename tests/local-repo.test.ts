@@ -116,8 +116,8 @@ test('local copy: a repo with a remote for the source\'s URL, however that remot
 	assert.equal(await hasRemote(run, folder('copy-plain'), url), false);
 
 	const work = await inspectLocal(run, localFs, w, null);
-	assert.equal(copyProblem(work, w, true, url), null);
-	assert.match(copyProblem(work, w, false, url) ?? '', /different repo/);
-	assert.match(copyProblem({ kind: 'not-repo', within: false }, w, false, url) ?? '', /isn't a git repo/);
-	assert.match(copyProblem({ kind: 'missing' }, w, false, url) ?? '', /No such folder/);
+	assert.equal(await copyProblem(run, work, w, url), null);
+	assert.match((await copyProblem(run, work, w, 'https://github.com/ann/other')) ?? '', /different repo/);
+	assert.match((await copyProblem(run, { kind: 'not-repo', within: false }, w, url)) ?? '', /isn't a git repo/);
+	assert.match((await copyProblem(run, { kind: 'missing' }, w, url)) ?? '', /No such folder/);
 });

@@ -11,7 +11,7 @@ and command ids freeze at the first release.
 | Plugin `id` | `publictxt-remotes` | Freezes at the first release. Remotes: repos and vaults elsewhere; a local source is the special case |
 | Display `name` | PublicTxt Remotes | |
 | View types | `publictxt-check`, `publictxt-upstream` | Freeze at the first release |
-| Command ids | `check-sources`, `open-check-view`, `mirror-file`, `stop-mirroring`, `fork-mirror`, `fork-file`, `compare-fork`, `convert-links`, `convert-links-all`, `snapshot-local-sources`, `update-page-lists` | Freeze at the first release |
+| Command ids | `check-sources`, `open-check-view`, `mirror-file`, `stop-mirroring`, `fork-mirror`, `fork-file`, `compare-fork`, `convert-links`, `convert-links-all`, `update-page-lists` | Freeze at the first release |
 
 ## Vocabulary
 
@@ -152,4 +152,4 @@ and command ids freeze at the first release.
 | `prepareLocalFolder()` | Before adding a local source or setting its folder: refuse, offer to make a repo, or warn |
 | `hasRemote()` / `copyProblem()` | Whether a repo has a remote for a hosted URL / why a folder can't be that source's local copy. Pure |
 | `prepareLocalCopy()` | Before setting a hosted source's local copy: refuse a folder that isn't that repo, or warn |
-| `snapshotAndTell()` / `localFollows()` | Snapshots sources and reports each; offers to make a repo for a single non-repo / every source with a folder here: local sources and local copies (`hasFolder()`) |
+| `snapshotAndTell()` | Snapshots one source's folder and reports it; offers to make a repo of a local source's folder that isn't one |

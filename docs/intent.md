@@ -55,15 +55,14 @@ source's folder, again only when asked.
   These are its only writes outside the vault, always into the source's own folder. Snapshot
   refuses a branch mismatch instead of committing to a branch that isn't checked out, which
   would overwrite that branch with the folder's state.
-- **A hosted source can have a local copy** (decided 2026-11-13). A repo followed by URL that
-  is also cloned on this computer (the user's own other vault) is one source, not a hosted and
-  a local one side by side: two follow notes would split its mirrors and forks between two
-  names and show two sources with two ratings on a site. So the note stays the hosted source's,
-  and the copy's folder, in `data.json`, only changes where git fetches from. The folder must
-  be that repo (a remote for the source's URL); which is fetched from is the
-  user's choice in the check view, local or remote, never made for them (decided 2026-11-16):
-  a missing folder is an error, not a quiet fetch from the network.
-  Details: `docs/plans/local-copy.md`.
+- **A hosted source can have a local copy.** A repo followed by URL that is also cloned on
+  this computer (the user's own other vault) is one source, not a hosted and a local one side
+  by side: two follow notes would split its mirrors and forks between two names and show two
+  sources with two ratings on a site. So the note stays the hosted source's, and the copy's
+  folder, in `data.json`, only changes where git fetches from. The folder must be that repo (a
+  remote for the source's URL); which is fetched from is the user's choice in the check view,
+  local or remote, never made for them: a missing folder is an error, not a quiet fetch from
+  the network.
 - **Remotes are named** (decided 2026-11-10). A follow note's file name is the source's name,
   as `git remote` names a URL, and forks record it as `fork_remote`. A hosted fork keeps
   `fork_repo` too: anyone reading a published fork can follow it to the original, which a name

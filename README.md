@@ -79,8 +79,7 @@ A source can be a git repo on your computer, such as another vault. Enter its fo
   **Edit**.
 
 - **Only commits show.** A check sees what's committed, not edits in progress. **Snapshot** in
-  the check view, or **Snapshot local sources**, commits everything changed in the folder (if
-  anything did) and checks again. It commits to the folder's current branch, and refuses if
+  the check view commits everything changed in the folder (if anything did) and checks again. It commits to the folder's current branch, and refuses if
   that isn't the branch the source follows.
 - **Not a repo yet?** Adding the source offers to make the folder one: `git init`, a
   `.gitignore` that leaves out a vault's app folders (its config folder, `.trash/`,
@@ -97,7 +96,8 @@ the note, and what your mirrors and forks record, is the hosted URL.
 
 - **Local or remote, as you choose.** In the check view the source has **Local** and
   **Remote**. Select one to check it from there: the copy, with commits you haven't pushed
-  yet, or the network. The choice is remembered, and **Check now** uses it. While **Local** is
+  yet, or the network. The choice is remembered, and **Check now** uses it. If the two are at
+  different commits, switching lists every file as new; **Mark as seen** starts from there. While **Local** is
   selected, **Snapshot** works on the copy as on a local source.
 - **Must be that repo.** The folder has to be a git repo with a remote for the source's URL.
 - **This computer only.** The path is kept in the plugin's settings, never in the note. Where
@@ -119,7 +119,6 @@ the note, and what your mirrors and forks record, is the hosted URL.
 | **Compare this fork with upstream** | For the note you are in, if it is a fork: fetches its source and opens the compare |
 | **Convert links in this note** | For the note you are in: a fork's links point at your copies, in your vault's link style; a mirror's point by full path into its mirror folder |
 | **Convert links in every fork and mirror** | The same for every copy of every source |
-| **Snapshot local sources** | Commits what changed in each local source's folder, and in each local copy |
 | **Update mirror and fork lists in follow notes** | Rewrites every follow note's **Mirrored pages** and **Forked pages** lists now |
 
 ## Settings
