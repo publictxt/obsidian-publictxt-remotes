@@ -30,7 +30,7 @@ records where it came from in its front matter.
   it and see its backlinks, without bringing in the whole repo. **Mirror** next to a file in
   the check view (or tick several and **Mirror selected**, or **Mirror a file from a source**)
   copies it into the source's folder under the **community folder**, the source's folders
-  kept and its links as upstream wrote them: `wiki/cs/git.md` from `research` into
+  kept and its links pointed into that folder: `wiki/cs/git.md` from `research` into
   `community/research/wiki/cs/git.md`. It carries `mirror_*` keys saying where it came from.
   Don't edit a mirror: when it changes upstream, **Update** (or **Update mirrors**) overwrites
   it, asking first only if you did edit it. **Stop** moves it to the trash.
@@ -161,11 +161,8 @@ To try it, copy `main.js`, `manifest.json` and `styles.css` into
 `<vault>/.obsidian/plugins/publictxt-remotes/`, then enable **PublicTxt Remotes** in
 **Settings → Community plugins**.
 
-Design docs:
-
-- [docs/intent.md](docs/intent.md): why the plugin exists and the decisions behind it
-- [docs/spec.md](docs/spec.md): what it does
-- [docs/naming.md](docs/naming.md): names used in code, docs and UI
+Design docs are in [docs/](docs/README.md): why the plugin exists, names, and one reference
+file per feature.
 
 ## License
 
