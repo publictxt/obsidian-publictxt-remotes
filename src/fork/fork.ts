@@ -1,7 +1,7 @@
 // Forking a source file into the vault (docs/spec.md → Fork). Pure.
 
 import type { Head } from '../remote/host.ts';
-import type { Fork, ForkMeta } from '../sources/fork-meta.ts';
+import type { ForkMeta } from '../sources/fork-meta.ts';
 import { isLocalRepo } from '../sources/repo-url.ts';
 import { localIso } from '../util/time.ts';
 
@@ -42,8 +42,8 @@ export function isForkOf(meta: Pick<ForkMeta, 'remote' | 'repo'>, remote: Remote
 	return meta.repo === remote.url;
 }
 
-/** Notes already forked from `path` in `remote`. */
-export function forksOf(forks: readonly Fork[], remote: Remote, path: string): Fork[] {
+/** Notes already forked from `path` in `remote` (or, over copies of both kinds, mirroring it too). */
+export function forksOf<T extends { meta: Pick<ForkMeta, 'remote' | 'repo' | 'path'> }>(forks: readonly T[], remote: Remote, path: string): T[] {
 	return forks.filter((f) => isForkOf(f.meta, remote) && f.meta.path === path);
 }
 

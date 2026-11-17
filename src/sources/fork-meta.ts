@@ -56,6 +56,13 @@ export interface Mirror {
 	meta: MirrorMeta;
 }
 
+/** A copy of an upstream file in the vault, of either kind: a fork (the user's) or a mirror (upstream's). */
+export interface Copy {
+	path: string;
+	meta: MirrorMeta;
+	kind: 'fork' | 'mirror';
+}
+
 /** A mirror's front matter keys, in the order they're written. */
 export const MIRROR_KEYS = [
 	'mirror_remote',

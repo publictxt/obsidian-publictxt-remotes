@@ -50,14 +50,18 @@ records where it came from in its front matter.
   Either way that version isn't listed again; the plugin records it as `fork_seen`. Nothing is
   merged. If the original is gone, **Detach** makes your note an ordinary note, and **Keep**
   leaves it a fork.
-- **Converting links.** A fork's links were written for its source: relative to where the file
-  was, in its link style. After a fork, if links in your forks of that source can point at
-  your copies, a notice offers **Convert**. Converted links point at your copies, in your
-  vault's style (wikilinks or Markdown links, both ways). A link to a page you haven't forked
-  becomes a link by name: it lands on your note of that name, or waits until you fork it. The
-  follow note lists **Links to fix** (images, and the rare link that can't be converted) and
-  **Links to check** (where upstream could mean more than one file). Converting doesn't count
-  as editing your copy.
+- **Converting links.** A copy's links were written for its source: relative to where the file
+  was, in its link style. Converted links point at your copies, mirrors and forks, in your
+  vault's style (wikilinks or Markdown links, both ways). In a fork, a link to a page you
+  haven't mirrored or forked becomes a link by name: it lands on your note of that name, or
+  waits until you take it. A mirror's links are rewritten by full path into its source's
+  folder under the community folder as it is written and updated, so you can move between a
+  source's mirrors, and a link to a page you haven't mirrored dangles instead of landing on
+  your own note of that name. Forks are asked: after a fork, if links in your
+  forks of that source can now point at your copies, a notice offers **Convert**. The follow
+  note lists **Links to fix** (images, and the rare link that can't be converted) and **Links
+  to check** (where upstream could mean more than one file). Converting doesn't count as
+  editing your copy.
 - **Mirror and fork lists.** With **List mirrors in follow notes** on, each follow note ends
   with a **Mirrored pages** list of links to the pages mirrored from it; with **List forks in
   follow notes** on, a **Forked pages** list of the pages forked from it. The two are separate
@@ -113,8 +117,8 @@ the note, and what your mirrors and forks record, is the hosted URL.
 | **Fork this mirror** | For the note you are in, if it is a mirror: moves it into your notes, as your fork |
 | **Fork a file from a source** | Pick a source, then a Markdown file to fork |
 | **Compare this fork with upstream** | For the note you are in, if it is a fork: fetches its source and opens the compare |
-| **Convert links in this fork** | Points the note's links at your copies, in your vault's link style |
-| **Convert links in every fork** | The same for every fork of every source |
+| **Convert links in this note** | For the note you are in: a fork's links point at your copies, in your vault's link style; a mirror's point by full path into its mirror folder |
+| **Convert links in every fork and mirror** | The same for every copy of every source |
 | **Snapshot local sources** | Commits what changed in each local source's folder, and in each local copy |
 | **Update mirror and fork lists in follow notes** | Rewrites every follow note's **Mirrored pages** and **Forked pages** lists now |
 

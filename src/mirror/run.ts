@@ -1,11 +1,14 @@
 // Mirroring source files into the vault, keeping the mirrors current, and stopping
 // (docs/spec.md → Mirror): the Obsidian side of mirror.ts. A mirror is upstream's copy: an
-// update overwrites it, and asks first only when it was edited.
+// update overwrites it, and asks first only when it was edited. Its links are converted as it
+// is written, unasked (docs/spec.md → Convert links).
 
 import { App, normalizePath, Notice, type TFile } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
 import type { MirrorChange } from '../check/check.ts';
 import { isForkable, isForkOf, type Remote } from '../fork/fork.ts';
+import { convertMirrors } from '../fork/links-run.ts';
+import { upstreamFiles } from '../fork/links.ts';
 import { needFrontMatter, noteParts, writeWithProvenance, type ForkSource } from '../fork/run.ts';
 import { isEdited } from '../fork/update.ts';
 import type { Head, RemoteHost } from '../remote/host.ts';
@@ -30,7 +33,8 @@ function mirroredBy(app: App, remote: Remote): Map<string, string> {
  * Mirrors `paths` from a source at its head: each is written to the source's folder under the
  * community folder, at the path it has upstream. Nothing is asked: where a mirror goes is not a
  * choice. One already mirrored is left alone; one whose place is taken isn't written. A notice
- * says how it went. `done` runs once anything may have been written.
+ * says how it went. `done` runs once anything may have been written; then the new mirrors'
+ * links are converted.
  */
 export async function mirrorFiles(plugin: PublicTxtPlugin, from: ForkSource, paths: readonly string[], done?: () => void): Promise<void> {
 	const { app, data } = plugin;
@@ -48,6 +52,7 @@ export async function mirrorFiles(plugin: PublicTxtPlugin, from: ForkSource, pat
 
 		const failed = plan.filter((p) => p.state === 'taken').map((p) => `${p.path}: ${p.to} already exists, and isn't its mirror.`);
 		const written = new Map<string, string>();
+		const notes: TFile[] = [];
 		for (const p of fresh) {
 			try {
 				const blob = files.get(p.path);
@@ -57,12 +62,14 @@ export async function mirrorFiles(plugin: PublicTxtPlugin, from: ForkSource, pat
 				const meta = newMirrorMeta(from, p.path, head, blob, new Date());
 				const file = await writeWithProvenance(app, normalizePath(p.to), text, (front) => writeMirrorMeta(front, meta));
 				written.set(p.path, file.path);
+				notes.push(file);
 			} catch (e) {
 				failed.push(`${p.path}: ${errorText(e)}`);
 			}
 		}
 		plugin.mirrorsNow(from.url, { add: written });
 		done?.();
+		if (notes.length) void convertMirrors(app, upstreamFiles(files.keys()), notes);
 
 		const already = plan.filter((p) => p.state === 'mirrored');
 		const [only] = plan;
@@ -97,13 +104,20 @@ async function mirrorEdited(host: RemoteHost, url: string, text: string, meta: M
 	}
 }
 
+/** What overwriting came to: the notes overwritten, and those left alone because they were edited. */
+interface Overwritten {
+	written: TFile[];
+	edited: string[];
+}
+
 /**
  * Overwrites the mirrors of `change` with upstream's text at `head`. An edited one is left as it
- * is unless `force`. Returns the notes left alone because they were edited.
+ * is unless `force`.
  */
-async function overwriteMirrors(app: App, host: RemoteHost, url: string, head: Head, change: MirrorChange, force: boolean): Promise<string[]> {
-	if (change.blob === null) return [];
+async function overwriteMirrors(app: App, host: RemoteHost, url: string, head: Head, change: MirrorChange, force: boolean): Promise<Overwritten> {
+	const written: TFile[] = [];
 	const edited: string[] = [];
+	if (change.blob === null) return { written, edited };
 	let upstream: string | null = null;
 	for (const note of change.notes) {
 		const mirror = await readMirror(app, note.path, change.path);
@@ -123,8 +137,19 @@ async function overwriteMirrors(app: App, host: RemoteHost, url: string, head: H
 			await app.vault.modify(mirror.file, mirror.text);
 			throw e;
 		}
+		written.push(mirror.file);
 	}
-	return edited;
+	return { written, edited };
+}
+
+/** Converts the links in the mirrors `written` from `head`, reading the source's files there. Never throws. */
+async function convertUpdated(app: App, host: RemoteHost, url: string, head: Head, written: readonly TFile[]): Promise<void> {
+	if (written.length === 0) return;
+	try {
+		await convertMirrors(app, upstreamFiles((await host.tree(url, head.tree)).files.keys()), written);
+	} catch (e) {
+		new Notice(errorText(e));
+	}
 }
 
 /** What overwriting an edited mirror does, before it is done. */
@@ -134,21 +159,29 @@ function editedQuestion(notes: readonly string[]): string {
 	return `${what} edited since it was mirrored. Updating replaces the text with upstream's, and the edits are lost. To keep them, fork it instead: it becomes your note.`;
 }
 
-/** Updates one upstream file's mirrors from the last check's head. An edited mirror is overwritten only after asking. */
+/**
+ * Updates one upstream file's mirrors from the last check's head, then converts their links. An
+ * edited mirror is overwritten only after asking.
+ */
 export async function updateMirror(plugin: PublicTxtPlugin, url: string, head: Head, change: MirrorChange): Promise<void> {
 	const { app, data } = plugin;
 	const host = vaultHost(app, data);
-	const edited = await overwriteMirrors(app, host, url, head, change, false);
-	if (edited.length === 0) {
+	const updated = () => {
 		plugin.mirrorsNow(url, { settled: [change.path] });
 		new Notice(`Updated the mirror of ${change.path}.`);
+	};
+	// Converted now, asked or not: the edited ones are what the question is about, not these.
+	const { written, edited } = await overwriteMirrors(app, host, url, head, change, false);
+	void convertUpdated(app, host, url, head, written);
+	if (edited.length === 0) {
+		updated();
 		return;
 	}
 	const overwrite = async () => {
 		try {
-			await overwriteMirrors(app, host, url, head, change, true);
-			plugin.mirrorsNow(url, { settled: [change.path] });
-			new Notice(`Updated the mirror of ${change.path}.`);
+			const again = await overwriteMirrors(app, host, url, head, change, true);
+			updated();
+			void convertUpdated(app, host, url, head, again.written);
 		} catch (e) {
 			new Notice(errorText(e));
 		}
@@ -156,7 +189,7 @@ export async function updateMirror(plugin: PublicTxtPlugin, url: string, head: H
 	new ConfirmModal(app, 'Overwrite an edited mirror?', editedQuestion(edited), 'Overwrite', overwrite).open();
 }
 
-/** Updates every mirror the last check found changed upstream. Edited ones are left, and named. */
+/** Updates every mirror the last check found changed upstream, then converts their links. Edited ones are left, and named. */
 export async function updateMirrors(plugin: PublicTxtPlugin, url: string, name: string, head: Head, changes: readonly MirrorChange[]): Promise<void> {
 	const { app, data } = plugin;
 	const host = vaultHost(app, data);
@@ -164,12 +197,14 @@ export async function updateMirrors(plugin: PublicTxtPlugin, url: string, name: 
 	const blobs = todo.map((c) => c.blob).filter((b): b is string => b !== null);
 	if (blobs.length > 1) await host.prefetch?.(url, blobs);
 	const settled: string[] = [];
+	const written: TFile[] = [];
 	const edited: string[] = [];
 	const failed: string[] = [];
 	for (const change of todo) {
 		try {
-			const left = await overwriteMirrors(app, host, url, head, change, false);
-			if (left.length) edited.push(...left);
+			const done = await overwriteMirrors(app, host, url, head, change, false);
+			written.push(...done.written);
+			if (done.edited.length) edited.push(...done.edited);
 			else settled.push(change.path);
 		} catch (e) {
 			failed.push(`${change.path}: ${errorText(e)}`);
@@ -182,6 +217,7 @@ export async function updateMirrors(plugin: PublicTxtPlugin, url: string, name: 
 	if (failed.length) lines.push('Not updated:', ...failed);
 	// With anything left over it stays until dismissed: it is the only record of it.
 	new Notice(lines.join('\n'), lines.length > 1 ? 0 : undefined);
+	void convertUpdated(app, host, url, head, written);
 }
 
 /** Moves the notes mirroring `path` from the source `remote` to the trash, after asking. Nothing of the user's is lost: the text is upstream's. */

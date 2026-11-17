@@ -28,7 +28,7 @@ remote name, `fork_remote`).
 | Action | What it does | The note is |
 |---|---|---|
 | **Follow a repo** | A follow note in `follows/`; a check shows what's new | — |
-| **Mirror** | Copies the picked files to `<community folder>/<mirror folder>/`, the source's folders kept, links as upstream wrote them | Upstream's: kept current by overwriting, searchable in Obsidian, not for editing |
+| **Mirror** | Copies the picked files to `<community folder>/<mirror folder>/`, the source's folders kept, links pointed by full path into the mirror folder | Upstream's: kept current by overwriting, searchable in Obsidian, not for editing |
 | **Fork** | Moves a mirror into the user's own notes and offers to convert its links; or forks straight from the source | The user's: updates go through Compare |
 
 ## Decisions
@@ -39,8 +39,8 @@ remote name, `fork_remote`).
    relative to the community folder; with no `folder`, the remote name. So `txt` mirrors to
    `community/txt`, and `folder: research/ann` to `community/research/ann`.
 3. **A mirror keeps the path it has upstream**: `wiki/cs/git.md` from `txt` is
-   `community/txt/wiki/cs/git.md`. Nothing is asked. Its relative links mostly work, since
-   the source's layout is kept.
+   `community/txt/wiki/cs/git.md`. Nothing is asked. Its links are pointed by full path into
+   the mirror folder (`docs/plans/convert-links.md`, decision 6).
 4. **A mirror is updated by overwriting**, no Compare: it is upstream's copy. An edited one
    is asked about (one at a time) or left and named (all at once).
 5. **A check reports mirrors that are behind and writes nothing.** The user selects
