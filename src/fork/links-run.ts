@@ -1,12 +1,12 @@
-// Converting the links in forks and mirrors (docs/features/convert-links.md): the Obsidian side
-// of links.ts. A link is read as upstream reads it. A fork's is pointed at the vault's copy of
-// its file, a fork or a mirror; a mirror's by full path into its mirror folder.
+// Converting the links in forks (docs/features/convert-links.md): the Obsidian side of links.ts.
+// A link is read as upstream reads it, and pointed at the vault's copy of its file, a fork or a
+// mirror. A mirror's own links are never touched.
 
 import { App, getFrontMatterInfo, Notice, parseYaml, TFile, type CachedMetadata, type EventRef } from 'obsidian';
 import { latestFirst } from '../check/check.ts';
 import type { RemoteHost } from '../remote/host.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
-import { readForkMeta, readMirrorMeta, type Copy, type MirrorMeta } from '../sources/fork-meta.ts';
+import { readForkMeta, type Copy } from '../sources/fork-meta.ts';
 import { scanFollows } from '../sources/follows.ts';
 import { scanCopies } from '../sources/forks.ts';
 import { isRecord } from '../util/validate.ts';
@@ -14,11 +14,14 @@ import type { PublicTxtData } from '../sources/schema.ts';
 import { forksOf, isForkOf, type Remote } from './fork.ts';
 import { writeSections } from './fork-lists.ts';
 import { LINK_CHECK_HEADING, LINK_REPORT_HEADING, renderCheckReport, renderLinkReport, type NoteLinks } from './link-report.ts';
-import { addToTally, convertLinks, danglingLink, emptyTally, linkShows, mirrorLink, mirrorRoot, missingLink, nothingConverted, splitLink, tallyText, upstreamFiles, upstreamTarget, type Converted, type LinkPlan, type LinkRef, type LinkStyle, type LinkTally, type UpstreamFiles } from './links.ts';
+import { addToTally, convertLinks, danglingLink, emptyTally, linkShows, missingLink, nothingConverted, splitLink, tallyText, upstreamFiles, upstreamTarget, type Converted, type LinkPlan, type LinkRef, type LinkStyle, type LinkTally, type UpstreamFiles } from './links.ts';
 
 /** One source's copies (forks and mirrors), and its files at each commit they were taken at, read once. */
 class SourceLinks {
-	readonly copies: Copy[];
+	/** What its forks' links may point at: forks and mirrors. */
+	private readonly copies: Copy[];
+	/** The copies whose links are converted. */
+	readonly forks: Copy[];
 	private readonly byPath: Map<string, Copy>;
 	private readonly files = new Map<string, Promise<UpstreamFiles>>();
 	private style: LinkStyle | null = null;
@@ -32,6 +35,7 @@ class SourceLinks {
 		this.host = host;
 		this.follow = follow;
 		this.copies = all.filter((c) => isForkOf(c.meta, follow));
+		this.forks = this.copies.filter((c) => c.kind === 'fork');
 		this.byPath = new Map(this.copies.map((c) => [c.path, c]));
 	}
 
@@ -62,7 +66,7 @@ class SourceLinks {
 		return upstreamFiles(this.copies.map((c) => c.meta.path));
 	}
 
-	/** Converts the links in the copy `file`; with `write` false only counts them. `null`: the cache was stale. */
+	/** Converts the links in the fork `file`; with `write` false only counts them. `null`: the cache was stale. */
 	async convertNote(file: TFile, copy: Copy, write: boolean): Promise<Converted | null> {
 		const cache = this.app.metadataCache.getFileCache(file);
 		const refs = refsOf(cache);
@@ -72,15 +76,10 @@ class SourceLinks {
 	}
 
 	/**
-	 * A link's new text, why it is left, or `null` when it isn't a link to a file or is right as it
-	 * is. A mirror's links point by full path into its own mirror folder (`mirrorLink`), whatever
-	 * is in the vault; one moved by hand out of its folder is left as it is.
+	 * A link's new text, why it is left, or `null` when it isn't a link to a file or is right as
+	 * it is.
 	 */
-	private planLink(ref: LinkRef, file: TFile, { meta, kind }: Copy, files: UpstreamFiles): LinkPlan {
-		if (kind === 'mirror') {
-			const root = mirrorRoot(file.path, meta.path);
-			return root === null ? null : mirrorLink(ref, meta.path, root, files);
-		}
+	private planLink(ref: LinkRef, file: TFile, { meta }: Copy, files: UpstreamFiles): LinkPlan {
 		const upstream = upstreamTarget(ref, meta.path, files);
 		if (upstream === null) return null;
 		const { path, subpath } = splitLink(ref.link);
@@ -153,11 +152,11 @@ function refsOf(cache: CachedMetadata | null): LinkRef[] {
 }
 
 /**
- * Converts the links in the copies (forks and mirrors) of `follows`: all of them (`true`), none
- * (`false`: only counts), or those `write` picks, and then only those are counted. Unless nothing
- * is written, each follow note's "Links to fix" is rewritten from every copy of its source.
+ * Converts the links in the forks of `follows`: all of them (`true`), none (`false`: only
+ * counts), or those `write` picks, and then only those are counted. Unless nothing is written,
+ * each follow note's "Links to fix" is rewritten from every fork of its source.
  */
-export async function convertCopies(app: App, host: RemoteHost, follows: readonly Remote[], write: boolean | ((copy: Copy) => boolean)): Promise<LinkTally> {
+async function convertForks(app: App, host: RemoteHost, follows: readonly Remote[], write: boolean | ((fork: Copy) => boolean)): Promise<LinkTally> {
 	const tally = emptyTally();
 	const copies = scanCopies(app);
 	const notes = write === false ? [] : scanFollows(app).follows;
@@ -165,13 +164,13 @@ export async function convertCopies(app: App, host: RemoteHost, follows: readonl
 		const source = new SourceLinks(app, host, follow, copies);
 		const note = notes.find((f) => f.url === follow.url);
 		const report: NoteLinks[] = [];
-		for (const copy of source.copies) {
-			const file = app.vault.getFileByPath(copy.path);
+		for (const fork of source.forks) {
+			const file = app.vault.getFileByPath(fork.path);
 			if (!file) continue;
-			const writes = typeof write === 'function' ? write(copy) : write;
-			const c = await source.convertNote(file, copy, writes);
-			if (typeof write !== 'function' || writes) addToTally(tally, copy.path, c);
-			if (c && note) report.push({ path: copy.path, link: app.fileManager.generateMarkdownLink(file, note.path), left: c.leftLinks, check: c.checkLinks });
+			const writes = typeof write === 'function' ? write(fork) : write;
+			const c = await source.convertNote(file, fork, writes);
+			if (typeof write !== 'function' || writes) addToTally(tally, fork.path, c);
+			if (c && note) report.push({ path: fork.path, link: app.fileManager.generateMarkdownLink(file, note.path), left: c.leftLinks, check: c.checkLinks });
 		}
 		const file = note ? app.vault.getFileByPath(note.path) : null;
 		if (!file) continue;
@@ -184,61 +183,30 @@ export async function convertCopies(app: App, host: RemoteHost, follows: readonl
 	return tally;
 }
 
-/** The provenance of a fork or a mirror, whichever `fm` holds. */
-function readCopyMeta(fm: Record<string, unknown> | undefined): MirrorMeta | null {
-	return readForkMeta(fm) ?? readMirrorMeta(fm);
-}
-
-/** The "Convert links in this note" command: the active fork or mirror. */
-export async function convertActiveCopy(app: App, data: PublicTxtData): Promise<void> {
+/** The "Convert links in this note" command: the active fork. */
+export async function convertActiveFork(app: App, data: PublicTxtData): Promise<void> {
 	const file = app.workspace.getActiveFile();
-	const meta = file ? readCopyMeta(app.metadataCache.getFileCache(file)?.frontmatter) : null;
+	const meta = file ? readForkMeta(app.metadataCache.getFileCache(file)?.frontmatter) : null;
 	if (!file || !meta) {
-		new Notice('This note is not a fork or a mirror.');
+		new Notice('This note is not a fork.');
 		return;
 	}
 	const follow = scanFollows(app).follows.find((f) => isForkOf(meta, f));
 	if (!follow) {
-		new Notice('The source this note came from is not followed.');
+		new Notice('The source this note was forked from is not followed.');
 		return;
 	}
 	try {
-		new Notice(tallyText(await convertCopies(app, vaultHost(app, data), [follow], (c) => c.path === file.path), false));
+		new Notice(tallyText(await convertForks(app, vaultHost(app, data), [follow], (c) => c.path === file.path), false));
 	} catch (e) {
 		new Notice(errorText(e));
 	}
 }
 
-/** The "Convert links in every fork and mirror" command. */
-export async function convertAllCopies(app: App, data: PublicTxtData): Promise<void> {
+/** The "Convert links in every fork" command. */
+export async function convertAllForks(app: App, data: PublicTxtData): Promise<void> {
 	try {
-		new Notice(tallyText(await convertCopies(app, vaultHost(app, data), scanFollows(app).follows, true), true));
-	} catch (e) {
-		new Notice(errorText(e));
-	}
-}
-
-/**
- * After mirroring or updating mirrors: points the links in the mirrors `written` into their
- * mirror folder (`mirrorLink`), unasked, since a mirror is upstream's and has no edits to
- * respect. `files` are the source's files at the commit they were written from. Only those
- * notes: a mirror's links don't depend on anything else in the vault, and mirrors are never in
- * the report. Waits for Obsidian to have read them; if it hasn't in time, nothing is converted
- * and the commands remain. Never throws: the mirror stands whatever happens here.
- */
-export async function convertMirrors(app: App, files: UpstreamFiles, written: readonly TFile[]): Promise<void> {
-	try {
-		if (!(await allCached(app, written))) return;
-		const stale: string[] = [];
-		for (const file of written) {
-			const cache = app.metadataCache.getFileCache(file);
-			const meta = readMirrorMeta(cache?.frontmatter);
-			const root = meta ? mirrorRoot(file.path, meta.path) : null;
-			if (!meta || root === null) continue;
-			const c = await rewriteLinks(app, file, refsOf(cache), (ref) => mirrorLink(ref, meta.path, root, files), true);
-			if (!c) stale.push(file.path);
-		}
-		if (stale.length) new Notice(`Changed while converting links, try again: ${stale.join(', ')}.`);
+		new Notice(tallyText(await convertForks(app, vaultHost(app, data), scanFollows(app).follows, true), true));
 	} catch (e) {
 		new Notice(errorText(e));
 	}
@@ -255,8 +223,10 @@ const CACHE_WAIT_MS = 2000;
  */
 export async function offerConvert(app: App, host: RemoteHost, remote: Remote, written: readonly TFile[]): Promise<void> {
 	try {
-		if (!(await allCached(app, written))) return;
-		const count = await convertCopies(app, host, [remote], false);
+		for (const file of written) {
+			if (!(await whenCached(app, file, CACHE_WAIT_MS))) return;
+		}
+		const count = await convertForks(app, host, [remote], false);
 		if (count.converted === 0) return;
 		const n = count.converted;
 		const message = createFragment();
@@ -268,7 +238,7 @@ export async function offerConvert(app: App, host: RemoteHost, remote: Remote, w
 			notice.hide();
 			void (async () => {
 				try {
-					new Notice(tallyText(await convertCopies(app, host, [remote], true), true));
+					new Notice(tallyText(await convertForks(app, host, [remote], true), true));
 				} catch (err) {
 					new Notice(errorText(err));
 				}
@@ -279,20 +249,12 @@ export async function offerConvert(app: App, host: RemoteHost, remote: Remote, w
 	}
 }
 
-/** Whether Obsidian has read every note in `written`, waiting up to `CACHE_WAIT_MS` for each. */
-async function allCached(app: App, written: readonly TFile[]): Promise<boolean> {
-	for (const file of written) {
-		if (!(await whenCached(app, file, CACHE_WAIT_MS))) return false;
-	}
-	return true;
-}
-
 /**
  * Whether Obsidian's cache of `file` matches its text, waiting up to `ms` for it to: the note
- * reads as a fork or a mirror of the blob its text says, and every cached link is where the
- * cache says it is. A note just forked or mirrored is written twice (text, then front matter),
- * and each write moves the links. The blob tells an overwritten note from its old cache, which
- * a note with no links would otherwise match.
+ * reads as a fork of the blob its text says, and every cached link is where the cache says it
+ * is. A note just forked is written twice (text, then front matter), and each write moves the
+ * links. The blob tells an overwritten note from its old cache, which a note with no links would
+ * otherwise match.
  */
 async function whenCached(app: App, file: TFile, ms: number): Promise<boolean> {
 	const deadline = Date.now() + ms;
@@ -306,10 +268,10 @@ async function whenCached(app: App, file: TFile, ms: number): Promise<boolean> {
 
 async function isCached(app: App, file: TFile): Promise<boolean> {
 	const cache = app.metadataCache.getFileCache(file);
-	const cached = readCopyMeta(cache?.frontmatter);
+	const cached = readForkMeta(cache?.frontmatter);
 	if (!cache || !cached) return false;
 	const text = await app.vault.cachedRead(file);
-	if (readCopyMeta(frontMatterOf(text))?.blob !== cached.blob) return false;
+	if (readForkMeta(frontMatterOf(text))?.blob !== cached.blob) return false;
 	return refsOf(cache).every((r) => text.slice(r.start, r.end) === r.original);
 }
 

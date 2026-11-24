@@ -14,6 +14,7 @@ vaults are not migrated.
 | `follow_*` keys (planned) | `mirror_*` | "Follow" is for repos; publictxt-pages uses `follow_*` on follow pages |
 | Source's fork `folder` | Mirror folder | |
 | Fork links left as written when not forked | Link by name | The wiki way |
+| Mirror links by full path into the mirror folder | Left as written | Simpler: a mirror is upstream's text; the wiki way |
 | Separate one-file and many-file fork modals | One `ForkModal` | |
 
 Design briefs for each feature lived in `docs/plans/` until built; see git history.

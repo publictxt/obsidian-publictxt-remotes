@@ -1,18 +1,19 @@
 # Convert links
 
-A copy's links were written for upstream: relative to where the file sat there, in upstream's
+A fork's links were written for upstream: relative to where the file sat there, in upstream's
 style. Converting points them at the vault's copies. Sources are Obsidian vaults or plain
-Markdown repos: `[[wikilinks]]` and `[text](path)`.
+Markdown repos: `[[wikilinks]]` and `[text](path)`. Forks only: a mirror's links stay as
+written ([mirror.md](mirror.md)).
 
 **Which links**: the `links` and `embeds` Obsidian's metadata cache finds in the body, so code,
 front matter, web links and plain text are never touched and there's no second parser. Not
 handled: Markdown links with a title (`[a](b.md "t")`).
 
-## Resolving a link (forks)
+## Resolving a link
 
 Meaning comes from the source, the target from the vault. A link is read against the source's
-files at `fork_commit` / `mirror_commit` (`ls-tree` in the clone, no fetch; when that commit is
-gone, the paths of the source's copies stand in). In order:
+files at `fork_commit` (`ls-tree` in the clone, no fetch; when that commit is gone, the paths of
+the source's copies stand in). In order:
 
 1. **Already local**: if Obsidian resolves it (`getFirstLinkpathDest`) to a copy from this
    source, that's the target. This makes a second run a no-op. If upstream reads it as several
@@ -47,50 +48,27 @@ original. Unchanged text isn't counted.
 **Left as they are**: **not a note** (image etc.), **no name fits** (rare, Markdown-link vaults),
 **cannot be converted** (a name with `| # ^ [ ]`, or words that can't be link text).
 
-## Mirrors
-
-The table doesn't apply. A link upstream reads as one note becomes a full path to where its
-mirror is or would be, `<mirror folder>/<upstream path>` (`mirrorLink()`): `[[cs/b]]` in a mirror
-from `txt` → `[[community/txt/cs/b]]`. It keeps its form (wikilink or Markdown), what it shows,
-subpath and `!`. Why:
-
-- Links between a source's mirrors work; a link to a page not mirrored dangles where its mirror
-  would be (Obsidian doesn't match a full path by name), never landing on the user's note of
-  that name and misrepresenting the source. It works once mirrored, nothing rewritten.
-- Relative links get the full path too: Obsidian reads a bare path from the vault root.
-- Not restyled: nobody writes in a mirror, and Obsidian and publictxt-pages read both forms.
-
-Left as written, uncounted and unreported: links to no one note upstream, to non-notes, and
-every link in a mirror moved out of its mirror folder (`mirrorRoot()` is the path less the
-upstream path). A mirror links only to mirrors: a link to a page only forked dangles. Forking a
-mirror moves it and Obsidian updates full-path links to it; the next update of those mirrors
-points them back.
-
 ## When
 
-- **Commands**: **Convert links in this note** (`convert-links`, active fork or mirror);
-  **Convert links in every fork and mirror** (`convert-links-all`).
-- **Forks are asked.** After a fork, **Overwrite** or **Write alongside**, the plugin counts
-  without writing what would convert in every copy of that source (forking `b` makes links to
-  `b` convertible in earlier forks). If any, a sticky notice offers **Convert** for the source.
-- **Mirrors are not asked.** After **Mirror** and **Update**/**Update mirrors**, just those
-  mirrors are converted against the tree at the head they came from (already read when
-  mirroring; read from the clone after an update). No vault scan, no report; a notice only if a
-  note changed meanwhile.
+- **Commands**: **Convert links in this note** (`convert-links`, active fork);
+  **Convert links in every fork** (`convert-links-all`).
+- **An offer.** After a fork, **Overwrite** or **Write alongside**, the plugin counts without
+  writing what would convert in every fork of that source (forking `b` makes links to `b`
+  convertible in earlier forks). If any, a sticky notice offers **Convert** for the source.
 
-Both wait up to 2 s for the metadata cache to see new notes, else skip. A notice says what was
-converted, how many to notes not in the vault, what was left, and what to check.
+The offer waits up to 2 s for the metadata cache to see new notes, else is skipped. A notice says
+what was converted, how many to notes not in the vault, what was left, and what to check.
 
 A note is written once (`vault.process`), only if a link changed, and not at all if any cached
-link position no longer matches the text ("Changed while converting, try again"). `fork_*` and
-`mirror_*` keys are untouched, so `fork_blob` stays the base, and converted links don't count
-as edits (`matchesExceptLinks()`): **Overwrite** and **Update** don't ask because of them.
+link position no longer matches the text ("Changed while converting, try again"). `fork_*` keys
+are untouched, so `fork_blob` stays the base, and converted links don't count as edits
+(`matchesExceptLinks()`): **Overwrite** doesn't ask because of them.
 
 ## The report
 
 Each conversion that writes rewrites two sections in the follow note of each source covered,
-from every fork of it (never mirrors). Owned like the lists ([lists.md](lists.md)), written in
-the same pass, removed when empty. Public with the note.
+from every fork of it. Owned like the lists ([lists.md](lists.md)), written in the same pass,
+removed when empty. Public with the note.
 
 ```markdown
 ## Links to fix
