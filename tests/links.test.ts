@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addToTally, convertLinks, mirrorLink, mirrorRoot, danglingLink, danglingName, emptyTally, markdownLink, missingLink, nothingConverted, wikilink, type LinkPlan, isWikilink, linkShows, matchesExceptLinks, splitLink, tallyText, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
+import { addToTally, convertLinks, danglingLink, danglingName, emptyTally, markdownLink, missingLink, nothingConverted, wikilink, type LinkPlan, isWikilink, linkShows, matchesExceptLinks, splitLink, tallyText, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
 
 const FILES = upstreamFiles(['wiki/a.md', 'wiki/cs/b.md', 'wiki/c.md', 'cs/b.md', 'top.md', 'wiki/v1.2 notes.md', 'wiki/My Note.md', 'x/dup.md', 'y/dup.md', 'img/p.png']);
 const FROM = 'wiki/a.md';
@@ -237,39 +237,4 @@ test('missingLink: a page not written yet, by its own name in the vault\'s style
 	assert.equal(missingLink({ original: '[[v1.2 notes]]', link: 'v1.2 notes' }, 'wiki'), null);
 	assert.deepEqual(missingLink({ original: '![p](gone.png)', link: 'gone.png' }, 'wiki'), { left: 'not-note' });
 	assert.deepEqual(missingLink({ original: '[a|b](x.md)', link: 'x.md' }, 'wiki'), { left: 'unconvertible' });
-});
-
-test('mirrorRoot: the mirror\'s path less its upstream path', () => {
-	assert.equal(mirrorRoot('community/txt/wiki/a.md', 'wiki/a.md'), 'community/txt');
-	assert.equal(mirrorRoot('txt/wiki/a.md', 'wiki/a.md'), 'txt');
-	assert.equal(mirrorRoot('elsewhere/a.md', 'wiki/a.md'), null);
-	assert.equal(mirrorRoot('wiki/a.md', 'wiki/a.md'), null);
-});
-
-test('mirrorLink: by full path under the mirror folder, in the link\'s own form', () => {
-	const m = (original: string, link: string) => mirrorLink({ original, link }, FROM, 'community/txt', FILES);
-	assert.equal(m('[[cs/b]]', 'cs/b'), '[[community/txt/cs/b]]');
-	assert.equal(m('[[c|see c]]', 'c'), '[[community/txt/wiki/c|see c]]');
-	assert.equal(m('![[c#H]]', 'c#H'), '![[community/txt/wiki/c#H]]');
-	assert.equal(m('[b](/cs/b.md)', '/cs/b.md'), '[b](community/txt/cs/b.md)');
-	assert.equal(m('[My](/wiki/My%20Note.md)', '/wiki/My%20Note.md'), '[My](community/txt/wiki/My%20Note.md)');
-	// Not beside the note, so upstream reads it from the root: in the vault it would go by name.
-	assert.equal(m('[t](top.md)', 'top.md'), '[t](community/txt/top.md)');
-});
-
-test('mirrorLink: relative Markdown links too', () => {
-	const m = (original: string, link: string) => mirrorLink({ original, link }, FROM, 'community/txt', FILES);
-	assert.equal(m('[b](cs/b.md)', 'cs/b.md'), '[b](community/txt/wiki/cs/b.md)');
-	assert.equal(m('[t](../top.md)', '../top.md'), '[t](community/txt/top.md)');
-	assert.equal(m('[My](My%20Note.md)', 'My%20Note.md'), '[My](community/txt/wiki/My%20Note.md)');
-});
-
-test('mirrorLink: links to no one note, and links already by full path, are left', () => {
-	const m = (original: string, link: string) => mirrorLink({ original, link }, FROM, 'community/txt', FILES);
-	assert.equal(m('[[nowhere]]', 'nowhere'), null);
-	assert.equal(m('[[dup]]', 'dup'), null);
-	assert.equal(m('![[p.png]]', 'p.png'), null);
-	assert.equal(m('[w](https://x.org/a.md)', 'https://x.org/a.md'), null);
-	// Already by full path: a second run changes nothing.
-	assert.equal(m('[[community/txt/wiki/c|see c]]', 'community/txt/wiki/c'), null);
 });

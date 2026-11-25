@@ -31,16 +31,23 @@ pick file). Markdown only. Per file (`planMirrors()`):
 - Otherwise: blob fetched, note created, `mirror_*` keys added. Upstream front matter that isn't
   valid YAML is refused before writing.
 
-One notice (sticky on failure); the note isn't opened. Then its links are converted
-([convert-links.md](convert-links.md)).
+One notice (sticky on failure); the note isn't opened.
+
+## Links
+
+Left as upstream wrote them; Obsidian resolves them. The folder has upstream's layout, so `./` and
+`../` links go to the mirror, or dangle until it is mirrored. A link from the repo root (`/b.md`)
+doesn't find its mirror. Any other goes by Obsidian's order: that exact path from the vault root,
+a note at or below the mirror's own folder, then the shortest path ending in it. So it may land on
+the user's note, or another source's page, of that name: the wiki way, unguarded.
 
 ## Update
 
 **Update** on a file, or **Update mirrors (n)**, overwrites with upstream at the head the check
 saw and rewrites `mirror_*`. No compare. An edited mirror (text differs from its version,
-keys and link format aside; or that version can't be read) isn't overwritten unasked: **Update**
-asks and suggests forking; **Update mirrors** skips and names it. Links are converted again
-after.
+keys and links showing the same words aside, since Obsidian rewrites links when their targets
+move; or that version can't be read) isn't overwritten unasked: **Update** asks and suggests
+forking; **Update mirrors** skips and names it.
 
 ## Stop
 

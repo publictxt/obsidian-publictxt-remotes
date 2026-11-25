@@ -48,11 +48,10 @@ make some my own; see when those change upstream.
   local or remote, and a missing folder is an error, never a silent network fetch.
 - **Updating a fork is a compare, not a merge.** Overwrite, write alongside as a new copy, or
   keep mine. `fork_seen` records what was dealt with, so `fork_blob` stays the merge base.
-- **Links mean what they mean upstream.** A fork's links are read against the source and pointed
+- **A fork's links mean what they mean upstream.** They are read against the source and pointed
   at the vault's copies in the vault's style, when the user accepts the offer; links to pages not
-  copied go by name (the wiki way, unguarded). A mirror's links go by full path into its mirror
-  folder, unasked, so a mirror never lands on the user's same-named note. Converted links aren't
-  edits.
+  copied go by name (the wiki way, unguarded). Converted links aren't edits. The plugin
+  never changes a mirror's links: it is upstream's text, and they resolve the wiki way.
 - **The community folder is named for readers**: it's a section of the published site, and
   publictxt-pages uses "community" for where pages came from.
 

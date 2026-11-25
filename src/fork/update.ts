@@ -42,7 +42,8 @@ export interface NoteParts {
  * matter does, leaving out the `fork_*` and `mirror_*` keys. Front matter is compared parsed, as Obsidian
  * rewrites the YAML when it adds the keys; the body without regard to blank lines at its start
  * or the kind of line ending, which the rewrite can also change. Links written differently
- * but showing the same words don't count: converting a fork's links is not an edit.
+ * but showing the same words don't count: converting a fork's links is not an
+ * edit, nor is Obsidian updating a link whose target moved.
  */
 export function isEdited(note: NoteParts, forked: NoteParts): boolean {
 	return !matchesExceptLinks(bodyOf(note), bodyOf(forked)) || !same(ownKeys(note.front), ownKeys(forked.front));
