@@ -5,8 +5,8 @@
 import { App, normalizePath, Notice, type TFile } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
 import type { MirrorChange } from '../check/check.ts';
-import { isForkable, isForkOf, type Remote } from '../fork/fork.ts';
-import { needFrontMatter, noteParts, writeWithProvenance, type ForkSource } from '../fork/run.ts';
+import { isCopyable, isFrom, type CopySource, type Remote } from '../copy/copy.ts';
+import { needFrontMatter, noteParts, writeWithProvenance } from '../fork/run.ts';
 import { isEdited } from '../fork/update.ts';
 import type { Head, RemoteHost } from '../remote/host.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
@@ -19,7 +19,7 @@ import { mirroredText, mirrorFolderOf, newMirrorMeta, planMirrors, updatedMirror
 /** This source's mirrors: upstream path → the note mirroring it (the first by path). */
 function mirroredBy(app: App, remote: Remote): Map<string, string> {
 	const out = new Map<string, string>();
-	const mine = scanMirrors(app).filter((m) => isForkOf(m.meta, remote)).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+	const mine = scanMirrors(app).filter((m) => isFrom(m.meta, remote)).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 	for (const m of mine) {
 		if (!out.has(m.meta.path)) out.set(m.meta.path, m.path);
 	}
@@ -32,7 +32,7 @@ function mirroredBy(app: App, remote: Remote): Map<string, string> {
  * choice. One already mirrored is left alone; one whose place is taken isn't written. A notice
  * says how it went. `done` runs once anything may have been written.
  */
-export async function mirrorFiles(plugin: PublicTxtPlugin, from: ForkSource, paths: readonly string[], done?: () => void): Promise<void> {
+export async function mirrorFiles(plugin: PublicTxtPlugin, from: CopySource, paths: readonly string[], done?: () => void): Promise<void> {
 	const { app, data } = plugin;
 	const { head } = from;
 	if (!head) return;
@@ -51,7 +51,7 @@ export async function mirrorFiles(plugin: PublicTxtPlugin, from: ForkSource, pat
 		for (const p of fresh) {
 			try {
 				const blob = files.get(p.path);
-				if (!isForkable(p.path)) throw new Error('Only Markdown files can be mirrored.');
+				if (!isCopyable(p.path)) throw new Error('Only Markdown files can be mirrored.');
 				if (!blob) throw new Error(`Not in ${head.branch} any more.`);
 				const text = await host.blob(from.url, blob);
 				const meta = newMirrorMeta(from, p.path, head, blob, new Date());
@@ -192,7 +192,7 @@ export async function updateMirrors(plugin: PublicTxtPlugin, url: string, name: 
 /** Moves the notes mirroring `path` from the source `remote` to the trash, after asking. Nothing of the user's is lost: the text is upstream's. */
 export function stopMirroring(plugin: PublicTxtPlugin, remote: Remote, path: string): void {
 	const { app } = plugin;
-	const notes: Mirror[] = scanMirrors(app).filter((m) => isForkOf(m.meta, remote) && m.meta.path === path);
+	const notes: Mirror[] = scanMirrors(app).filter((m) => isFrom(m.meta, remote) && m.meta.path === path);
 	if (notes.length === 0) {
 		plugin.mirrorsNow(remote.url, { drop: [path] });
 		return;
@@ -221,7 +221,7 @@ export function activeMirror(app: App): { file: TFile; meta: MirrorMeta; follow:
 		new Notice('This note is not a mirror.');
 		return null;
 	}
-	const follow = scanFollows(app).follows.find((f) => isForkOf(meta, f));
+	const follow = scanFollows(app).follows.find((f) => isFrom(meta, f));
 	if (!follow) {
 		new Notice('The source this note mirrors is not followed.');
 		return null;

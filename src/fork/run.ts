@@ -1,32 +1,21 @@
 // Forking source files into the vault (docs/features/fork.md): the Obsidian side of fork.ts.
 
 import { App, getFrontMatterInfo, normalizePath, Notice, parseYaml, TFile } from 'obsidian';
+import { copiesOf, isCopyable, isFrom, type CopySource } from '../copy/copy.ts';
 import type PublicTxtPlugin from '../main.ts';
 import { forkedMeta } from '../mirror/mirror.ts';
 import { scanForks, scanMirrors } from '../sources/forks.ts';
-import type { Head, RemoteHost, Tree } from '../remote/host.ts';
+import type { RemoteHost, Tree } from '../remote/host.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
 import { readMirrorMeta, writeForkMeta, type ForkMeta, type Mirror } from '../sources/fork-meta.ts';
 import { ForkModal } from '../ui/fork-modal.ts';
 import { isRecord } from '../util/validate.ts';
 import { ensureFolder } from '../util/vault.ts';
 import { initialDestination, type PlannedFork, type VaultLook } from './destination.ts';
-import { forksOf, isForkable, isForkOf, newForkMeta } from './fork.ts';
+import { newForkMeta } from './fork.ts';
 import { nameOf, splitLink } from './links.ts';
 import { linkNew, type LinkWork } from './links-run.ts';
 import type { NoteParts } from './update.ts';
-
-/** The source to fork or mirror from, as a check saw it. */
-export interface ForkSource {
-	/** The source's key (`Source.url`). */
-	url: string;
-	/** The source's remote name. */
-	name: string;
-	/** The head to read from: the last check's, or one just read. `null`: only mirrors are forked, which are in the vault. */
-	head: Head | null;
-	/** The source's mirror folder, under the community folder; `null`: its name. */
-	folder: string | null;
-}
 
 /**
  * Forks `paths` from a source: asks where they go (`ForkModal`), then writes them. A file the
@@ -34,13 +23,13 @@ export interface ForkSource {
  * its note open, and a failure shows in the modal. Several are each tried, and one notice says
  * how it went. `done` runs once anything may have been written; not when the user cancels.
  */
-export async function startFork(plugin: PublicTxtPlugin, from: ForkSource, paths: readonly string[], done?: () => void): Promise<void> {
+export async function startFork(plugin: PublicTxtPlugin, from: CopySource, paths: readonly string[], done?: () => void): Promise<void> {
 	const { app, data } = plugin;
 	try {
 		const host = vaultHost(app, data);
 		const mirrors = new Map<string, Mirror>();
 		for (const m of scanMirrors(app)) {
-			if (isForkOf(m.meta, from) && !mirrors.has(m.meta.path)) mirrors.set(m.meta.path, m);
+			if (isFrom(m.meta, from) && !mirrors.has(m.meta.path)) mirrors.set(m.meta.path, m);
 		}
 		const fresh = paths.filter((p) => !mirrors.has(p));
 		let files: Tree['files'] = new Map();
@@ -50,7 +39,7 @@ export async function startFork(plugin: PublicTxtPlugin, from: ForkSource, paths
 		}
 		const [only] = paths;
 		if (paths.length === 1 && only !== undefined && !mirrors.has(only)) {
-			if (!isForkable(only)) throw new Error(`Only Markdown files can be forked: ${only}.`);
+			if (!isCopyable(only)) throw new Error(`Only Markdown files can be forked: ${only}.`);
 			if (!files.has(only)) throw new Error(`${only} is not in ${from.head?.branch ?? from.name} any more.`);
 		}
 
@@ -60,7 +49,7 @@ export async function startFork(plugin: PublicTxtPlugin, from: ForkSource, paths
 		const vault: VaultLook = { ...look, taken: (p) => look.taken(p) && !moving.has(normalizePath(p)) };
 		const initial = initialDestination(paths, data);
 		const forks = scanForks(app);
-		const earlier = new Map(paths.map((p) => [p, forksOf(forks, from, p).map((f) => f.path)]));
+		const earlier = new Map(paths.map((p) => [p, copiesOf(forks, from, p).map((f) => f.path)]));
 		const mirrored = new Map([...mirrors].map(([p, m]) => [p, m.path]));
 
 		const moved: string[] = [];
@@ -102,7 +91,7 @@ async function forkOne(app: App, fork: PlannedFork, mirror: string | undefined, 
 }
 
 /** Forks each file in turn, going on past one that fails; one notice says how it went. Returns the notes written. */
-async function forkSeveral(host: RemoteHost, from: ForkSource, files: Tree['files'], plan: readonly PlannedFork[], one: (fork: PlannedFork) => Promise<TFile>): Promise<TFile[]> {
+async function forkSeveral(host: RemoteHost, from: CopySource, files: Tree['files'], plan: readonly PlannedFork[], one: (fork: PlannedFork) => Promise<TFile>): Promise<TFile[]> {
 	const failed: string[] = [];
 	const written: TFile[] = [];
 	// One fetch for them all, not one each. A mirrored file has no blob to fetch: it isn't read from the source.
@@ -123,7 +112,7 @@ async function forkSeveral(host: RemoteHost, from: ForkSource, files: Tree['file
 }
 
 /** Fetches the file at the source's head and writes it to its planned vault path as a fork. */
-async function forkTo(app: App, host: RemoteHost, from: ForkSource, files: Tree['files'], fork: PlannedFork): Promise<TFile> {
+async function forkTo(app: App, host: RemoteHost, from: CopySource, files: Tree['files'], fork: PlannedFork): Promise<TFile> {
 	const blob = files.get(fork.path);
 	if (!from.head || !blob) throw new Error(`Not in ${from.head?.branch ?? from.name} any more.`);
 	const text = await host.blob(from.url, blob);

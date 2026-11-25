@@ -7,8 +7,9 @@ import type { ForkChange, SourceCheck } from '../check/check.ts';
 import type { SourceResult } from '../check/run.ts';
 import { FOLLOWS_FOLDER } from '../sources/follow-note.ts';
 import { forkableUnder, selectedPaths, toggleAll, type FileList } from '../check/selection.ts';
+import type { CopySource } from '../copy/copy.ts';
 import { compareChange } from '../fork/compare-run.ts';
-import { startFork, type ForkSource } from '../fork/run.ts';
+import { startFork } from '../fork/run.ts';
 import { detach, keepGone } from '../fork/update-run.ts';
 import { mirrorFiles, stopMirroring, updateMirror, updateMirrors } from '../mirror/run.ts';
 import { errorText } from '../remote/vault-host.ts';
@@ -206,7 +207,7 @@ export class CheckView extends ItemView {
 	}
 
 	/** The source `url` as the last check saw it: mirrors and forks come from the head the user is looking at. */
-	private forkSource(url: string): { from: ForkSource; check: SourceCheck } | null {
+	private forkSource(url: string): { from: CopySource; check: SourceCheck } | null {
 		const r = this.result(url);
 		if (!r?.check) return null;
 		return { from: { url, name: r.follow.name, head: r.check.head, folder: r.follow.folder }, check: r.check };

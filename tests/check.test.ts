@@ -4,7 +4,7 @@ import { acknowledged, checkSource, checked, checkedAll, hasNews, inInclude, isS
 import type { Fork, Mirror } from '../src/sources/fork-meta.ts';
 import type { Change, Head, RemoteHost } from '../src/remote/host.ts';
 import type { Source, SourceState } from '../src/sources/schema.ts';
-import type { Remote } from '../src/fork/fork.ts';
+import type { Remote } from '../src/copy/copy.ts';
 
 const sha = (c: string) => c.repeat(40);
 const URL_ = 'https://github.com/a/b';

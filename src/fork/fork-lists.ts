@@ -1,6 +1,7 @@
 // Keeps the mirror and fork lists in each follow note current (docs/features/lists.md): the Obsidian side of fork-list.ts.
 
 import { App, debounce, Notice, TFile, type TAbstractFile } from 'obsidian';
+import { isFrom } from '../copy/copy.ts';
 import type PublicTxtPlugin from '../main.ts';
 import { scanForks, scanMirrors } from '../sources/forks.ts';
 import { readForkMeta, readMirrorMeta, type ForkMeta } from '../sources/fork-meta.ts';
@@ -8,7 +9,6 @@ import { isFollowPath, type Follow } from '../sources/follow-note.ts';
 import { scanFollows } from '../sources/follows.ts';
 import { errorText } from '../remote/vault-host.ts';
 import { FORK_LIST_HEADING, MIRROR_LIST_HEADING, renderForkList, renderMirrorList, withSections } from './fork-list.ts';
-import { isForkOf } from './fork.ts';
 
 export interface SyncResult {
 	/** Follow notes rewritten. */
@@ -62,7 +62,7 @@ export async function syncForkLists(app: App, wanted: (follow: Follow) => Wanted
 		const links = (notes: readonly { path: string; meta: Pick<ForkMeta, 'remote' | 'repo'> }[]): string[] => {
 			const out: string[] = [];
 			for (const n of notes) {
-				const file = isForkOf(n.meta, follow) ? app.vault.getFileByPath(n.path) : null;
+				const file = isFrom(n.meta, follow) ? app.vault.getFileByPath(n.path) : null;
 				if (file) out.push(app.fileManager.generateMarkdownLink(file, follow.path));
 			}
 			return out;

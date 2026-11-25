@@ -21,7 +21,7 @@ Flat front matter keys, so Properties can show them. Upstream front matter is ke
 A note is a fork when `fork_path` and `fork_blob` are valid and it has a valid `fork_remote` or
 `fork_repo`. Writing a fork sets these and removes other `fork_*` and all `mirror_*` keys, so a
 fork of a fork never keeps upstream's provenance. A fork (or mirror) belongs to a source by
-`fork_remote` (case-insensitive), else `fork_repo` (`isForkOf()`). Forks are found by scanning.
+`fork_remote` (case-insensitive), else `fork_repo` (`isFrom()`). Forks are found by scanning.
 
 ## Ways in
 

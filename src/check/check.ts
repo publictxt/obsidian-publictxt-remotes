@@ -4,7 +4,7 @@
 import { SEEN_GONE, type Fork, type ForkMeta, type Mirror } from '../sources/fork-meta.ts';
 import type { Source, SourceState } from '../sources/schema.ts';
 import type { Change, Head, RemoteHost } from '../remote/host.ts';
-import { isForkOf, type Remote } from '../fork/fork.ts';
+import { isFrom, type Remote } from '../copy/copy.ts';
 
 /** Why "what's new" lists every file instead of the changes. */
 export type NewReason = 'first-check' | 'history-rewritten';
@@ -79,7 +79,7 @@ export async function checkSource(host: RemoteHost, source: Source & Remote, sta
 /** This source's mirrors by the upstream file they are of, each list by vault path. */
 function mirrorsByPath(source: Remote, mirrors: readonly Mirror[]): Map<string, Mirror[]> {
 	const byPath = new Map<string, Mirror[]>();
-	const sorted = mirrors.filter((m) => isForkOf(m.meta, source)).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+	const sorted = mirrors.filter((m) => isFrom(m.meta, source)).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
 	for (const m of sorted) {
 		const notes = byPath.get(m.meta.path);
 		if (notes) notes.push(m);
@@ -103,7 +103,7 @@ function mirrorChanges(byPath: ReadonlyMap<string, Mirror[]>, files: ReadonlyMap
 function copiesByPath(source: Remote, forks: readonly Fork[]): Map<string, Fork[]> {
 	const byPath = new Map<string, Fork[]>();
 	for (const fork of forks) {
-		if (!isForkOf(fork.meta, source)) continue;
+		if (!isFrom(fork.meta, source)) continue;
 		const copies = byPath.get(fork.meta.path);
 		if (copies) copies.push(fork);
 		else byPath.set(fork.meta.path, [fork]);
