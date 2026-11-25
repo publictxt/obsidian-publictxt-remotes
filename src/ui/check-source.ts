@@ -8,9 +8,11 @@ import type { SourceResult } from '../check/run.ts';
 import { selectedPaths } from '../check/selection.ts';
 import { isLocalRepo } from '../sources/repo-url.ts';
 import type { CheckFrom } from '../sources/schema.ts';
+import type { TagsState } from '../tags/run.ts';
 import { actionAttrs, setAction } from './check-actions.ts';
 import { folderRows, listed, rowAction, type Drawing } from './file-rows.ts';
 import { sourceOpen, type SourceUi } from './source-ui.ts';
+import { filtering, narrowed, renderTagFilter } from './tag-filter.ts';
 import { treeFlair, treeItem } from './tree.ts';
 
 const REASON: Record<NewReason, string> = {
@@ -38,7 +40,7 @@ export interface HeaderOffers {
 	busy: boolean;
 }
 
-export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi, offers: HeaderOffers): void {
+export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi, offers: HeaderOffers, tags: TagsState): void {
 	const source = parent.createDiv({ cls: 'publictxt-source', attr: { 'data-source': r.follow.url } });
 	const el = header(source, r, sourceOpen(r, ui), offers);
 	if (!el) return;
@@ -50,24 +52,28 @@ export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi,
 	const c = r.check;
 	const d: Drawing = { c, ui, unsettled: new Set(c.forks.map((f) => f.path)), reason: reasonText(c.reason, offers.from !== null) };
 	if (!hasNews(c)) el.createEl('p', { cls: 'publictxt-quiet', text: 'Nothing new since you last looked.' });
-	actions(el, c, ui);
+	const shown = ui.browse ? narrowed(c, ui.tags, tags) : c;
+	actions(el, c, ui, shown);
 	changes(el, d);
 	mirrors(el, c);
 	forks(el, c);
-	allFiles(el, d);
+	allFiles(el, { ...d, c: shown }, c.files.length, tags);
 }
 
 /** What can be done with the whole source: before the lists, which can be long. */
-function actions(el: HTMLElement, c: SourceCheck, ui: SourceUi): void {
+function actions(el: HTMLElement, c: SourceCheck, ui: SourceUi, shown: SourceCheck): void {
 	const seeable = c.changes.length > 0 || c.reason !== null;
 	const selected = selectedPaths(c, ui.selected).length;
+	// Ticked, and left out by the filter.
+	const hidden = selected - selectedPaths(shown, ui.selected).length;
+	const count = hidden ? `${selected}, ${hidden} hidden` : String(selected);
 	const stale = c.mirrors.filter((m) => m.status === 'modified').length;
 	const row = el.createDiv({ cls: 'publictxt-actions' });
 	if (seeable) row.createEl('button', { text: 'Mark as seen', attr: actionAttrs('ack') });
 	row.createEl('button', { text: ui.browse ? 'Hide all files' : 'Browse all files', attr: { ...actionAttrs('browse'), 'aria-label': 'Every file at head, whatever you have seen' } });
 	if (stale) row.createEl('button', { text: `Update mirrors (${stale})`, attr: { ...actionAttrs('update-mirrors'), 'aria-label': 'Overwrite each mirror with what is upstream now. Edited ones are left.' } });
-	if (selected) row.createEl('button', { text: `Mirror selected (${selected})`, cls: 'mod-cta', attr: { ...actionAttrs('mirror-selected'), 'aria-label': 'Copy them into the community folder, as upstream\'s' } });
-	if (selected) row.createEl('button', { text: `Fork selected (${selected})`, attr: { ...actionAttrs('fork-selected'), 'aria-label': 'Take them into your notes, as yours' } });
+	if (selected) row.createEl('button', { text: `Mirror selected (${count})`, cls: 'mod-cta', attr: { ...actionAttrs('mirror-selected'), 'aria-label': 'Copy them into the community folder, as upstream\'s' } });
+	if (selected) row.createEl('button', { text: `Fork selected (${count})`, attr: { ...actionAttrs('fork-selected'), 'aria-label': 'Take them into your notes, as yours' } });
 }
 
 /** The row that opens and closes the source. Returns where its details go, or `null` when closed. */
@@ -119,12 +125,18 @@ function changes(el: HTMLElement, d: Drawing): void {
 	folderRows(el, listed(c, 'new').tree, d, 'new');
 }
 
-/** Every file at head, as a tree, when the user asked for it: to fork what was seen long ago. */
-function allFiles(el: HTMLElement, d: Drawing): void {
+/**
+ * Every file at head, as a tree, when the user asked for it: to fork what was seen long ago. Those
+ * the tag filter lets through, when one is set; `total` is how many there are without it.
+ */
+function allFiles(el: HTMLElement, d: Drawing, total: number, tags: TagsState): void {
 	const { c, ui } = d;
 	if (!ui.browse) return;
-	el.createEl('h5', { text: `All files (${c.files.length})` });
-	if (!c.files.length) el.createEl('p', { cls: 'publictxt-quiet', text: 'No files at head.' });
+	const found = filtering(ui.tags) && tags.state === 'ready';
+	el.createEl('h5', { text: `All files (${found ? `${c.files.length} of ${total}` : total})` });
+	if (total) renderTagFilter(el, ui.tags, tags);
+	if (!total) el.createEl('p', { cls: 'publictxt-quiet', text: 'No files at head.' });
+	else if (found && !c.files.length) el.createEl('p', { cls: 'publictxt-quiet', text: 'No pages match.' });
 	folderRows(el, listed(c, 'all').tree, d, 'all');
 }
 
