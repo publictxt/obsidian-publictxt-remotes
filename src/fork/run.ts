@@ -1,7 +1,7 @@
 // Forking source files into the vault (docs/features/fork.md): the Obsidian side of fork.ts.
 
 import { App, normalizePath, Notice, TFile } from 'obsidian';
-import { copiesOf, isCopyable, isFrom, type CopySource } from '../copy/copy.ts';
+import { copiesOf, firstByPath, isCopyable, type CopySource } from '../copy/copy.ts';
 import { splitLink } from '../copy/link-text.ts';
 import { noteParts, writeWithProvenance } from '../copy/run.ts';
 import type PublicTxtPlugin from '../main.ts';
@@ -27,10 +27,7 @@ export async function startFork(plugin: PublicTxtPlugin, from: CopySource, paths
 	const { app, data } = plugin;
 	try {
 		const host = vaultHost(app, data);
-		const mirrors = new Map<string, Mirror>();
-		for (const m of scanMirrors(app)) {
-			if (isFrom(m.meta, from) && !mirrors.has(m.meta.path)) mirrors.set(m.meta.path, m);
-		}
+		const mirrors = firstByPath(scanMirrors(app), from);
 		const fresh = paths.filter((p) => !mirrors.has(p));
 		let files: Tree['files'] = new Map();
 		if (fresh.length) {

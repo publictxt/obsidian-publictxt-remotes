@@ -59,5 +59,5 @@ listed until removed or forked.
 
 ## Code
 
-Pure: `src/mirror/mirror.ts`, `src/sources/fork-meta.ts`. Vault: `src/mirror/run.ts`,
-`src/sources/forks.ts`.
+Pure: `src/mirror/mirror.ts`, `src/copy/copy.ts`, `edited.ts`, `src/sources/fork-meta.ts`. Vault:
+`src/mirror/run.ts`, `src/copy/run.ts`, `src/sources/forks.ts`.

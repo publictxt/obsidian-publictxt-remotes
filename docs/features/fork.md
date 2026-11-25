@@ -79,6 +79,7 @@ Then the new forks' links are converted and matched, as chosen.
 
 ## Code
 
-Pure: `src/fork/destination.ts`, `fork.ts`, `src/sources/fork-meta.ts`,
-`src/check/selection.ts`. Vault: `src/fork/run.ts`, `command.ts`, `src/sources/forks.ts`. UI:
+Pure: `src/fork/destination.ts`, `fork.ts`, `src/copy/copy.ts`, `src/sources/fork-meta.ts`,
+`src/check/selection.ts`. Vault: `src/fork/run.ts`, `command.ts`, `src/copy/run.ts`,
+`src/sources/forks.ts`. UI:
 `src/ui/fork-modal.ts`, `fork-preview.ts`, `folder-suggest.ts`.

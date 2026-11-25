@@ -5,7 +5,7 @@
 import { App, normalizePath, Notice, type TFile } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
 import type { MirrorChange } from '../check/check.ts';
-import { isCopyable, isFrom, type CopySource, type Remote } from '../copy/copy.ts';
+import { copiesOf, firstByPath, isCopyable, isFrom, type CopySource, type Remote } from '../copy/copy.ts';
 import { isEdited } from '../copy/edited.ts';
 import { noteParts, overwriteWithProvenance, writeWithProvenance } from '../copy/run.ts';
 import type { Head, RemoteHost } from '../remote/host.ts';
@@ -18,12 +18,8 @@ import { mirroredText, mirrorFolderOf, newMirrorMeta, planMirrors, updatedMirror
 
 /** This source's mirrors: upstream path → the note mirroring it (the first by path). */
 function mirroredBy(app: App, remote: Remote): Map<string, string> {
-	const out = new Map<string, string>();
-	const mine = scanMirrors(app).filter((m) => isFrom(m.meta, remote)).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-	for (const m of mine) {
-		if (!out.has(m.meta.path)) out.set(m.meta.path, m.path);
-	}
-	return out;
+	const byPath = scanMirrors(app).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+	return new Map([...firstByPath(byPath, remote)].map(([path, m]) => [path, m.path]));
 }
 
 /**
@@ -184,7 +180,7 @@ export async function updateMirrors(plugin: PublicTxtPlugin, url: string, name: 
 /** Moves the notes mirroring `path` from the source `remote` to the trash, after asking. Nothing of the user's is lost: the text is upstream's. */
 export function stopMirroring(plugin: PublicTxtPlugin, remote: Remote, path: string): void {
 	const { app } = plugin;
-	const notes: Mirror[] = scanMirrors(app).filter((m) => isFrom(m.meta, remote) && m.meta.path === path);
+	const notes: Mirror[] = copiesOf(scanMirrors(app), remote, path);
 	if (notes.length === 0) {
 		plugin.mirrorsNow(remote.url, { drop: [path] });
 		return;

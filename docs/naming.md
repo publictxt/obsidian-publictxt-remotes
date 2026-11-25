@@ -47,7 +47,7 @@ file in [features/](features/) names its modules.
 | `src/sources/` | `data.json` schema, follow notes, canonical URL, provenance keys, scanning notes |
 | `src/remote/` | `RemoteHost`, `GitHost`, local folders, snapshot; `git-process.ts` is the only Node module |
 | `src/check/` | A check and its vault run; file tree; ticks |
-| `src/copy/` | What forks and mirrors share. Imports neither |
+| `src/copy/` | What forks and mirrors share. Imports neither; `fork/` may import `mirror/`, never the reverse |
 | `src/mirror/` | Mirroring, update, stop |
 | `src/fork/` | Fork destination and writing, fork update, lists, fork links |
 | `src/snapshot/` | Snapshot and make-a-repo from the vault |

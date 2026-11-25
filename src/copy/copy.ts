@@ -39,3 +39,24 @@ export function isFrom(meta: Pick<ForkMeta, 'remote' | 'repo'>, remote: Remote):
 export function copiesOf<T extends { meta: Pick<ForkMeta, 'remote' | 'repo' | 'path'> }>(copies: readonly T[], remote: Remote, path: string): T[] {
 	return copies.filter((c) => isFrom(c.meta, remote) && c.meta.path === path);
 }
+
+/** The copies of each upstream file of `remote`: upstream path → its copies. Both in the order given. */
+export function copiesByPath<T extends { meta: Pick<ForkMeta, 'remote' | 'repo' | 'path'> }>(copies: readonly T[], remote: Remote): Map<string, T[]> {
+	const byPath = new Map<string, T[]>();
+	for (const c of copies) {
+		if (!isFrom(c.meta, remote)) continue;
+		const same = byPath.get(c.meta.path);
+		if (same) same.push(c);
+		else byPath.set(c.meta.path, [c]);
+	}
+	return byPath;
+}
+
+/** The first copy given of each upstream file of `remote`, by upstream path. */
+export function firstByPath<T extends { meta: Pick<ForkMeta, 'remote' | 'repo' | 'path'> }>(copies: readonly T[], remote: Remote): Map<string, T> {
+	const out = new Map<string, T>();
+	for (const [path, [first]] of copiesByPath(copies, remote)) {
+		if (first) out.set(path, first);
+	}
+	return out;
+}
