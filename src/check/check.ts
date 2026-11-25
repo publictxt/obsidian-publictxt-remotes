@@ -126,6 +126,27 @@ export function latestFirst<T extends { path: string; meta: { date: string | nul
 	});
 }
 
+/** What was just done to a source's mirrors. */
+export interface MirrorsNow {
+	/** Upstream path → its new mirror note. */
+	add?: ReadonlyMap<string, string>;
+	/** Upstream paths not mirrored any more. */
+	drop?: readonly string[];
+	/** Upstream paths whose mirrors are what is at head. */
+	settled?: readonly string[];
+}
+
+/**
+ * The check `c` in line with what was just done to its mirrors. The metadata cache lags a write,
+ * so this isn't read from the vault.
+ */
+export function withMirrors(c: SourceCheck, { add = new Map(), drop = [], settled = [] }: MirrorsNow): SourceCheck {
+	const mirrored = new Map([...c.mirrored, ...add]);
+	for (const path of drop) mirrored.delete(path);
+	const off = new Set([...drop, ...settled]);
+	return { ...c, mirrored, mirrors: c.mirrors.filter((m) => !off.has(m.path)) };
+}
+
 /** State after a check, before it is acknowledged: only `checkedAt` moves. */
 export function checked(state: SourceState | undefined, at: string): SourceState {
 	return { seenCommit: state?.seenCommit ?? null, checkedAt: at };
