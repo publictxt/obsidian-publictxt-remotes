@@ -32,7 +32,8 @@ function splitFrontMatter(text: string): { front: string; body: string } {
 
 /** Front matter `tags`: a list, or one string. */
 function frontTags(front: string, parseYaml: ParseYaml): string[] {
-	if (!front.trim()) return [];
+	// Most of the time reading a page goes to its YAML: not for one that can't have any.
+	if (!front.includes('tags')) return [];
 	let yaml: unknown;
 	try {
 		yaml = parseYaml(front);
