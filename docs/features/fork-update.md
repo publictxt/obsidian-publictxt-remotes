@@ -15,12 +15,14 @@ The view's header: source, branch, the note, then
 - **What changed**: "12 lines added, 3 removed since you forked." (`diffStat` from `fork_blob`
   to head), or that the forked version is gone upstream.
 - **Edited?** kept current as the note saves: edited / as forked / can't tell (forked blob
-  unreadable). Edited (`isEdited()`): the body differs ignoring leading blank lines, line
-  endings, and links showing the same words (`matchesExceptLinks()`: converted links are no
-  edit); or the parsed front matter differs, `fork_*` aside (parsed, because Obsidian rewrites
-  the YAML).
+  unreadable).
 
-Below: upstream rendered, front matter hidden; **Show source** toggles raw text.
+**Edited** (`isEdited()`, mirrors too): the body differs, ignoring leading blank lines, line
+endings, and links showing the same words to the same subpath (`matchesExceptLinks()`: converting
+a link, or Obsidian updating one whose target moved, is no edit); or the parsed front matter
+differs, `fork_*` and `mirror_*` aside (parsed, because Obsidian rewrites the YAML).
+
+Below the header: upstream rendered, front matter hidden; **Show source** toggles raw text.
 
 ## Actions
 
@@ -40,8 +42,7 @@ copies aren't written.
   `<name> (up-01)`, `(up-02)`, … (an existing ` (up-nn)` dropped first). Opens where the copy
   was; now the latest copy.
 
-After **Overwrite** or **Write alongside**, the links in the note written are converted
-([fork-links.md](fork-links.md)).
+After either, the note's links are converted ([fork-links.md](fork-links.md)).
 
 **Gone upstream**: **Detach** removes `fork_*` from every copy after asking; **Keep** sets
 `fork_seen: gone` (not listed until the file is back and differs).

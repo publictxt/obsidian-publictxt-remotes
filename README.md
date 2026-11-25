@@ -21,17 +21,15 @@ records where it came from in its front matter.
 - **Fork** a page: your own note with `fork_*` provenance. [Fork](docs/features/fork.md)
 - **Compare** a fork with its new upstream version, then overwrite, write alongside or keep
   yours. Nothing is merged. [Fork update](docs/features/fork-update.md)
-- A fork's links are written as your vault writes links, and broken ones can be matched to your
-  notes.
-  [Fork links](docs/features/fork-links.md)
+- **Links** in a fork are written as your vault writes links, and broken ones can be matched to
+  your notes. [Fork links](docs/features/fork-links.md)
 - **Local sources**: follow a git repo on your computer, such as another vault, and snapshot it;
   or give a hosted source a local copy to check from. [Local](docs/features/local.md)
 - Optional **Mirrored pages** / **Forked pages** lists in follow notes.
   [Lists](docs/features/lists.md)
 
-Commands are in the command palette; settings are in **Settings → Community plugins**
-([fields](docs/features/sources.md)). Clones live in the hidden `.clones/` folder: if
-your vault is a git repo, add it to `.gitignore`.
+Commands are in the command palette; settings are in **Settings → Community plugins**. Clones
+live in the hidden `.clones/` folder, which git ignores.
 
 ## Install from git
 
@@ -74,8 +72,6 @@ choose **Snapshot** or **Make repo**: git commits in that folder, as you, and a 
 when making a repo. A local folder's path is kept in the plugin's settings, never in a note.
 
 ## Development
-
-Node.js 22.18 or later.
 
 ```bash
 npm install

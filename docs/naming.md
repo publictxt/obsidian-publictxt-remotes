@@ -19,8 +19,8 @@
 | source key | `Source.url`: canonical URL, or `local:<name>` |
 | remote | The technical word for a source (plugin name, `*_remote`). Never a folder |
 | include | Folder prefixes narrowing "what's new" |
-| local source | A source on this computer: `local: true`, folder in `localPaths` |
-| local copy | A hosted source's working copy here, fetched from when **Local** is chosen (`checkFrom`). Still one source |
+| local source | A source on this computer: `local: true` in its follow note |
+| local copy | A hosted source's working copy on this computer |
 | snapshot / make a repo | Commit a local folder's changes / `git init` it with a `.gitignore`, then snapshot |
 | clone | A source's bare partial clone under `clonesFolder`. Never a page copy |
 | mirror | Upstream's copy of a page under the community folder, with `mirror_*` keys; overwritten by updates. Also the action |
@@ -39,13 +39,13 @@
 
 ## Code layout
 
-Pure modules (no Obsidian, tested under `node --test`) and their vault/UI sides. Each feature
-file in [features/](features/) names its modules.
+Each feature file in [features/](features/) names its modules. Tests are in
+`tests/<module>.test.ts`.
 
 | Folder | Holds |
 |---|---|
 | `src/sources/` | `data.json` schema, follow notes, canonical URL, provenance keys, scanning notes |
-| `src/remote/` | `RemoteHost`, `GitHost`, local folders, snapshot; `git-process.ts` is the only Node module |
+| `src/remote/` | `RemoteHost`, `GitHost`, local folders, snapshot |
 | `src/check/` | A check and its vault run; file tree; ticks |
 | `src/copy/` | What forks and mirrors share. Imports neither; `fork/` may import `mirror/`, never the reverse |
 | `src/mirror/` | Mirroring, update, stop |
@@ -53,6 +53,3 @@ file in [features/](features/) names its modules.
 | `src/snapshot/` | Snapshot and make-a-repo from the vault |
 | `src/ui/` | Views, modals, tree rows |
 | `src/util/` | Small helpers |
-
-Conventions: a pure `x.ts` has its vault side in `x-run.ts` or `run.ts`; tests in
-`tests/<module>.test.ts`.

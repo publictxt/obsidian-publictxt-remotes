@@ -4,7 +4,7 @@
 
 **Clones.** One bare partial clone per source: `<clonesFolder>/<host>/<owner>/<repo>.git`, or
 `<clonesFolder>/local/<name>-<hash>.git` for a local source (`<hash>`: 32-bit FNV-1a of the key,
-so names that clean up alike don't share a clone). Bare, so no remote `.md` shows as a note.
+so names that clean up alike don't share a clone).
 
 **Where it fetches from** (`fetchFrom()`): a hosted source's URL; a local source's folder, or a
 hosted source's local copy when **Local** is chosen, as `fileUrl()` from `localPaths`. Origin is
@@ -37,5 +37,5 @@ or folder missing), `bad-input` (not a canonical URL or SHA; snapshot refusals).
 
 ## Code
 
-Pure: `src/remote/host.ts`, `git.ts`, `fetch-from.ts`. The only Node module:
-`src/remote/git-process.ts`. Wiring: `src/remote/vault-host.ts`.
+Pure: `src/remote/host.ts`, `git.ts`, `fetch-from.ts`. Node: `src/remote/git-process.ts`. Wiring:
+`src/remote/vault-host.ts`.
