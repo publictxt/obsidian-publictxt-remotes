@@ -1,7 +1,7 @@
 // Forking source files into the vault (docs/features/fork.md): the Obsidian side of fork.ts.
 
 import { App, normalizePath, Notice, TFile } from 'obsidian';
-import { copiesOf, firstByPath, isCopyable, type CopySource } from '../copy/copy.ts';
+import { copiesOf, firstByPath, inPathOrder, isCopyable, type CopySource } from '../copy/copy.ts';
 import { splitLink } from '../copy/link-text.ts';
 import { noteParts, writeWithProvenance } from '../copy/run.ts';
 import type PublicTxtPlugin from '../main.ts';
@@ -22,12 +22,14 @@ import { linkNew, type LinkWork } from './links-run.ts';
  * vault mirrors isn't fetched: its mirror moves there and becomes the fork. One file ends with
  * its note open, and a failure shows in the modal. Several are each tried, and one notice says
  * how it went. `done` runs once anything may have been written; not when the user cancels.
+ * `chosen`: the mirror to fork, for a file mirrored more than once; else the first by path.
  */
-export async function startFork(plugin: PublicTxtPlugin, from: CopySource, paths: readonly string[], done?: () => void): Promise<void> {
+export async function startFork(plugin: PublicTxtPlugin, from: CopySource, paths: readonly string[], { done, chosen }: { done?: () => void; chosen?: Mirror } = {}): Promise<void> {
 	const { app, data } = plugin;
 	try {
 		const host = vaultHost(app, data);
-		const mirrors = firstByPath(scanMirrors(app), from);
+		const mirrors = firstByPath(inPathOrder(scanMirrors(app)), from);
+		if (chosen) mirrors.set(chosen.meta.path, chosen);
 		const fresh = paths.filter((p) => !mirrors.has(p));
 		let files: Tree['files'] = new Map();
 		if (fresh.length) {

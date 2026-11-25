@@ -27,9 +27,9 @@ export function mirrorFromSource(plugin: PublicTxtPlugin): void {
 export function forkActiveMirror(plugin: PublicTxtPlugin): void {
 	const active = activeMirror(plugin.app);
 	if (!active) return;
-	const { follow, meta } = active;
+	const { file, follow, meta } = active;
 	// Nothing is read from the source: the mirror is in the vault.
-	void startFork(plugin, { url: follow.url, name: follow.name, head: null, folder: follow.folder }, [meta.path]);
+	void startFork(plugin, { url: follow.url, name: follow.name, head: null, folder: follow.folder }, [meta.path], { chosen: { path: file.path, meta } });
 }
 
 function pickSource(plugin: PublicTxtPlugin, verb: Verb, then: (from: CopySource, path: string) => void): void {

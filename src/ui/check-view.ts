@@ -257,9 +257,11 @@ export class CheckView extends ItemView {
 		const source = this.forkSource(url);
 		if (!source) return;
 		const { selected } = this.uiOf(url);
-		void startFork(this.plugin, source.from, selectedPaths(source.check, selected), () => {
-			selected.clear();
-			this.render();
+		void startFork(this.plugin, source.from, selectedPaths(source.check, selected), {
+			done: () => {
+				selected.clear();
+				this.render();
+			},
 		});
 	}
 

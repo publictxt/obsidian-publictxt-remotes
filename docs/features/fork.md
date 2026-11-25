@@ -32,8 +32,9 @@ Markdown only.
 **A mirrored file is moved, not fetched**: `renameFile` (Obsidian updates links to it; mirrors and
 the moved note get their text back, `moveMirror()`), keys `mirror_*` → `fork_*`, `fork_date` now,
 text unchanged but for its links. Never copied: two notes of one name would split every link by
-name. Its own path doesn't count as taken. If upstream has moved on, the next check lists it under
-Forks.
+name. Its own path doesn't count as taken. Of a file mirrored twice (copied by hand), **Fork this
+mirror** moves the active note, anything else the first by path. If upstream has moved on, the
+next check lists it under Forks.
 
 ## The modal
 

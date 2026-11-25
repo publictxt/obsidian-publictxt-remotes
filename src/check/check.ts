@@ -4,7 +4,7 @@
 import { SEEN_GONE, type Fork, type ForkMeta, type Mirror } from '../sources/fork-meta.ts';
 import type { Source, SourceState } from '../sources/schema.ts';
 import type { Change, Head, RemoteHost } from '../remote/host.ts';
-import { copiesByPath, type Remote } from '../copy/copy.ts';
+import { copiesByPath, inPathOrder, type Remote } from '../copy/copy.ts';
 
 /** Why "what's new" lists every file instead of the changes. */
 export type NewReason = 'first-check' | 'history-rewritten';
@@ -78,7 +78,7 @@ export async function checkSource(host: RemoteHost, source: Source & Remote, sta
 
 /** This source's mirrors by the upstream file they are of, each list by vault path. */
 function mirrorsByPath(source: Remote, mirrors: readonly Mirror[]): Map<string, Mirror[]> {
-	return copiesByPath([...mirrors].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0)), source);
+	return copiesByPath(inPathOrder(mirrors), source);
 }
 
 /** The upstream files whose mirrors aren't what is at head, by path. */

@@ -3,7 +3,7 @@
 
 import { App, normalizePath, Notice, type TFile } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
-import { copiesOf, firstByPath, isCopyable, isFrom, type CopySource, type Remote } from '../copy/copy.ts';
+import { copiesOf, firstByPath, inPathOrder, isCopyable, isFrom, type CopySource, type Remote } from '../copy/copy.ts';
 import { writeWithProvenance } from '../copy/run.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
 import { readMirrorMeta, writeMirrorMeta, type Mirror, type MirrorMeta } from '../sources/fork-meta.ts';
@@ -14,8 +14,7 @@ import { mirroredText, mirrorFolderOf, newMirrorMeta, planMirrors } from './mirr
 
 /** This source's mirrors: upstream path → the note mirroring it (the first by path). */
 function mirroredBy(app: App, remote: Remote): Map<string, string> {
-	const byPath = scanMirrors(app).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-	return new Map([...firstByPath(byPath, remote)].map(([path, m]) => [path, m.path]));
+	return new Map([...firstByPath(inPathOrder(scanMirrors(app)), remote)].map(([path, m]) => [path, m.path]));
 }
 
 /**

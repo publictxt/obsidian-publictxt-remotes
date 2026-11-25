@@ -52,6 +52,11 @@ export function copiesByPath<T extends { meta: Pick<ForkMeta, 'remote' | 'repo' 
 	return byPath;
 }
 
+/** Copies by their vault path, in byte order: of a file copied more than once, the same one is first everywhere. */
+export function inPathOrder<T extends { path: string }>(copies: readonly T[]): T[] {
+	return [...copies].sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+}
+
 /** The first copy given of each upstream file of `remote`, by upstream path. */
 export function firstByPath<T extends { meta: Pick<ForkMeta, 'remote' | 'repo' | 'path'> }>(copies: readonly T[], remote: Remote): Map<string, T> {
 	const out = new Map<string, T>();
