@@ -15,6 +15,7 @@ Features:
 |---|---|
 | [sources.md](features/sources.md) | `data.json`, follow notes, canonical URL, settings tab, state |
 | [check.md](features/check.md) | A check, and the check view |
+| [tags.md](features/tags.md) | Tags of a source's pages: the filter, the tag index |
 | [git.md](features/git.md) | `RemoteHost` over the git CLI: clones, commands, errors |
 | [local.md](features/local.md) | Local sources, local copies, making a repo, snapshot |
 | [mirror.md](features/mirror.md) | Mirror provenance; mirror, update, stop |

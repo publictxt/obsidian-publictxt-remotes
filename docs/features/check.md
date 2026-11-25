@@ -57,7 +57,7 @@ Then lists:
   **Keep**.
 - **All files (n)**, while browsing: every file at head within `include`, seen or not: the way
   back after **Mark as seen**. Folders start closed. Browsing changes no state and stays on
-  across checks.
+  across checks. **Filter by tag** narrows it ([tags.md](tags.md)).
 
 **File rows** in What's new and All files. Markdown files not removed have a tick box and:
 
@@ -75,4 +75,5 @@ lists, persist like open folders, and don't count files a later check doesn't li
 ## Code
 
 Pure: `src/check/check.ts`, `file-tree.ts`, `selection.ts`. Vault: `src/check/run.ts`. UI:
-`src/ui/check-view.ts`, `check-source.ts`, `file-rows.ts`, `source-ui.ts`, `check-actions.ts`, `tree.ts`.
+`src/ui/check-view.ts`, `check-source.ts`, `file-rows.ts`, `source-ui.ts`, `check-actions.ts`,
+`fork-change.ts`, `tree.ts`.

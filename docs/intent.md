@@ -33,6 +33,9 @@ make some my own; see when those change upstream.
   system anyway. Replaced a GitHub REST adapter, parked at tag `archive/github-adapter`.
 - **One bare partial clone per source** in a hidden `.clones/` (blob-less: trees up front,
   contents on demand). Hidden: not indexed, skipped by Sync. Bare: no remote note shows up.
+- **Tags are read when asked for, and cached in the clone.** They need file contents, which most
+  checks don't. The index of them is derived, so never in a note or a commit (publictext ADR-0003),
+  and goes with the clone it was made from.
 - **Follow whole repos, narrow locally** (publictext ADR-0005): `include` folder prefixes, the
   manifest's convention (`types`, `ignore`), not a new glob grammar.
 - **Remotes are named**: the follow note's file name, recorded as `fork_remote` /
@@ -65,7 +68,7 @@ make some my own; see when those change upstream.
 ## Later
 
 Merge a fork (`git merge-file` on `fork_blob`); propose changes upstream (converting links
-back); tag filters (need file contents); offer to fork or mirror the notes dangling links name;
+back); followed tags ([plan](plans/tags.md)); offer to fork or mirror the notes dangling links name;
 warn when a local copy is ahead of its origin; mirror attachments; update mirrors at each check
 if wanted.
 
