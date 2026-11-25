@@ -66,7 +66,7 @@ export async function mirrorFiles(plugin: PublicTxtPlugin, from: CopySource, pat
 	}
 }
 
-/** Moves the notes mirroring `path` from the source `remote` to the trash, after asking. Nothing of the user's is lost: the text is upstream's. */
+/** Moves the notes mirroring `path` from the source `remote` to the trash, after asking: edits made to them go too. */
 export function stopMirroring(plugin: PublicTxtPlugin, remote: Remote, path: string): void {
 	const { app } = plugin;
 	const notes: Mirror[] = copiesOf(scanMirrors(app), remote, path);
@@ -75,7 +75,7 @@ export function stopMirroring(plugin: PublicTxtPlugin, remote: Remote, path: str
 		return;
 	}
 	const where = notes.map((m) => m.path).join(', ');
-	const message = `${where} ${notes.length === 1 ? 'moves' : 'move'} to the trash. It is upstream's copy of ${path}: to keep it as your own note, fork it instead.`;
+	const message = `${where} ${notes.length === 1 ? 'moves' : 'move'} to the trash, with any edits made to ${notes.length === 1 ? 'it' : 'them'}. To keep it as your own note, fork it instead.`;
 	new ConfirmModal(app, 'Stop mirroring?', message, 'Move to trash', async () => {
 		try {
 			for (const m of notes) {

@@ -58,7 +58,8 @@ is being updated is left and reported. A file whose mirrors are all gone leaves 
 ## Stop
 
 **Stop** on a mirrored file, **Remove** on one gone upstream, or **Stop mirroring this note**:
-after confirming, the mirror is trashed. Nothing of the user's is lost. A gone mirror stays
+after confirming, the mirror is trashed, with any edits made to it: the question says so, and
+suggests forking. A page mirrored twice stops with both notes, which it names. A gone mirror stays
 listed until removed or forked.
 
 ## Code
