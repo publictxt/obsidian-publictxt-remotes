@@ -51,9 +51,9 @@ source: the note is the hosted one's and says nothing of the copy, so key, clone
 and `mirror_repo` stay the hosted URL. The copy's folder in `localPaths` only changes where git
 fetches from.
 
-- **Setting it**: **Local copy** in the source form. Must be a working repo's top with a remote
-  whose canonical URL is the source's (`hasRemote()`, `copyProblem()`); never made a repo. The
-  settings row says `local copy: /path`.
+- **Setting it**: **Local path** beside the **Repo URL** in the source form. Must be a working
+  repo's top with a remote whose canonical URL is the source's (`hasRemote()`, `copyProblem()`);
+  never made a repo. The settings row says `local copy: /path`.
 - **Local or remote**: chosen in the check view, saved in `checkFrom`; until chosen, **Local**.
   **Check now**, mirrors and forks use the current choice.
 - **Missing folder is an error**: git's own, naming the folder. The network is never used

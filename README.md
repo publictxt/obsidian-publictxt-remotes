@@ -55,8 +55,8 @@ Add `.obsidian/plugins/publictxt-remotes/` to the vault's `.gitignore` if you do
 
 ## Use it
 
-1. In **Settings → PublicTxt Remotes**, select **Add source**. Enter a name and a repo URL, or
-   the folder of a git repo on your computer.
+1. In **Settings → PublicTxt Remotes**, select **Add source**. Enter a repo URL, the local path
+   of a git repo on your computer, or both if you have a clone of that repo.
 2. Run **Check sources** from the command palette (or the ribbon). The check view opens in the
    right sidebar.
 3. Select **Mirror** or **Fork** next to a file, or tick several and use **Mirror selected** /
