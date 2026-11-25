@@ -7,6 +7,7 @@ Read only what the task needs.
 | [intent.md](intent.md) | Why the plugin exists, the decisions that shape it, what's open |
 | [naming.md](naming.md) | Vocabulary, frozen ids, where the code lives |
 | [features/](features/) | What each feature does: the reference. One file per feature |
+| [plans/](plans/) | What's planned and not built: [tags.md](plans/tags.md). A plan goes once built |
 
 Features:
 
