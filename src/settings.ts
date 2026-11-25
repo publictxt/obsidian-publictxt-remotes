@@ -76,7 +76,7 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 			.addExtraButton((b) =>
 				b
 					.setIcon('pencil')
-					.setTooltip(local && !folder ? 'Set its folder' : 'Edit')
+					.setTooltip(local && !folder ? 'Set its local path' : 'Edit')
 					.onClick(() => {
 						new SourceModal(this.app, (form) => this.edit(f, form), sourceToForm(f, folder), local).open();
 					}),

@@ -9,10 +9,10 @@ import { canonicalRepoUrl, defaultRemoteName, isLocalRepo, localPathInput, remot
 export interface SourceForm {
 	/** The remote name; empty on add: suggested from the URL or folder. */
 	name: string;
-	/** A repo URL, or a local source's folder. */
+	/** A repo URL: a hosted source. Empty: a local source. */
 	url: string;
-	/** A hosted source's local copy: a folder on this computer to fetch from. Empty: none. */
-	localCopy: string;
+	/** A folder on this computer: a local source's, or a hosted source's local copy (empty: none). */
+	path: string;
 	branch: string;
 	include: string;
 	folder: string;
@@ -22,21 +22,25 @@ export interface SourceForm {
 	listForks: '' | 'on' | 'off';
 }
 
-export const EMPTY_FORM: SourceForm = { name: '', url: '', localCopy: '', branch: '', include: '', folder: '', listMirrors: '', listForks: '' };
+export const EMPTY_FORM: SourceForm = { name: '', url: '', path: '', branch: '', include: '', folder: '', listMirrors: '', listForks: '' };
 
 /** A source to write, its remote name, and its folder on this computer: a local source's, or a hosted source's local copy (`null`: none). */
 export type Checked = { ok: true; source: Source; name: string; localPath: string | null } | { ok: false; error: string };
 
 const lines = (s: string): string[] => s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
-const NOT_A_SOURCE = 'Not a repo URL or folder: use https://host/owner/repo, git@host:owner/repo.git, or a folder like /home/me/notes.';
+const NEITHER = 'Enter a repo URL, a local path, or both.';
+const NOT_A_URL = 'Repo URL: use https://host/owner/repo or git@host:owner/repo.git.';
+const FOLDER_AS_URL = 'Repo URL: that\'s a folder. Enter it as the local path.';
+const NOT_A_PATH = 'Local path: enter a folder on this computer, like /home/me/notes.';
+const URL_AS_PATH = 'Local path: that\'s a repo URL. Enter it as the repo URL.';
 
 /** A follow as form text, for editing. `localPath`: its folder on this computer, if set. */
 export function sourceToForm(f: Follow, localPath: string | null): SourceForm {
 	return {
 		name: f.name,
-		url: isLocalRepo(f.url) ? (localPath ?? '') : f.url,
-		localCopy: isLocalRepo(f.url) ? '' : (localPath ?? ''),
+		url: isLocalRepo(f.url) ? '' : f.url,
+		path: localPath ?? '',
 		branch: f.branch ?? '',
 		include: f.include.join('\n'),
 		folder: f.folder ?? '',
@@ -45,19 +49,22 @@ export function sourceToForm(f: Follow, localPath: string | null): SourceForm {
 	};
 }
 
-/** Form text → the source named `name`, or why not. A folder as the URL makes it local; a hosted one may have a local copy. */
+/** Why the form's URL and path don't make a source, or `null`: at least one, each of its own kind. */
+function whereProblem(f: SourceForm): string | null {
+	if (!f.url.trim() && !f.path.trim()) return NEITHER;
+	if (f.url.trim() && !canonicalRepoUrl(f.url)) return localPathInput(f.url) ? FOLDER_AS_URL : NOT_A_URL;
+	if (f.path.trim() && !localPathInput(f.path)) return canonicalRepoUrl(f.path) ? URL_AS_PATH : NOT_A_PATH;
+	return null;
+}
+
+/** Form text → the source named `name`, or why not. A URL makes it hosted, its path a local copy; a path alone, local. */
 export function formToSource(f: SourceForm, name: string): Checked {
-	const hosted = canonicalRepoUrl(f.url);
-	let localPath = hosted ? null : localPathInput(f.url);
-	if (!hosted && !localPath) return { ok: false, error: NOT_A_SOURCE };
-	if (hosted && f.localCopy.trim()) {
-		localPath = localPathInput(f.localCopy);
-		if (!localPath) return { ok: false, error: 'Local copy: enter a folder on this computer, like /home/me/notes, or leave it empty.' };
-	}
+	const problem = whereProblem(f);
+	if (problem) return { ok: false, error: problem };
 	const source = normalizeSource(
 		{
 			url: f.url,
-			local: !hosted,
+			local: !f.url.trim(),
 			branch: f.branch,
 			include: lines(f.include),
 			folder: f.folder,
@@ -66,13 +73,15 @@ export function formToSource(f: SourceForm, name: string): Checked {
 		},
 		name,
 	);
-	return source ? { ok: true, source, name, localPath } : { ok: false, error: 'Not a valid source.' };
+	return source ? { ok: true, source, name, localPath: localPathInput(f.path) } : { ok: false, error: 'Not a valid source.' };
 }
 
 /** A new source: a free name (suggested if empty), a URL not followed already. */
 export function checkAdd(followed: readonly Follow[], f: SourceForm): Checked {
-	const name = f.name.trim() || defaultRemoteName(f.url);
-	if (!f.name.trim() && !name) return { ok: false, error: canonicalRepoUrl(f.url) || localPathInput(f.url) ? 'Enter a name.' : NOT_A_SOURCE };
+	const where = whereProblem(f);
+	if (where) return { ok: false, error: where };
+	const name = f.name.trim() || defaultRemoteName(f.url.trim() ? f.url : f.path);
+	if (!name) return { ok: false, error: 'Enter a name.' };
 	const problem = remoteNameProblem(name);
 	if (problem) return { ok: false, error: problem };
 	const taken = followed.find((s) => s.name.toLowerCase() === name.toLowerCase());
@@ -85,12 +94,12 @@ export function checkAdd(followed: readonly Follow[], f: SourceForm): Checked {
 }
 
 /**
- * An edit of `follow`. Its name and a hosted source's URL are its identity, so the form's are
- * ignored; a local source's folder and a hosted source's local copy can change (they are this
- * computer's, not the note's).
+ * An edit of `follow`. Its name and its URL (a local source has none) are its identity, so the
+ * form's are ignored; its path can change (it is this computer's, not the note's). A local
+ * source must have one.
  */
 export function checkUpdate(follow: Follow, f: SourceForm): Checked {
 	if (!isLocalRepo(follow.url)) return formToSource({ ...f, url: follow.url }, follow.name);
-	if (!localPathInput(f.url)) return { ok: false, error: 'Enter the folder of this local source on this computer, like /home/me/notes.' };
-	return formToSource(f, follow.name);
+	if (!f.path.trim()) return { ok: false, error: NOT_A_PATH };
+	return formToSource({ ...f, url: '' }, follow.name);
 }

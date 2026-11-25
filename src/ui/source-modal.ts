@@ -14,8 +14,8 @@ export class SourceModal extends Modal {
 	private readonly submit: SubmitSource;
 
 	/**
-	 * `initial` given: editing. The name is read-only (forks record it), and so is a hosted
-	 * source's URL; a local source's folder (`local`) can change, and a hosted source's local copy.
+	 * `initial` given: editing. The name is read-only (forks record it), and so is the URL, which
+	 * a local source (`local`) has none of; the local path can change.
 	 */
 	constructor(app: App, submit: SubmitSource, initial?: SourceForm, local = false) {
 		super(app);
@@ -36,24 +36,28 @@ export class SourceModal extends Modal {
 				t.setValue(this.form.name).onChange((v) => (this.form.name = v));
 				t.setDisabled(this.editing);
 			});
-		const urlDesc = this.local
-			? 'This computer\'s copy. Kept in the plugin\'s settings, never in the note.'
-			: this.editing
-				? 'To follow a different repo, remove this source and add that one.'
-				: 'https://host/owner/repo, git@host:owner/repo.git, or a folder on this computer. A folder is kept in the plugin\'s settings, never in the note.';
+		if (!this.editing) {
+			contentEl.createEl('p', { cls: 'setting-item-description', text: 'Enter a repo URL, a local path, or both. With both, the local path is your clone of that repo.' });
+		}
+		const otherRepo = 'To follow a different repo, remove this source and add that one.';
+		const noUrl = 'None: this is a local source. To follow a hosted repo, remove this source and add that one.';
 		new Setting(contentEl)
-			.setName(this.local ? 'Folder' : 'Repo URL or folder')
-			.setDesc(urlDesc)
+			.setName('Repo URL')
+			.setDesc(this.local ? noUrl : this.editing ? otherRepo : 'https://host/owner/repo or git@host:owner/repo.git.')
 			.addText((t) => {
 				t.setValue(this.form.url).onChange((v) => (this.form.url = v));
-				t.setDisabled(this.editing && !this.local);
+				t.setDisabled(this.editing);
 			});
-		if (!this.local) {
-			new Setting(contentEl)
-				.setName('Local copy')
-				.setDesc('Optional, for a repo URL: a clone of it on this computer, such as your own other vault. The check view then lets you choose, per check, between that folder and the network. Kept in the plugin\'s settings, never in the note.')
-				.addText((t) => t.setPlaceholder('/home/me/notes').setValue(this.form.localCopy).onChange((v) => (this.form.localCopy = v)));
-		}
+		const clone = 'a clone of the repo on this computer, such as your own other vault. The check view then lets you choose, per check, between that folder and the network.';
+		const pathDesc = this.local
+			? 'The source\'s folder on this computer.'
+			: this.editing
+				? `Optional: ${clone}`
+				: `A folder on this computer. With a repo URL: ${clone}`;
+		new Setting(contentEl)
+			.setName('Local path')
+			.setDesc(`${pathDesc} Kept in the plugin's settings, never in the note.`)
+			.addText((t) => t.setPlaceholder('/home/me/notes').setValue(this.form.path).onChange((v) => (this.form.path = v)));
 		new Setting(contentEl)
 			.setName('Branch')
 			.setDesc('Empty: the remote\'s default branch.')

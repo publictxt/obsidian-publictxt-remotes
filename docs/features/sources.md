@@ -70,16 +70,17 @@ and **Add source**. Redraws when a note in `follows/` changes. Folder fields (**
 folder**, **Fork folder**, the form's **Mirror folder**) suggest vault folders. In the form,
 lists are one path per line; **Mirror list** / **Fork list** are Default, On, Off.
 
-- **Add**: **Name** and **Repo URL or folder**. A URL makes a hosted source; an absolute path
-  or `file:///` URL a local one. URL valid and not followed; name valid and free, suggested
-  when empty (`owner-repo`, or the folder's name). Creates `follows/<name>.md`; a clash is an
-  error. A local folder is inspected first ([local.md](local.md)). A hosted repo isn't
-  contacted: a wrong URL shows at the first check. A hosted source can be given a **Local
-  copy**.
+- **Add**: **Name**, **Repo URL**, **Local path**; at least one of the last two. A URL makes a
+  hosted source, and with a path too, the path is its local copy. A path alone (absolute, or a
+  `file:///` URL) makes a local source. Each in the other's field is an error, not moved. URL
+  valid and not followed; name valid and free, suggested when empty (`owner-repo`, or without a
+  URL the folder's name). Creates `follows/<name>.md`; a clash is an error. A folder is
+  inspected first ([local.md](local.md)). A hosted repo isn't contacted: a wrong URL shows at
+  the first check.
 - **Edit**: rewrites these keys (`processFrontMatter`), keeping others and the body. Name and
-  hosted URL are read-only (mirrors and forks record the name; another repo means remove and
-  add). A local source's **Folder** and a hosted source's **Local copy** can change; a cleared
-  copy is forgotten with its `checkFrom`.
+  **Repo URL** are read-only (mirrors and forks record the name; another repo, or a URL for a
+  local source, means remove and add). **Local path** can change: required for a local source;
+  a hosted source's, cleared, is forgotten with its `checkFrom`.
 - **Remove**: after confirming, trashes the note (`trashFile`) and forgets its folder here.
   Mirrors, forks and the clone stay.
 
