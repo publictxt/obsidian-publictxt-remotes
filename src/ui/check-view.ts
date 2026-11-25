@@ -11,7 +11,8 @@ import type { CopySource } from '../copy/copy.ts';
 import { compareChange } from '../fork/compare-run.ts';
 import { startFork } from '../fork/run.ts';
 import { detach, keepGone } from '../fork/update-run.ts';
-import { mirrorFiles, stopMirroring, updateMirror, updateMirrors } from '../mirror/run.ts';
+import { mirrorFiles, stopMirroring } from '../mirror/run.ts';
+import { updateMirror, updateMirrors } from '../mirror/update-run.ts';
 import { errorText } from '../remote/vault-host.ts';
 import { checkFromOf } from '../remote/fetch-from.ts';
 import { ConfirmModal } from './confirm-modal.ts';
@@ -241,14 +242,14 @@ export class CheckView extends ItemView {
 
 	/** Overwrites one upstream file's mirrors with what the last check found at head. */
 	private updateMirror(url: string, path: string): void {
-		const c = this.result(url)?.check;
-		const change = c?.mirrors.find((m) => m.path === path);
-		if (c && change) void updateMirror(this.plugin, url, c.head, change).catch((e: unknown) => void new Notice(errorText(e)));
+		const r = this.result(url);
+		const change = r?.check?.mirrors.find((m) => m.path === path);
+		if (r?.check && change) void updateMirror(this.plugin, r.follow, r.check.head, change);
 	}
 
 	private updateMirrors(url: string): void {
 		const r = this.result(url);
-		if (r?.check) void updateMirrors(this.plugin, url, r.follow.name, r.check.head, r.check.mirrors).catch((e: unknown) => void new Notice(errorText(e)));
+		if (r?.check) void updateMirrors(this.plugin, r.follow, r.check.head, r.check.mirrors);
 	}
 
 	/** Forks the ticked files, then clears the ticks. */
