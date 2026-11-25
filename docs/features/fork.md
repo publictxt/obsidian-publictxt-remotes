@@ -29,10 +29,11 @@ fork of a fork never keeps upstream's provenance. A fork (or mirror) belongs to 
 **Fork selected**; **Fork a file from a source**; **Fork this mirror** (active note, no fetch).
 Markdown only.
 
-**A mirrored file is moved, not fetched**: `renameFile` (Obsidian updates links to it), keys
-`mirror_*` → `fork_*`, `fork_date` now, text unchanged but for its links. Never copied: two notes
-of one name would split every link by name. Its own path doesn't count as taken. If upstream has
-moved on, the next check lists it under Forks.
+**A mirrored file is moved, not fetched**: `renameFile` (Obsidian updates links to it; mirrors and
+the moved note get their text back, `moveMirror()`), keys `mirror_*` → `fork_*`, `fork_date` now,
+text unchanged but for its links. Never copied: two notes of one name would split every link by
+name. Its own path doesn't count as taken. If upstream has moved on, the next check lists it under
+Forks.
 
 ## The modal
 

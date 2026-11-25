@@ -12,6 +12,7 @@ import { isRecord } from '../util/validate.ts';
 import { ensureFolder } from '../util/vault.ts';
 import { initialDestination, type FolderReason, type PlannedFork, type VaultLook } from './destination.ts';
 import { forksOf, isForkable, isForkOf, newForkMeta } from './fork.ts';
+import { splitLink } from './links.ts';
 import { nameLinks } from './links-run.ts';
 import type { NoteParts } from './update.ts';
 
@@ -136,8 +137,8 @@ async function forkTo(app: App, host: RemoteHost, from: ForkSource, files: Tree[
 }
 
 /**
- * Makes the mirror the user's fork: moves its note to `to` (Obsidian updates the links to it) and
- * renames its `mirror_*` keys to `fork_*`. Its text stays as it is: the version it mirrors, and
+ * Makes the mirror the user's fork: moves its note to `to` (Obsidian updates the links to it,
+ * mirrors' aside) and renames its `mirror_*` keys to `fork_*`. Its text stays as it is: the version it mirrors, and
  * anything edited in it. Moved, never copied: two notes of one name would split every link by name.
  */
 async function forkMirror(app: App, mirror: Mirror, to: string): Promise<TFile> {
@@ -150,12 +151,42 @@ async function forkMirror(app: App, mirror: Mirror, to: string): Promise<TFile> 
 		if (app.vault.getAbstractFileByPath(to)) throw new Error(`${to} already exists.`);
 		const slash = to.lastIndexOf('/');
 		if (slash > 0) await ensureFolder(app, to.slice(0, slash));
-		await app.fileManager.renameFile(file, to);
+		await moveMirror(app, file, to);
 	}
 	await app.fileManager.processFrontMatter(file, (front: Record<string, unknown>) => {
 		writeForkMeta(front, forkedMeta(meta, new Date()));
 	});
 	return file;
+}
+
+/**
+ * Moves a mirror's note to `to`. Obsidian updates the links to it, even those by name, which go
+ * to it still: in the vault's link format, so `[[b]]` can become `[[../../x/b]]`. The user's notes
+ * keep that. Mirrors, and this note, get their text back: their links stay as upstream wrote them.
+ */
+async function moveMirror(app: App, file: TFile, to: string): Promise<void> {
+	const names = [linkName(file.path), linkName(to)];
+	const before: [TFile, string][] = [[file, await app.vault.read(file)]];
+	for (const m of scanMirrors(app)) {
+		const mirror = app.vault.getFileByPath(m.path);
+		if (!mirror || mirror === file) continue;
+		const cache = app.metadataCache.getFileCache(mirror);
+		const links = [...(cache?.links ?? []), ...(cache?.embeds ?? []), ...(cache?.frontmatterLinks ?? [])];
+		if (links.some((l) => names.includes(linkName(splitLink(l.link).path)))) before.push([mirror, await app.vault.read(mirror)]);
+	}
+	try {
+		// Done once the links are updated, or the user says not to.
+		await app.fileManager.renameFile(file, to);
+	} finally {
+		for (const [note, text] of before) {
+			if ((await app.vault.read(note)) !== text) await app.vault.modify(note, text);
+		}
+	}
+}
+
+/** What Obsidian matches a link to a file by: the file's name, without `.md` or case. */
+function linkName(path: string): string {
+	return path.slice(path.lastIndexOf('/') + 1).replace(/\.md$/i, '').toLowerCase();
 }
 
 /** The vault as the fork modal needs to see it. */
