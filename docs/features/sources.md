@@ -4,11 +4,12 @@
 
 | Field | Default | Meaning |
 |---|---|---|
+| `version` | `1` | Schema version |
 | `communityFolder` | `community` | Holds each source's mirror folder (`''`: vault root). publictxt-pages names the same folder in its own settings, set by hand |
 | `forkFolder` | `''` | Where forks go when not to their source folder (`''`: vault root) |
 | `matchFolders` | `true` | Fork modal opens on **Same folder as in the source** |
 | `listMirrors` / `listForks` | `false` | Keep a mirror / fork list in each follow note ([lists.md](lists.md)) |
-| `clonesFolder` | `.clones` | Holds the clones; never empty. Hidden, so not indexed and skipped by Sync |
+| `clonesFolder` | `.clones` | Holds the clones; never empty |
 | `gitPath` | `git` | The git executable, for when Obsidian lacks the shell's PATH (macOS from Finder) |
 | `localPaths` | `{}` | Remote name → absolute folder: a local source's, or a hosted source's local copy. Never in a note |
 | `checkFrom` | `{}` | Remote name → `local` / `remote` for a hosted source with a local copy. Absent: `local`. Kept only for names in `localPaths` |
@@ -29,8 +30,8 @@ sources no longer followed at the next check.
 ## Follow notes
 
 A source is a note anywhere under the top-level `follows/`, one per repo (publictext ADR-0014,
-spec §3.2). Sources are found by scanning, never stored. The body is the user's; the plugin
-touches only front matter and its own list sections.
+spec §3.2). The body is the user's; the plugin touches only front matter and its own list
+sections.
 
 The file name without `.md` is the **remote name** (`follows/research.md` → `research`), which
 mirrors and forks record. It can't start with `.` or a space or contain

@@ -59,12 +59,18 @@ Then lists:
   back after **Mark as seen**. Folders start closed. Browsing changes no state and stays on
   across checks.
 
-**File rows** in What's new and All files, for Markdown files not removed: a tick box,
-**Mirror** and **Fork**. Mirrored: "mirrored" (opens it) and **Stop** instead of **Mirror**;
-**Fork** moves the mirror. Forked: **Compare** while unsettled, else "forked"; it keeps its own
-tick box, but a folder's tick box leaves it out, so ticking a folder never re-forks. A folder's
-tick box is ticked, half or clear; selecting it ticks all or clears all. Ticks are per file
-across both lists, persist like open folders, and don't count files a later check doesn't list.
+**File rows** in What's new and All files. Markdown files not removed have a tick box and:
+
+| File | Row has |
+|---|---|
+| Not mirrored | **Mirror**, **Fork** |
+| Mirrored | "mirrored" (opens it), **Stop**, **Fork** (moves the mirror) |
+| Forked, unsettled | Also **Compare** |
+| Forked, settled | Also "forked" |
+
+**Ticks.** A folder's tick box is ticked, half or clear; selecting it ticks all or clears all. It
+leaves out forked files, so ticking a folder never re-forks. Ticks are per file across both
+lists, persist like open folders, and don't count files a later check doesn't list.
 
 ## Code
 

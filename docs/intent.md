@@ -24,14 +24,13 @@ make some my own; see when those change upstream.
   Provenance is authored (it can't be recomputed), so it doesn't break publictext ADR-0003. The
   keys, not the folder, say what a note is, so a published note says so too.
 - **Config, state and per-computer data are separate.** Sources are notes (public).
-  `data.json` holds settings, a safe-to-delete cache, and per-computer paths (`localPaths`):
-  a path is private and meaningless elsewhere, so it's never in a note.
+  `data.json` holds settings, a safe-to-delete cache, and per-computer paths, which are private
+  and meaningless elsewhere, so never in a note.
 - **Change detection by git blob SHA**: content-addressed and the same on every host. Stored at
   fork time it is also the merge base, should merging come.
 - **Desktop only, git CLI.** Any host, the user's own auth, no rate limits, full history,
   `git merge-file` later; matches publictext ADR-0004. Local sources and snapshots need a file
-  system anyway. Node stays in `src/remote/git-process.ts`; the rest is pure and tested under
-  plain Node.
+  system anyway. Replaced a GitHub REST adapter, parked at tag `archive/github-adapter`.
 - **One bare partial clone per source** in a hidden `.clones/` (blob-less: trees up front,
   contents on demand). Hidden: not indexed, skipped by Sync. Bare: no remote note shows up.
 - **Follow whole repos, narrow locally** (publictext ADR-0005): `include` folder prefixes, the
@@ -41,11 +40,9 @@ make some my own; see when those change upstream.
   Names are read-only, since copies record them.
 - **Local sources are git repos.** A folder is followed through the same clone and check path.
   Without commits there's no "what's new" and no merge base, so the plugin offers to make the
-  commits (**Snapshot**, **make a repo**), only into that folder and never onto a branch that
-  isn't checked out.
-- **A hosted source can have a local copy**: still one source (two notes would split its copies
-  and show twice on a site). The folder only changes where git fetches from; the user chooses
-  local or remote, and a missing folder is an error, never a silent network fetch.
+  commits (**Snapshot**, **make a repo**).
+- **A hosted source can have a local copy**: still one source, since two notes would split its
+  copies and show twice on a site.
 - **Updating a fork is a compare, not a merge.** Overwrite, write alongside as a new copy, or
   keep mine. `fork_seen` records what was dealt with, so `fork_blob` stays the merge base.
 - **A fork's links change form, not target.** They are written as the vault writes links, paths

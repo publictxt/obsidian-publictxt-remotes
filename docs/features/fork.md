@@ -21,7 +21,7 @@ Flat front matter keys, so Properties can show them. Upstream front matter is ke
 A note is a fork when `fork_path` and `fork_blob` are valid and it has a valid `fork_remote` or
 `fork_repo`. Writing a fork sets these and removes other `fork_*` and all `mirror_*` keys, so a
 fork of a fork never keeps upstream's provenance. A fork (or mirror) belongs to a source by
-`fork_remote` (case-insensitive), else `fork_repo` (`isFrom()`). Forks are found by scanning.
+`fork_remote` (case-insensitive), else `fork_repo` (`isFrom()`).
 
 ## Ways in
 
@@ -59,8 +59,8 @@ folder.
 with a note saying so. It follows the destination until typed in; then it must be free. Empty,
 `/` or `\` is an error. Earlier forks of the file are named.
 
-**Convert links** (on each time) and **Match links to existing pages** (off each time):
-[fork-links.md](fork-links.md). Both off, links stay as upstream wrote them.
+**Convert links** and **Match links to existing pages**, applied once the forks are written:
+[fork-links.md](fork-links.md).
 
 **Preview**, redrawn on change: "Goes to `<path>`", or a row per file (`source → vault`, "Name
 taken." when numbered (case-insensitive), "Forked before.", "Its mirror moves."), plus folders
@@ -76,11 +76,8 @@ YAML is refused before writing.
 - Several: each in turn, continuing past failures; one notice (sticky if any failed); nothing
   opened. Ticks are cleared.
 
-Then the new forks' links are converted and matched, as chosen.
-
 ## Code
 
 Pure: `src/fork/destination.ts`, `fork.ts`, `src/copy/copy.ts`, `src/sources/fork-meta.ts`,
 `src/check/selection.ts`. Vault: `src/fork/run.ts`, `command.ts`, `src/copy/run.ts`,
-`src/sources/forks.ts`. UI:
-`src/ui/fork-modal.ts`, `fork-preview.ts`, `folder-suggest.ts`.
+`src/sources/forks.ts`. UI: `src/ui/fork-modal.ts`, `fork-preview.ts`, `folder-suggest.ts`.

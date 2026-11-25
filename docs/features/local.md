@@ -2,9 +2,9 @@
 
 ## Local sources
 
-A git repo on this computer. Its follow note says `local: true` and holds no path: the folder
-is in `localPaths` per computer, so the note can be published and synced. It is cloned and
-checked like any source, so a check sees only what is committed.
+A git repo on this computer. Its follow note says `local: true` and holds no path, so it can be
+published and synced. It is cloned and checked like any source, so a check sees only what is
+committed.
 
 The plugin writes to the folder (outside the vault) only when asked: **making a repo** and
 **snapshot**. Both run the user's git, identity and hooks, one at a time per folder.

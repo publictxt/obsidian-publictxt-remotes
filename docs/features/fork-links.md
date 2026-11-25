@@ -23,8 +23,8 @@ Left: one in that form already; one the other form can't hold (a title, words th
 alias or a link's text); a Markdown link with a bare `)` in its path; a path with `| # ^ [ ]`; an
 alias with `]`.
 
-Paths hold up when forks keep the source's folders, so the fork modal opens on **Same folder as in
-the source**. Into one folder, links by name work and most others don't.
+Paths hold up when forks keep the source's folders. Into one folder, links by name work and most
+others don't.
 
 ## Matching
 
@@ -37,17 +37,17 @@ meant. A match by name may not be the page upstream meant either.
 ## When
 
 - **After a fork** (a mirror that moves too): the notes just written, by the modal's **Convert
-  links** (on each time) and **Match links to existing pages** (off each time). After **Overwrite**
-  and **Write alongside**: converted, not matched. It waits up to 10 s for the metadata cache to
-  see each; a sticky notice names any it couldn't do and why.
+  links** (on each time) and **Match links to existing pages** (off each time); with both off,
+  links stay as upstream wrote them. After **Overwrite** and **Write alongside**: converted, not
+  matched. It waits up to 10 s for the metadata cache to see each; a sticky notice names any it
+  couldn't do and why.
 - **Convert links in this note** (`convert-links`): the active fork.
 - **Match links in this note** (`match-links`): the active note, unless a mirror. A notice says how
   many were matched, have several matches, or have none.
 
 A note is written once (`vault.process`), only if a link changed, and not at all if a cached link
 position no longer matches the text. `fork_*` keys are untouched, so `fork_blob` stays the base,
-and links changed so don't count as edits (`matchesExceptLinks()`: links showing the same words, to
-the same subpath): **Overwrite** doesn't ask because of them.
+and links changed so don't count as edits ([fork-update.md](fork-update.md)).
 
 ## Code
 

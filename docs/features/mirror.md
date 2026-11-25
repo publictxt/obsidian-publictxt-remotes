@@ -1,8 +1,7 @@
 # Mirror
 
 A mirror is upstream's copy of a page in the vault: searchable, with backlinks and graph, opened
-in place. Not for editing: updates overwrite it. Follow → mirror → fork keeps reading someone's
-pages apart from owning a copy.
+in place. Not for editing: updates overwrite it.
 
 ## Provenance
 
@@ -13,7 +12,7 @@ pages apart from owning a copy.
 A note is a mirror when `mirror_path` and `mirror_blob` are valid, it has a valid
 `mirror_remote` or `mirror_repo`, and it isn't a fork (valid `fork_*` keys win). Writing a
 mirror removes every `fork_*` key. Keys decide, not the folder: a mirror moved by hand is still
-one. Mirrors are found by scanning.
+one.
 
 ## Where
 
@@ -36,12 +35,9 @@ One notice (sticky on failure); the note isn't opened.
 ## Links
 
 Left as upstream wrote them; Obsidian resolves them. The folder has upstream's layout, so `./` and
-`../` links go to the mirror, or dangle until it is mirrored. A link from the repo root (`/b.md`)
-doesn't find its mirror. Any other goes by Obsidian's order: that exact path from the vault root,
-a note at or below the mirror's own folder, then the shortest path ending in it. So it may land on
-the user's note, or another source's page, of that name: the wiki way, unguarded. Obsidian
-rewrites links when a note moves; when forking moves a mirror, the other mirrors get their text
-back. A link by path to a page forked away dangles.
+`../` links go to the mirror, or dangle until it is mirrored; one from the repo root (`/b.md`)
+doesn't find it. Any other may land on the user's note, or another source's page, of that name:
+the wiki way, unguarded. A link by path to a page forked away dangles.
 
 ## Update
 
@@ -49,11 +45,11 @@ back. A link by path to a page forked away dangles.
 saw and rewrites `mirror_*`. No compare. Its mirrors are looked up again, so one moved by hand
 since the check is updated where it is.
 
-A mirror isn't overwritten unasked (`mirrorState()`) when it is edited (text differs from its
-version, keys and links showing the same words aside, since Obsidian rewrites links when their
-targets move), or when that can't be told (its version can't be read). **Update** asks, saying
-which, and suggests forking; **Update mirrors** skips and names it. A note that changes while it
-is being updated is left and reported. A file whose mirrors are all gone leaves the list.
+A mirror isn't overwritten unasked (`mirrorState()`) when it is edited
+([fork-update.md](fork-update.md)), or when that can't be told (its version can't be read).
+**Update** asks, saying which, and suggests forking; **Update mirrors** skips and names it. A note
+that changes while it is being updated is left and reported. A file whose mirrors are all gone
+leaves the list.
 
 ## Stop
 

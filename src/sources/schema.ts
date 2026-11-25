@@ -34,7 +34,7 @@ export interface PublicTxtData {
 	communityFolder: string;
 	/** Vault folder forks go to when they don't go to the folder they are in in the source; `''`: the vault root. */
 	forkFolder: string;
-	/** Open the fork modal on the remote file's folder when the vault has it (docs/features/fork.md). */
+	/** Open the fork modal on the same folder as in the source, not `forkFolder` (docs/features/fork.md). */
 	matchFolders: boolean;
 	/** Keep a mirror list in each follow note (docs/features/lists.md). */
 	listMirrors: boolean;
