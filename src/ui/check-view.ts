@@ -16,7 +16,9 @@ import { updateMirror, updateMirrors } from '../mirror/update-run.ts';
 import { errorText } from '../remote/vault-host.ts';
 import { checkFromOf } from '../remote/fetch-from.ts';
 import { ConfirmModal } from './confirm-modal.ts';
-import { actionAttrs, checkAction, folderOpen, newSourceUi, renderSource, sourceOpen, type CheckAction, type SourceUi } from './check-source.ts';
+import { actionAttrs, checkAction, type CheckAction } from './check-actions.ts';
+import { renderSource } from './check-source.ts';
+import { folderOpen, newSourceUi, sourceOpen, type SourceUi } from './source-ui.ts';
 
 export const VIEW_TYPE_CHECK = 'publictxt-check';
 

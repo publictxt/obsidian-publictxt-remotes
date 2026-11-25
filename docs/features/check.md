@@ -75,4 +75,4 @@ lists, persist like open folders, and don't count files a later check doesn't li
 ## Code
 
 Pure: `src/check/check.ts`, `file-tree.ts`, `selection.ts`. Vault: `src/check/run.ts`. UI:
-`src/ui/check-view.ts`, `check-source.ts`, `tree.ts`.
+`src/ui/check-view.ts`, `check-source.ts`, `file-rows.ts`, `source-ui.ts`, `check-actions.ts`, `tree.ts`.
