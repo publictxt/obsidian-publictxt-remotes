@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isWikilink, linkByName, linkShows, matchesExceptLinks, rewriteLinks, shortestName, splitLink, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
+import { isWikilink, linkShows, matchesExceptLinks, missingName, relink, rewriteLinks, shortestName, splitLink, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
 
 const FILES = upstreamFiles(['wiki/a.md', 'wiki/cs/b.md', 'wiki/c.md', 'cs/b.md', 'top.md', 'wiki/v1.2 notes.md', 'wiki/My Note.md', 'x/dup.md', 'y/dup.md', 'img/p.png']);
 const FROM = 'wiki/a.md';
@@ -132,69 +132,68 @@ test('shortestName: the shortest end of the path upstream reads back as the note
 	assert.equal(shortestName('img/p.png', FROM, FILES, true), null);
 });
 
-/** `original` by name, as from the fork of `FROM`. */
-function named(original: string, link: string, files = FILES): string | null {
-	return linkByName({ original, link }, FROM, files);
+test('missingName: a page not written yet, when upstream has nothing of that name', () => {
+	const name = (original: string, link: string) => missingName({ original, link }, FROM, FILES, false);
+	assert.equal(name('[[Some Idea]]', 'Some Idea'), 'Some Idea');
+	assert.equal(name('[x](../ideas/some-idea.md#H)', '../ideas/some-idea.md#H'), 'some-idea');
+	// `c` is another note upstream.
+	assert.equal(name('[x](../ideas/c.md)', '../ideas/c.md'), null);
+	// A folder, or a file that isn't a note.
+	assert.equal(name('[src](../src)', '../src'), null);
+	assert.equal(name('[src](../src/)', '../src/'), null);
+	assert.equal(name('![[img/gone.png]]', 'img/gone.png'), null);
+});
+
+/** `original` pointed at `to`, in a wikilink vault and in a Markdown one. */
+function both(original: string, link: string, to: string, line = original): (string | null)[] {
+	return [true, false].map((wiki) => relink({ original, link }, to, wiki, line));
 }
 
-test('linkByName: a path becomes a name, in the link\'s own form', () => {
-	assert.equal(named('[t](../top.md)', '../top.md'), '[t](top.md)');
-	assert.equal(named('[t](/top.md)', '/top.md'), '[t](top.md)');
-	assert.equal(named('[c](./c)', './c'), '[c](c.md)');
-	assert.equal(named('[[wiki/c]]', 'wiki/c'), '[[c]]');
-	assert.equal(named('[[/top]]', '/top'), '[[top]]');
-	assert.equal(named('[[../top.md]]', '../top.md'), '[[top]]');
-	assert.equal(named('![[wiki/c]]', 'wiki/c'), '![[c]]');
+test('relink: as the vault writes links, showing the same words', () => {
+	assert.deepEqual(both('[[test one]]', 'test one', 'test one'), ['[[test one]]', '[test one](test%20one.md)']);
+	assert.deepEqual(both('[[b]]', 'b', '../community/txt/cs/b'), ['[[../community/txt/cs/b]]', '[b](../community/txt/cs/b.md)']);
+	assert.deepEqual(both('[[cs/b]]', 'cs/b', 'b'), ['[[b]]', '[b](b.md)']);
+	assert.deepEqual(both('[[b]]', 'b', 'b 1'), ['[[b 1|b]]', '[b](b%201.md)']);
+	assert.deepEqual(both('[see](../cs/b.md)', '../cs/b.md', 'b'), ['[[b|see]]', '[see](b.md)']);
+	assert.deepEqual(both('[b](../cs/b.md)', '../cs/b.md', 'b'), ['[[b]]', '[b](b.md)']);
 });
 
-test('linkByName: only the path changes', () => {
-	assert.equal(named('[see [c]](./c.md#My%20Heading "A title")', './c.md#My Heading'), '[see [c]](c.md#My%20Heading "A title")');
-	assert.equal(named('[[wiki/c#H|see c]]', 'wiki/c#H'), '[[c#H|see c]]');
-	assert.equal(named('[[wiki/c#^blk]]', 'wiki/c#^blk'), '[[c#^blk]]');
-	// In a table the pipe is escaped.
-	assert.equal(named('[[wiki/c\\|see c]]', 'wiki/c'), '[[c\\|see c]]');
-	// A name is written as the link wrote it.
-	assert.equal(named('[[wiki/C]]', 'wiki/C'), '[[C]]');
-	// Spaces: encoded, or in angle brackets. The cache decodes them.
-	assert.equal(named('[n](./My%20Note.md)', './My Note.md'), '[n](My%20Note.md)');
-	assert.equal(named('[n](<./My Note.md#H>)', './My Note.md#H'), '[n](<My%20Note.md#H>)');
+test('relink: subpath, embed, case and spaces', () => {
+	assert.deepEqual(both('[[x/c#My Heading|see c]]', 'x/c#My Heading', 'c'), ['[[c#My Heading|see c]]', '[see c](c.md#My%20Heading)']);
+	assert.deepEqual(both('[[c#H]]', 'c#H', 'c'), ['[[c#H]]', '[c > H](c.md#H)']);
+	assert.deepEqual(both('![[x/c#^blk]]', 'x/c#^blk', 'c'), ['![[c#^blk]]', '![c > ^blk](c.md#^blk)']);
+	assert.deepEqual(both('![c](x/c.md)', 'x/c.md', 'c'), ['![[c]]', '![c](c.md)']);
+	assert.deepEqual(both('[c](./c.md#My%20Heading)', './c.md#My Heading', 'c'), ['[[c#My Heading|c]]', '[c](c.md#My%20Heading)']);
+	assert.deepEqual(both('[[wiki/C]]', 'wiki/C', 'c'), ['[[C]]', '[C](c.md)']);
+	assert.deepEqual(both('[n](<./My Note.md#H>)', './My Note.md#H', 'My Note'), ['[[My Note#H|n]]', '[n](<My%20Note.md#H>)']);
 });
 
-test('linkByName: a name that is several notes upstream keeps enough of its path, or is left', () => {
-	assert.equal(named('[[./cs/b]]', './cs/b'), '[[wiki/cs/b]]');
-	assert.equal(named('[b](/wiki/cs/b.md)', '/wiki/cs/b.md'), '[b](cs/b.md)');
-	assert.equal(named('[[cs/b]]', 'cs/b'), '[[cs/b]]');
-	assert.equal(named('[b](/cs/b.md)', '/cs/b.md'), null);
+test('relink: in a table the pipe is escaped', () => {
+	assert.deepEqual(both('[[x/c\\|see]]', 'x/c', 'c', '| [[x/c\\|see]] | 1 |'), ['[[c\\|see]]', '[see](c.md)']);
+	assert.deepEqual(both('[[x/c#H\\|see]]', 'x/c#H', 'c', '| [[x/c#H\\|see]] |'), ['[[c#H\\|see]]', '[see](c.md#H)']);
+	assert.deepEqual(both('[see](x/c.md)', 'x/c.md', 'c', '| [see](x/c.md) |'), ['[[c\\|see]]', '[see](c.md)']);
 });
 
-test('linkByName: a page not written yet, when upstream has nothing of that name', () => {
-	assert.equal(named('[x](../ideas/some-idea.md)', '../ideas/some-idea.md'), '[x](some-idea.md)');
-	assert.equal(named('[[ideas/Some Idea]]', 'ideas/Some Idea'), '[[Some Idea]]');
-	// `c` is another note upstream.
-	assert.equal(named('[x](../ideas/c.md)', '../ideas/c.md'), null);
-	// A folder, or a file that isn't a note.
-	assert.equal(named('[src](../src)', '../src'), null);
-	assert.equal(named('[src](../src/)', '../src/'), null);
-	assert.equal(named('![[img/gone.png]]', 'img/gone.png'), null);
+test('relink: what the other form can\'t hold keeps its form', () => {
+	assert.deepEqual(both('[c](x/c.md "T")', 'x/c.md', 'c'), ['[c](c.md "T")', '[c](c.md "T")']);
+	assert.deepEqual(both('[a|b](x/c.md)', 'x/c.md', 'c'), ['[a|b](c.md)', '[a|b](c.md)']);
 });
 
-test('linkByName: left as written', () => {
-	// By name already, within the note, the web, an image.
-	assert.equal(named('[[c]]', 'c'), null);
-	assert.equal(named('[c](c.md#a/b)', 'c.md#a/b'), null);
-	assert.equal(named('[[#a/b]]', '#a/b'), null);
-	assert.equal(named('[w](https://example.com/a.md)', 'https://example.com/a.md'), null);
-	assert.equal(named('![p](../img/p.png)', '../img/p.png'), null);
-	// Cut elsewhere than Obsidian cuts it.
-	assert.equal(named('[c](./c(1).md)', './c(1).md', upstreamFiles(['wiki/a.md', 'wiki/c(1).md'])), null);
-	assert.equal(named('[c](./C%23.md)', './C#.md', upstreamFiles(['wiki/a.md', 'wiki/C#.md'])), null);
+test('relink: left when cut elsewhere than Obsidian cuts it, or the name can\'t be in a link', () => {
+	assert.deepEqual(both('[c](./c(1).md)', './c(1).md', 'c(1)'), [null, null]);
+	assert.deepEqual(both('[c](./C%23.md)', './C#.md', 'c'), [null, null]);
+	assert.deepEqual(both('[[c]]', 'c', 'a#b'), [null, null]);
+	assert.deepEqual(both('[[x/c|a [b] c]]', 'x/c', 'c'), [null, null]);
 });
 
-test('linkByName: a second run changes nothing, and it is no edit', () => {
-	const text = '[t](../top.md#H) [[wiki/c|c]] [[wiki/C]] [[./cs/b]] [n](<./My Note.md>) [i](../ideas/new.md "T")\n';
-	const run = (t: string) => rewriteLinks(t, refsOf(t).map((r) => ({ ...r, link: r.link.replace(/^<|>$| "T"$/g, '') })), (r) => linkByName(r, FROM, FILES))?.text;
-	const once = run(text);
-	assert.equal(once, '[t](top.md#H) [[c|c]] [[C]] [[wiki/cs/b]] [n](<My%20Note.md>) [i](new.md "T")\n');
-	assert.equal(run(once ?? ''), once);
-	assert.ok(matchesExceptLinks(once ?? '', text));
+test('relink: a second time changes nothing, and neither is an edit', () => {
+	const cases: [string, string, string][] = [['[[cs/b]]', 'cs/b', 'b'], ['[[b]]', 'b', '../x/b 1'], ['[s](../cs/b.md#A%20B)', '../cs/b.md#A B', 'b'], ['[[x/c#H\\|see]]', 'x/c#H', 'c'], ['![[C]]', 'C', 'c']];
+	for (const [original, link, to] of cases) {
+		for (const wiki of [true, false]) {
+			const once = relink({ original, link }, to, wiki, '| x') ?? '';
+			const now = refsOf(once)[0]?.link.replace(/\\$/, '') ?? '';
+			assert.equal(relink({ original: once, link: now }, to, wiki, '| x'), once);
+			assert.ok(matchesExceptLinks(once, original), `${original} ${once}`);
+		}
+	}
 });

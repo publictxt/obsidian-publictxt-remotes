@@ -72,7 +72,7 @@ YAML is refused before writing.
 - Several: each in turn, continuing past failures; one notice (sticky if any failed); nothing
   opened. Ticks are cleared.
 
-Then the links by path in the new forks become links by name ([fork-links.md](fork-links.md)).
+Then the new forks' links are converted to the vault's format ([fork-links.md](fork-links.md)).
 
 ## Code
 

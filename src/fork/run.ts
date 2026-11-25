@@ -13,7 +13,7 @@ import { ensureFolder } from '../util/vault.ts';
 import { initialDestination, type FolderReason, type PlannedFork, type VaultLook } from './destination.ts';
 import { forksOf, isForkable, isForkOf, newForkMeta } from './fork.ts';
 import { splitLink } from './links.ts';
-import { nameLinks } from './links-run.ts';
+import { convertNew } from './links-run.ts';
 import type { NoteParts } from './update.ts';
 
 /** The source to fork or mirror from, as a check saw it. */
@@ -90,7 +90,7 @@ export async function startFork(plugin: PublicTxtPlugin, from: ForkSource, paths
 			// The mirrors forked are mirrors no more: off the last check's lists.
 			plugin.mirrorsNow(from.url, { drop: moved });
 			done?.();
-			void nameLinks(app, host, from.url, written);
+			void convertNew(app, host, from, written);
 			return null;
 		};
 		new ForkModal(app, { from: from.name, paths, initial: dest, why: WHY[reason], earlier, mirrored, vault }, submit).open();

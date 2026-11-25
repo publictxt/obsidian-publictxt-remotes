@@ -1,5 +1,5 @@
-// A fork's links (docs/features/fork-links.md): what upstream file a link names, the same link by
-// name, and whether two texts differ only in their links. Pure.
+// A fork's links (docs/features/fork-links.md): what upstream file a link names, the link rewritten
+// as the vault writes links, and whether two texts differ only in their links. Pure.
 
 /** A link or embed in a note's body, as Obsidian's metadata cache gives it. */
 export interface LinkRef {
@@ -149,7 +149,7 @@ const NOT_IN_NAME = /[[\]|#^]/;
 
 /** A path as a Markdown link's target, as Obsidian writes it: spaces and the like encoded, and `(` `)`. */
 function hrefOf(path: string): string {
-	return encodeURI(path).replace(/\(/g, '%28').replace(/\)/g, '%29');
+	return encodeURI(path).replace(/\(/g, '%28').replace(/\)/g, '%29').replace(/%5E/g, '^');
 }
 
 /** A link by `name` (no `.md`) as the cache would give it. */
@@ -175,13 +175,13 @@ export function shortestName(path: string, forkPath: string, files: UpstreamFile
 }
 
 /**
- * The name of a note that is no file upstream (a page not written yet), from a link to it. `null`
- * when it may not be a note (a wikilink with another extension, a Markdown link without `.md`:
- * perhaps a folder), or upstream reads the name as something.
+ * The name of a note that is no file upstream (a page not written yet), from the link `ref` to it.
+ * `null` when it may not be a note (a wikilink with another extension, a Markdown link without
+ * `.md`: perhaps a folder), or upstream reads the name as something.
  */
-function missingName(path: string, forkPath: string, files: UpstreamFiles, wiki: boolean): string | null {
-	const file = baseName(path);
-	const isNote = /\.md$/i.test(file) || (wiki && !/\.[a-z0-9]{1,5}$/i.test(file));
+export function missingName(ref: Pick<LinkRef, 'original' | 'link'>, forkPath: string, files: UpstreamFiles, wiki: boolean): string | null {
+	const file = baseName(decoded(splitLink(ref.link).path).trim());
+	const isNote = /\.md$/i.test(file) || (isWikilink(ref.original) && !/\.[a-z0-9]{1,5}$/i.test(file));
 	const name = file.replace(/\.md$/i, '');
 	if (!isNote || !name || NOT_IN_NAME.test(name)) return null;
 	const back = upstreamTarget(refByName(name, wiki), forkPath, files);
@@ -193,40 +193,51 @@ const WIKI_PATH = /^(!?\[\[)([^\]|#\\]*)(.*)$/s;
 const MARKDOWN_PATH = /^(!?\[.*\]\()(<[^>#]*|[^)\s#<]*)(.*)$/s;
 
 /**
- * The link `ref`, in the note forked from `forkPath`, by name: a link to a note by a path with a
- * folder in it, which would miss once the note has moved, gets the shortest name upstream reads
- * back as that note. Only the path changes: form, text, alias, subpath and title stay as written.
- * `null`: left as it is. See docs/features/fork-links.md.
+ * The link `ref` pointed at `to` (a link path without `.md`), as a wikilink or a Markdown link as
+ * the vault writes them (`wiki`). What it shows, its subpath and `!` are kept. When the other form
+ * can't hold the rest of it (a title; words that can't be an alias or a link's text), it keeps its
+ * form and only its path changes. `line`: the line it is in, to escape an alias's `|` in a table.
+ * `null`: left as it is.
  */
-export function linkByName(ref: Pick<LinkRef, 'original' | 'link'>, forkPath: string, files: UpstreamFiles): string | null {
-	const wiki = isWikilink(ref.original);
-	const m = (wiki ? WIKI_PATH : MARKDOWN_PATH).exec(ref.original);
+export function relink(ref: Pick<LinkRef, 'original' | 'link'>, to: string, wiki: boolean, line: string): string | null {
+	const isWiki = isWikilink(ref.original);
+	const m = (isWiki ? WIKI_PATH : MARKDOWN_PATH).exec(ref.original);
 	const [before, written, rest] = [m?.[1], m?.[2], m?.[3]];
-	if (before === undefined || written === undefined || rest === undefined) return null;
+	if (before === undefined || written === undefined || rest === undefined || NOT_IN_NAME.test(to)) return null;
+	// An alias with a `]`: what it shows can't be read.
+	if (isWiki && !WIKI.test(ref.original)) return null;
 	const angle = written.startsWith('<');
 	const path = decoded(angle ? written.slice(1) : written).trim();
 	// Cut elsewhere than Obsidian cuts it (a `)` in the path, an encoded `#`): not safe to change.
-	if (path !== decoded(splitLink(ref.link).path).trim() || !path.includes('/')) return null;
-	const upstream = upstreamTarget(ref, forkPath, files);
-	if (upstream === null) return null;
-	let name: string | null = null;
-	if ('path' in upstream) name = shortestName(upstream.path, forkPath, files, wiki);
-	else if (upstream.none === 'missing') name = missingName(path, forkPath, files, wiki);
-	if (name === null) return null;
-	if (wiki) {
-		// In the case it was written in, which is what the link shows; Obsidian doesn't mind.
-		const end = path.replace(/\.md$/i, '').slice(-name.length);
-		const shown = end.toLowerCase() === name.toLowerCase() ? end : name;
-		return `${before}${shown}${rest}`;
+	if (path !== decoded(splitLink(ref.link).path).trim()) return null;
+	const pipe = /^\s*\|/.test(line) ? '\\|' : '|';
+	const shows = linkShows(ref.original);
+	const embed = ref.original.startsWith('!') ? '!' : '';
+	if (isWiki && !wiki) {
+		const subpath = /^(#.*?)?(?:\\?\|.*)?\]\]$/s.exec(rest)?.[1] ?? '';
+		if (!/[[\]\n]/.test(shows)) return `${embed}[${shows}](${hrefOf(to)}.md${hrefOf(subpath)})`;
 	}
-	return `${before}${angle ? '<' : ''}${hrefOf(name)}.md${rest}`;
+	if (!isWiki && wiki) {
+		const end = /^(#[^>)"]*)?>?\)$/.exec(rest);
+		const subpath = decoded(end?.[1] ?? '');
+		if (end && !/[|\]]/.test(subpath) && !/[|\n]|\]\]|\]$/.test(shows)) return withShown(`${embed}[[${to}${subpath}]]`, shows, pipe);
+	}
+	if (!isWiki) return `${before}${angle ? '<' : ''}${hrefOf(to)}.md${rest}`;
+	// In the case it was written in, which is what the link shows; Obsidian doesn't mind.
+	const tail = path.replace(/\.md$/i, '').slice(-to.length);
+	return withShown(`${before}${tail.toLowerCase() === to.toLowerCase() ? tail : to}${rest}`, shows, pipe);
+}
+
+/** The wikilink, with `shows` as its alias when it would show something else. */
+function withShown(wikilink: string, shows: string, pipe: string): string {
+	return linkShows(wikilink) === shows ? wikilink : `${wikilink.slice(0, -2)}${pipe}${shows}]]`;
 }
 
 /**
- * `text` with each of its links `refs` as `rewrite` gives it (`null`: as it is), and how many
- * changed. `null` when a ref's offsets don't hold its `original`: the cache is stale.
+ * `text` with each of its links `refs` as `rewrite` gives it, from its line (`null`: as it is),
+ * and how many changed. `null` when a ref's offsets don't hold its `original`: the cache is stale.
  */
-export function rewriteLinks(text: string, refs: readonly LinkRef[], rewrite: (ref: LinkRef) => string | null): { text: string; changed: number } | null {
+export function rewriteLinks(text: string, refs: readonly LinkRef[], rewrite: (ref: LinkRef, line: string) => string | null): { text: string; changed: number } | null {
 	if (refs.some((r) => text.slice(r.start, r.end) !== r.original)) return null;
 	let out = text;
 	let from = text.length;
@@ -234,7 +245,8 @@ export function rewriteLinks(text: string, refs: readonly LinkRef[], rewrite: (r
 	for (const ref of [...refs].sort((a, b) => b.start - a.start)) {
 		// A link holding one already rewritten (an image as its text) is left.
 		if (ref.end > from) continue;
-		const next = rewrite(ref);
+		const end = text.indexOf('\n', ref.end);
+		const next = rewrite(ref, text.slice(text.lastIndexOf('\n', ref.start - 1) + 1, end < 0 ? undefined : end));
 		if (next === null || next === ref.original) continue;
 		out = out.slice(0, ref.start) + next + out.slice(ref.end);
 		from = ref.start;
@@ -266,7 +278,8 @@ const ANY_LINK = /!?\[\[[^\]\n]*\]\]|!?\[[^\]\n]*\]\([^)\n]*\)/g;
 function linkSubpath(original: string): string {
 	const wiki = WIKI.exec(original);
 	const target = wiki ? (wiki[1] ?? '') : (MARKDOWN.exec(original)?.[2] ?? '');
-	return decoded(splitLink(target).subpath);
+	// In a table the pipe after it is escaped.
+	return decoded(splitLink(target).subpath).replace(/\\$/, '');
 }
 
 /** Two links that read the same: embedded alike, showing the same words, to the same `#…`. */

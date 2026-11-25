@@ -16,7 +16,7 @@ The view's header: source, branch, the note, then
   to head), or that the forked version is gone upstream.
 - **Edited?** kept current as the note saves: edited / as forked / can't tell (forked blob
   unreadable). Edited (`isEdited()`): the body differs ignoring leading blank lines, line
-  endings, and links showing the same words (`matchesExceptLinks()`: links put by name are no
+  endings, and links showing the same words (`matchesExceptLinks()`: converted links are no
   edit); or the parsed front matter differs, `fork_*` aside (parsed, because Obsidian rewrites
   the YAML).
 
@@ -39,8 +39,8 @@ copies aren't written.
   `<name> (up-01)`, `(up-02)`, … (an existing ` (up-nn)` dropped first). Opens where the copy
   was; now the latest copy.
 
-After **Overwrite** or **Write alongside**, the links by path in the note written become links by
-name ([fork-links.md](fork-links.md)).
+After **Overwrite** or **Write alongside**, the links in the note written are converted
+([fork-links.md](fork-links.md)).
 
 **Gone upstream**: **Detach** removes `fork_*` from every copy after asking; **Keep** sets
 `fork_seen: gone` (not listed until the file is back and differs).
