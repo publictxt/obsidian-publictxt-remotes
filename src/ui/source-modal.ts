@@ -48,16 +48,16 @@ export class SourceModal extends Modal {
 				t.setValue(this.form.url).onChange((v) => (this.form.url = v));
 				t.setDisabled(this.editing);
 			});
-		const clone = 'a clone of the repo on this computer, such as your own other vault. The check view then lets you choose, per check, between that folder and the network.';
+		const clone = 'a clone of the repo, such as your own other vault. The check view then lets you choose, per check, between that folder and the network.';
 		const pathDesc = this.local
-			? 'The source\'s folder on this computer.'
+			? 'The full path of the source\'s folder on this computer.'
 			: this.editing
-				? `Optional: ${clone}`
-				: `A folder on this computer. With a repo URL: ${clone}`;
+				? `Optional. The full path on this computer of ${clone}`
+				: `The full path of a folder on this computer. With a repo URL: ${clone}`;
 		new Setting(contentEl)
 			.setName('Local path')
 			.setDesc(`${pathDesc} Kept in the plugin's settings, never in the note.`)
-			.addText((t) => t.setPlaceholder('/home/me/notes').setValue(this.form.path).onChange((v) => (this.form.path = v)));
+			.addText((t) => t.setValue(this.form.path).onChange((v) => (this.form.path = v)));
 		new Setting(contentEl)
 			.setName('Branch')
 			.setDesc('Empty: the remote\'s default branch.')
