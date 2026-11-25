@@ -48,10 +48,9 @@ make some my own; see when those change upstream.
   local or remote, and a missing folder is an error, never a silent network fetch.
 - **Updating a fork is a compare, not a merge.** Overwrite, write alongside as a new copy, or
   keep mine. `fork_seen` records what was dealt with, so `fork_blob` stays the merge base.
-- **A fork's links mean what they mean upstream.** They are read against the source and pointed
-  at the vault's copies in the vault's style, when the user accepts the offer; links to pages not
-  copied go by name (the wiki way, unguarded). Converted links aren't edits. The plugin
-  never changes a mirror's links: it is upstream's text, and they resolve the wiki way.
+- **A fork's links change form, not target.** They are written as the vault writes links, paths
+  kept; where they go is the wiki way. Pointing broken ones at notes of the vault is asked for.
+  Neither is an edit. The plugin never changes a mirror's links: it is upstream's text.
 - **The community folder is named for readers**: it's a section of the published site, and
   publictxt-pages uses "community" for where pages came from.
 
@@ -65,14 +64,13 @@ make some my own; see when those change upstream.
    updates links in properties; then names needn't be read-only. Needs checking.
 4. **Sync carries `data.json`**: a `localPaths` folder set on one computer shows on another,
    where it's likely missing. A check reports it; not otherwise handled.
-5. **A setting to always create the source's folders on fork**; the modal does it per fork.
 
 ## Later
 
 Merge a fork (`git merge-file` on `fork_blob`); propose changes upstream (converting links
 back); tag filters (need file contents); offer to fork or mirror the notes dangling links name;
 warn when a local copy is ahead of its origin; mirror attachments; update mirrors at each check
-if wanted; per-source link style.
+if wanted.
 
 ## Proposed for the publictext spec
 

@@ -42,7 +42,7 @@ export function isForkOf(meta: Pick<ForkMeta, 'remote' | 'repo'>, remote: Remote
 	return meta.repo === remote.url;
 }
 
-/** Notes already forked from `path` in `remote` (or, over copies of both kinds, mirroring it too). */
+/** Notes already forked from `path` in `remote`. */
 export function forksOf<T extends { meta: Pick<ForkMeta, 'remote' | 'repo' | 'path'> }>(forks: readonly T[], remote: Remote, path: string): T[] {
 	return forks.filter((f) => isForkOf(f.meta, remote) && f.meta.path === path);
 }

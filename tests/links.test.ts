@@ -1,15 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { addToTally, convertLinks, danglingLink, danglingName, emptyTally, markdownLink, missingLink, nothingConverted, wikilink, type LinkPlan, isWikilink, linkShows, matchesExceptLinks, splitLink, tallyText, upstreamTarget, upstreamFiles, type LinkRef } from '../src/fork/links.ts';
-
-const FILES = upstreamFiles(['wiki/a.md', 'wiki/cs/b.md', 'wiki/c.md', 'cs/b.md', 'top.md', 'wiki/v1.2 notes.md', 'wiki/My Note.md', 'x/dup.md', 'y/dup.md', 'img/p.png']);
-const FROM = 'wiki/a.md';
-
-/** The upstream path `original` names from `FROM`, or why not. */
-function target(original: string, link: string, files = FILES): string | null {
-	const t = upstreamTarget({ original, link }, FROM, files);
-	return t === null ? null : 'path' in t ? t.path : t.none;
-}
+import { isWikilink, linkShows, matchesExceptLinks, nameOf, notePath, reformat, relink, rewriteLinks, splitLink, type LinkRef } from '../src/fork/links.ts';
 
 test('splitLink and isWikilink', () => {
 	assert.deepEqual(splitLink('a.md#H#I'), { path: 'a.md', subpath: '#H#I' });
@@ -19,49 +10,56 @@ test('splitLink and isWikilink', () => {
 	assert.ok(!isWikilink('[a](a.md)'));
 });
 
-test('upstreamTarget: Markdown links, relative to the note first', () => {
-	assert.equal(target('[b](cs/b.md)', 'cs/b.md'), 'wiki/cs/b.md');
-	assert.equal(target('[b](./cs/b.md)', './cs/b.md'), 'wiki/cs/b.md');
-	assert.equal(target('[t](../top.md)', '../top.md'), 'top.md');
-	assert.equal(target('[b](/cs/b.md)', '/cs/b.md'), 'cs/b.md');
-	// Not beside the note: from the root.
-	assert.equal(target('[t](top.md)', 'top.md'), 'top.md');
-	assert.equal(target('[b](cs/b)', 'cs/b'), 'wiki/cs/b.md');
-	assert.equal(target('[b](cs/b.md#Heading)', 'cs/b.md#Heading'), 'wiki/cs/b.md');
+test('notePath: links to notes only', () => {
+	const path = (original: string, link: string) => notePath({ original, link });
+	assert.equal(path('[[cs/b#H|x]]', 'cs/b#H'), 'cs/b');
+	assert.equal(path('[b](../cs/My%20Note.md#H)', '../cs/My%20Note.md#H'), '../cs/My Note.md');
+	assert.equal(path('[[v1.2 notes]]', 'v1.2 notes'), 'v1.2 notes');
+	assert.equal(path('[[#H]]', '#H'), null);
+	assert.equal(path('[w](https://example.com/a.md)', 'https://example.com/a.md'), null);
+	assert.equal(path('![[p.png]]', 'p.png'), null);
+	assert.equal(path('![p](../img/p.png)', '../img/p.png'), null);
+	// Perhaps a folder.
+	assert.equal(path('[src](../src)', '../src'), null);
+	assert.equal(path('[[src/]]', 'src/'), null);
 });
 
-test('upstreamTarget: wikilinks, from the root first', () => {
-	assert.equal(target('[[cs/b]]', 'cs/b'), 'cs/b.md');
-	assert.equal(target('[[wiki/cs/b]]', 'wiki/cs/b'), 'wiki/cs/b.md');
-	assert.equal(target('[[c|see c]]', 'c'), 'wiki/c.md');
-	assert.equal(target('![[c]]', 'c'), 'wiki/c.md');
-	assert.equal(target('[[../top]]', '../top'), 'top.md');
+test('nameOf: the name, without folder, .md or case', () => {
+	assert.equal(nameOf('../cs/My Note.md'), 'my note');
+	assert.equal(nameOf('B'), 'b');
 });
 
-test('upstreamTarget: by name, one file or several', () => {
-	assert.equal(target('[[b]]', 'b', upstreamFiles(['wiki/cs/b.md', 'wiki/a.md'])), 'wiki/cs/b.md');
-	assert.equal(target('[[b]]', 'b'), 'several');
-	assert.equal(target('[[dup]]', 'dup'), 'several');
-	assert.equal(target('[[x/dup]]', 'x/dup'), 'x/dup.md');
-	assert.equal(target('[d](dup.md)', 'dup.md'), 'several');
+/** `original` as a wikilink vault writes it, and as a Markdown one does. */
+function forms(original: string, link: string, line = original): (string | null)[] {
+	return [true, false].map((wiki) => reformat({ original, link }, wiki, line));
+}
+
+test('reformat: the form changes, the path stays', () => {
+	assert.deepEqual(forms('[[test one]]', 'test one'), [null, '[test one](test%20one.md)']);
+	assert.deepEqual(forms('[[cs/b|see]]', 'cs/b'), [null, '[see](cs/b.md)']);
+	assert.deepEqual(forms('![[../c#My Heading]]', '../c#My Heading'), [null, '![c > My Heading](../c.md#My%20Heading)']);
+	assert.deepEqual(forms('[see](../cs/b.md#My%20Heading)', '../cs/b.md#My Heading'), ['[[../cs/b#My Heading|see]]', null]);
+	assert.deepEqual(forms('[d](./d.md)', './d.md'), ['[[./d]]', null]);
+	assert.deepEqual(forms('[b](/cs/b.md)', '/cs/b.md'), ['[[/cs/b]]', null]);
+	assert.deepEqual(forms('[n](<My Note.md>)', 'My Note.md'), ['[[My Note|n]]', null]);
+	assert.deepEqual(forms('[see](x/c.md)', 'x/c.md', '| [see](x/c.md) |'), ['[[x/c\\|see]]', null]);
+	assert.deepEqual(forms('[[x/c\\|see]]', 'x/c', '| [[x/c\\|see]] |'), [null, '[see](x/c.md)']);
 });
 
-test('upstreamTarget: case only when nothing matches exactly', () => {
-	assert.equal(target('[[my note]]', 'my note'), 'wiki/My Note.md');
-	assert.equal(target('[[C]]', 'C'), 'wiki/c.md');
-	assert.equal(target('[[C]]', 'C', upstreamFiles(['wiki/c.md', 'wiki/C.md'])), 'wiki/C.md');
+test('reformat: left', () => {
+	// The other form can't hold it, or it isn't to a note.
+	assert.deepEqual(forms('[c](x/c.md "T")', 'x/c.md'), [null, null]);
+	assert.deepEqual(forms('[a|b](c.md)', 'c.md'), [null, null]);
+	assert.deepEqual(forms('[c](./c(1).md)', './c(1).md'), [null, null]);
+	assert.deepEqual(forms('![[p.png]]', 'p.png'), [null, null]);
+	assert.deepEqual(forms('[w](https://example.com/a.md)', 'https://example.com/a.md'), [null, null]);
+	assert.deepEqual(forms('[src](../src)', '../src'), [null, null]);
 });
 
-test('upstreamTarget: encoded, dotted, gone, out of the repo, not a file link', () => {
-	assert.equal(target('[n](My%20Note.md)', 'My%20Note.md'), 'wiki/My Note.md');
-	assert.equal(target('[n](My Note.md)', 'My Note.md'), 'wiki/My Note.md');
-	assert.equal(target('[[v1.2 notes]]', 'v1.2 notes'), 'wiki/v1.2 notes.md');
-	assert.equal(target('![p](../img/p.png)', '../img/p.png'), 'img/p.png');
-	assert.equal(target('[[nowhere]]', 'nowhere'), 'missing');
-	assert.equal(target('[o](../../out.md)', '../../out.md'), 'missing');
-	assert.equal(target('[[#Heading]]', '#Heading'), null);
-	assert.equal(target('[w](https://example.com/a.md)', 'https://example.com/a.md'), null);
-	assert.equal(target('[[a]]', 'a'), 'wiki/a.md');
+test('reformat: is no edit', () => {
+	for (const [original, link] of [['[[cs/b]]', 'cs/b'], ['[s](../cs/b.md#A%20B)', '../cs/b.md#A B'], ['[[x/c#H\\|see]]', 'x/c#H'], ['![[C]]', 'C']] as const) {
+		for (const f of forms(original, link, '| x')) if (f) assert.ok(matchesExceptLinks(f, original), `${original} ${f}`);
+	}
 });
 
 test('linkShows: text, alias, or name and subpath', () => {
@@ -80,79 +78,27 @@ function refsOf(text: string): LinkRef[] {
 	return [...text.matchAll(/!?\[\[([^\]|]*)(?:\|[^\]]*)?\]\]|!?\[[^\]]*\]\(([^)]*)\)/g)].map((m) => ({
 		start: m.index,
 		end: m.index + m[0].length,
-		line: text.slice(0, m.index).split('\n').length - 1,
 		original: m[0],
 		link: m[1] ?? m[2] ?? '',
-		embed: m[0].startsWith('!'),
 	}));
 }
 
-test('convertLinks: rewrites from the end, keeps embeds, counts what is left', () => {
-	const text = 'See [b](cs/b.md) and [[c]].\n\n![[c]]\n\n[[gone]] [[dup]] [[x]]\n';
-	const plan = (r: LinkRef) => {
-		if (r.link === 'cs/b.md') return '[[b]]';
-		if (r.link === 'c') return '[[c 1|c]]';
-		if (r.link === 'gone') return { left: 'unconvertible' as const };
-		if (r.link === 'dup') return { left: 'not-note' as const };
-		return { left: 'unforked' as const };
-	};
-	const r = convertLinks(text, refsOf(text), plan);
-	assert.deepEqual(r, {
-		text: 'See [[b]] and [[c 1|c]].\n\n![[c 1|c]]\n\n[[gone]] [[dup]] [[x]]\n',
-		converted: 3,
-		dangling: 0,
-		leftLinks: [
-			{ line: 4, original: '[[gone]]', why: 'unconvertible' },
-			{ line: 4, original: '[[dup]]', why: 'not-note' },
-			{ line: 4, original: '[[x]]', why: 'unforked' },
-		],
-		checkLinks: [],
-	});
+test('rewriteLinks: from the end, the rest untouched; null or the same text is no change', () => {
+	const text = 'See [b](cs/b.md) and [[c]].\n\n![[c]] [[d]]\n';
+	const out = rewriteLinks(text, refsOf(text), (r) => (r.link === 'cs/b.md' ? '[b](b.md)' : r.link === 'c' ? r.original.replace('c', 'cc') : null));
+	assert.deepEqual(out, { text: 'See [b](b.md) and [[cc]].\n\n![[cc]] [[d]]\n', changed: 3 });
+	assert.deepEqual(rewriteLinks(text, refsOf(text), (r) => r.original), { text, changed: 0 });
 });
 
-test('convertLinks: a call made on a link is listed as the link is now, changed or not', () => {
-	const text = 'a [b](x/b.md)\n[[c]] [[d]]\n';
-	const plan = (r: LinkRef): LinkPlan => {
-		if (r.link === 'x/b.md') return { check: 'several', then: { dangling: '[[b]]' } };
-		if (r.link === 'c') return { check: 'kept', then: null };
-		return '[[d 1|d]]';
-	};
-	const r = convertLinks(text, refsOf(text), plan);
-	assert.equal(r?.text, 'a [[b]]\n[[c]] [[d 1|d]]\n');
-	assert.equal(r?.converted, 2);
-	assert.deepEqual(r?.checkLinks, [
-		{ line: 0, link: '[[b]]', why: 'several' },
-		{ line: 1, link: '[[c]]', why: 'kept' },
-	]);
-	const t = emptyTally();
-	addToTally(t, 'a.md', r);
-	assert.equal(tallyText(t, false), 'Converted 2 links, 1 to notes you don\'t have yet. 2 links to check: see "Links to check" in the follow note.');
-});
-
-test('convertLinks: the same text or null is no change; a second run changes nothing', () => {
+test('rewriteLinks: a stale position gives null', () => {
 	const text = 'a [[b]] c';
-	const once = convertLinks(text, refsOf(text), () => '[[b]]');
-	assert.deepEqual(once, nothingConverted(text));
-	assert.equal(convertLinks(text, refsOf(text), () => null)?.converted, 0);
+	assert.equal(rewriteLinks(text, refsOf(text).map((r) => ({ ...r, start: r.start + 1, end: r.end + 1 })), () => '[[x]]'), null);
 });
 
-test('convertLinks: a stale position writes nothing', () => {
-	const text = 'a [[b]] c';
-	const refs = refsOf(text).map((r) => ({ ...r, start: r.start + 1, end: r.end + 1 }));
-	assert.equal(convertLinks(text, refs, () => '[[x]]'), null);
-});
-
-test('tallyText: what was converted, what was left, what to try again', () => {
-	const t = emptyTally();
-	assert.equal(tallyText(t, false), 'No links to convert.');
-	const none = nothingConverted('');
-	const left = (why: 'unforked' | 'not-note' | 'unconvertible') => ({ line: 0, original: '[[x]]', why });
-	addToTally(t, 'a.md', { ...none, converted: 3, dangling: 2, leftLinks: [left('unforked'), left('unforked'), left('not-note'), left('unconvertible')] });
-	addToTally(t, 'b.md', { ...none, leftLinks: [left('unconvertible')] });
-	addToTally(t, 'c.md', { ...none, converted: 1 });
-	addToTally(t, 'd.md', null);
-	assert.equal(tallyText(t, false), "Converted 4 links, 2 to notes you don't have yet. Left: 2 no name fits, 1 not a note, 2 cannot be converted. See \"Links to fix\" in the follow note. Changed while converting, try again: d.md.");
-	assert.equal(tallyText({ ...emptyTally(), converted: 1, notes: 1 }, true), 'Converted 1 link in 1 note.');
+test('rewriteLinks: a link holding one rewritten is left', () => {
+	const text = '[![[x/y]]](../top.md)';
+	const refs = [{ start: 0, end: text.length, original: text, link: '../top.md' }, { start: 1, end: 9, original: '![[x/y]]', link: 'x/y' }];
+	assert.deepEqual(rewriteLinks(text, refs, (r) => (r.link === 'x/y' ? '![[y]]' : 'WRONG')), { text: '[![[y]]](../top.md)', changed: 1 });
 });
 
 test('matchesExceptLinks: converted links are not edits', () => {
@@ -172,69 +118,56 @@ test('matchesExceptLinks: changed words, subpath, embed, links or text are edits
 	assert.ok(!matchesExceptLinks('See [sorting](cs/a.md#H) and ![[c]].\nMore.\n', forked));
 });
 
-test('danglingName: the shortest name upstream reads back as the note, in either style', () => {
-	assert.equal(danglingName('wiki/c.md', FROM, FILES, 'wiki'), 'c');
-	assert.equal(danglingName('wiki/c.md', FROM, FILES, 'markdown'), 'c');
-	// `b` is two files upstream: the shortest that is only this one.
-	assert.equal(danglingName('wiki/cs/b.md', FROM, FILES, 'wiki'), 'wiki/cs/b');
-	assert.equal(danglingName('cs/b.md', FROM, FILES, 'wiki'), 'cs/b');
-	// A Markdown link is read from the note's folder first: `cs/b` there is wiki/cs/b.md.
-	assert.equal(danglingName('wiki/cs/b.md', FROM, FILES, 'markdown'), 'cs/b');
-	assert.equal(danglingName('cs/b.md', FROM, FILES, 'markdown'), null);
-	assert.equal(danglingName('img/p.png', FROM, FILES, 'wiki'), null);
+/** `original` pointed at `to`, in a wikilink vault and in a Markdown one. */
+function both(original: string, link: string, to: string, line = original): (string | null)[] {
+	return [true, false].map((wiki) => relink({ original, link }, to, wiki, line));
+}
+
+test('relink: as the vault writes links, showing the same words', () => {
+	assert.deepEqual(both('[[test one]]', 'test one', 'test one'), ['[[test one]]', '[test one](test%20one.md)']);
+	assert.deepEqual(both('[[b]]', 'b', '../community/txt/cs/b'), ['[[../community/txt/cs/b]]', '[b](../community/txt/cs/b.md)']);
+	assert.deepEqual(both('[[cs/b]]', 'cs/b', 'b'), ['[[b]]', '[b](b.md)']);
+	assert.deepEqual(both('[[b]]', 'b', 'b 1'), ['[[b 1|b]]', '[b](b%201.md)']);
+	assert.deepEqual(both('[see](../cs/b.md)', '../cs/b.md', 'b'), ['[[b|see]]', '[see](b.md)']);
+	assert.deepEqual(both('[b](../cs/b.md)', '../cs/b.md', 'b'), ['[[b]]', '[b](b.md)']);
 });
 
-test('wikilink: alias only when it would show something else', () => {
-	assert.equal(wikilink('c', '', 'c'), '[[c]]');
-	assert.equal(wikilink('cs/b', '#H', 'b > H'), '[[cs/b#H]]');
-	assert.equal(wikilink('c', '', 'see c'), '[[c|see c]]');
-	assert.equal(wikilink('c', '#My Heading', 'x'), '[[c#My Heading|x]]');
-	assert.equal(wikilink('c', '', 'a|b'), null);
+test('relink: subpath, embed, case and spaces', () => {
+	assert.deepEqual(both('[[x/c#My Heading|see c]]', 'x/c#My Heading', 'c'), ['[[c#My Heading|see c]]', '[see c](c.md#My%20Heading)']);
+	assert.deepEqual(both('[[c#H]]', 'c#H', 'c'), ['[[c#H]]', '[c > H](c.md#H)']);
+	assert.deepEqual(both('![[x/c#^blk]]', 'x/c#^blk', 'c'), ['![[c#^blk]]', '![c > ^blk](c.md#^blk)']);
+	assert.deepEqual(both('![c](x/c.md)', 'x/c.md', 'c'), ['![[c]]', '![c](c.md)']);
+	assert.deepEqual(both('[c](./c.md#My%20Heading)', './c.md#My Heading', 'c'), ['[[c#My Heading|c]]', '[c](c.md#My%20Heading)']);
+	assert.deepEqual(both('[[wiki/C]]', 'wiki/C', 'c'), ['[[c|C]]', '[C](c.md)']);
+	assert.deepEqual(both('[n](<./My Note.md#H>)', './My Note.md#H', 'My Note'), ['[[My Note#H|n]]', '[n](<My%20Note.md#H>)']);
 });
 
-test('markdownLink: encoded as Obsidian writes it', () => {
-	assert.equal(markdownLink('My Note', '', 'My Note'), '[My Note](My%20Note.md)');
-	assert.equal(markdownLink('cs/b', '#My Heading', 'b > My Heading'), '[b > My Heading](cs/b.md#My%20Heading)');
-	assert.equal(markdownLink('a (1)', '', 'a'), '[a](a%20%281%29.md)');
-	assert.equal(markdownLink('c', '', 'a]b'), null);
+test('relink: in a table the pipe is escaped', () => {
+	assert.deepEqual(both('[[x/c\\|see]]', 'x/c', 'c', '| [[x/c\\|see]] | 1 |'), ['[[c\\|see]]', '[see](c.md)']);
+	assert.deepEqual(both('[[x/c#H\\|see]]', 'x/c#H', 'c', '| [[x/c#H\\|see]] |'), ['[[c#H\\|see]]', '[see](c.md#H)']);
+	assert.deepEqual(both('[see](x/c.md)', 'x/c.md', 'c', '| [see](x/c.md) |'), ['[[c\\|see]]', '[see](c.md)']);
 });
 
-test('danglingLink: into a wikilink vault', () => {
-	assert.deepEqual(danglingLink({ original: '[see c](c.md#My%20Heading)', link: 'c.md#My%20Heading' }, 'wiki/c.md', FROM, FILES, 'wiki'), { dangling: '[[c#My Heading|see c]]' });
-	assert.deepEqual(danglingLink({ original: '![c](c.md)', link: 'c.md' }, 'wiki/c.md', FROM, FILES, 'wiki'), { dangling: '[[c]]' });
-	assert.deepEqual(danglingLink({ original: '[b](cs/b.md)', link: 'cs/b.md' }, 'wiki/cs/b.md', FROM, FILES, 'wiki'), { dangling: '[[wiki/cs/b]]' });
-	assert.deepEqual(danglingLink({ original: '[sorting](cs/b.md)', link: 'cs/b.md' }, 'wiki/cs/b.md', FROM, FILES, 'wiki'), { dangling: '[[wiki/cs/b|sorting]]' });
-	assert.equal(danglingLink({ original: '[[cs/b]]', link: 'cs/b' }, 'cs/b.md', FROM, FILES, 'wiki'), null);
-	assert.deepEqual(danglingLink({ original: '[[../top]]', link: '../top' }, 'top.md', FROM, FILES, 'wiki'), { dangling: '[[top]]' });
-	assert.deepEqual(danglingLink({ original: '[p](../img/p.png)', link: '../img/p.png' }, 'img/p.png', FROM, FILES, 'wiki'), { left: 'not-note' });
-	assert.deepEqual(danglingLink({ original: '[a|b](c.md)', link: 'c.md' }, 'wiki/c.md', FROM, FILES, 'wiki'), { left: 'unforked' });
+test('relink: what the other form can\'t hold keeps its form', () => {
+	assert.deepEqual(both('[c](x/c.md "T")', 'x/c.md', 'c'), ['[c](c.md "T")', '[c](c.md "T")']);
+	assert.deepEqual(both('[a|b](x/c.md)', 'x/c.md', 'c'), ['[a|b](c.md)', '[a|b](c.md)']);
 });
 
-test('danglingLink: into a Markdown-link vault, the same both ways', () => {
-	assert.deepEqual(danglingLink({ original: '[[c#My Heading|see c]]', link: 'c#My Heading' }, 'wiki/c.md', FROM, FILES, 'markdown'), { dangling: '[see c](c.md#My%20Heading)' });
-	assert.deepEqual(danglingLink({ original: '[[My Note]]', link: 'My Note' }, 'wiki/My Note.md', FROM, FILES, 'markdown'), { dangling: '[My Note](My%20Note.md)' });
-	assert.deepEqual(danglingLink({ original: '![[c]]', link: 'c' }, 'wiki/c.md', FROM, FILES, 'markdown'), { dangling: '[c](c.md)' });
-	// By name already: stays. By relative path: by name.
-	assert.equal(danglingLink({ original: '[see](c.md)', link: 'c.md' }, 'wiki/c.md', FROM, FILES, 'markdown'), null);
-	assert.deepEqual(danglingLink({ original: '[see](./c.md)', link: './c.md' }, 'wiki/c.md', FROM, FILES, 'markdown'), { dangling: '[see](c.md)' });
-	assert.deepEqual(danglingLink({ original: '[[a]b]]', link: 'a]b' }, 'wiki/c.md', FROM, FILES, 'markdown'), { left: 'unforked' });
+test('relink: left when cut elsewhere than Obsidian cuts it, or the name can\'t be in a link', () => {
+	assert.deepEqual(both('[c](./c(1).md)', './c(1).md', 'c(1)'), [null, null]);
+	assert.deepEqual(both('[c](./C%23.md)', './C#.md', 'c'), [null, null]);
+	assert.deepEqual(both('[[c]]', 'c', 'a#b'), [null, null]);
+	assert.deepEqual(both('[[x/c|a [b] c]]', 'x/c', 'c'), [null, null]);
 });
 
-test('convertLinks: counts dangling links among the converted', () => {
-	const text = 'a [b](b.md) [c](c.md)';
-	const r = convertLinks(text, refsOf(text), (ref) => (ref.link === 'b.md' ? '[[b]]' : { dangling: '[[c]]' }));
-	assert.deepEqual(r, { ...nothingConverted('a [[b]] [[c]]'), converted: 2, dangling: 1 });
-});
-
-test('missingLink: a page not written yet, by its own name in the vault\'s style', () => {
-	assert.deepEqual(missingLink({ original: '[x](../ideas/some-idea.md)', link: '../ideas/some-idea.md' }, 'wiki'), { dangling: '[[some-idea|x]]' });
-	assert.deepEqual(missingLink({ original: '[Some Idea](Some%20Idea.md#H)', link: 'Some%20Idea.md#H' }, 'wiki'), { dangling: '[[Some Idea#H|Some Idea]]' });
-	assert.deepEqual(missingLink({ original: '[[old/Some Idea]]', link: 'old/Some Idea' }, 'markdown'), { dangling: '[Some Idea](Some%20Idea.md)' });
-	assert.deepEqual(missingLink({ original: '[[../Some Idea|see]]', link: '../Some Idea' }, 'wiki'), { dangling: '[[Some Idea|see]]' });
-	// Already by name in the vault's style: a dangling link as wikis have.
-	assert.equal(missingLink({ original: '[[Some Idea]]', link: 'Some Idea' }, 'wiki'), null);
-	assert.equal(missingLink({ original: '[x](some-idea.md)', link: 'some-idea.md' }, 'markdown'), null);
-	assert.equal(missingLink({ original: '[[v1.2 notes]]', link: 'v1.2 notes' }, 'wiki'), null);
-	assert.deepEqual(missingLink({ original: '![p](gone.png)', link: 'gone.png' }, 'wiki'), { left: 'not-note' });
-	assert.deepEqual(missingLink({ original: '[a|b](x.md)', link: 'x.md' }, 'wiki'), { left: 'unconvertible' });
+test('relink: a second time changes nothing, and neither is an edit', () => {
+	const cases: [string, string, string][] = [['[[cs/b]]', 'cs/b', 'b'], ['[[b]]', 'b', '../x/b 1'], ['[s](../cs/b.md#A%20B)', '../cs/b.md#A B', 'b'], ['[[x/c#H\\|see]]', 'x/c#H', 'c'], ['![[C]]', 'C', 'c']];
+	for (const [original, link, to] of cases) {
+		for (const wiki of [true, false]) {
+			const once = relink({ original, link }, to, wiki, '| x') ?? '';
+			const now = refsOf(once)[0]?.link.replace(/\\$/, '') ?? '';
+			assert.equal(relink({ original: once, link: now }, to, wiki, '| x'), once);
+			assert.ok(matchesExceptLinks(once, original), `${original} ${once}`);
+		}
+	}
 });

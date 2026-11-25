@@ -10,9 +10,10 @@ import { readMirrorMeta, writeForkMeta, type ForkMeta, type Mirror } from '../so
 import { ForkModal } from '../ui/fork-modal.ts';
 import { isRecord } from '../util/validate.ts';
 import { ensureFolder } from '../util/vault.ts';
-import { initialDestination, type FolderReason, type PlannedFork, type VaultLook } from './destination.ts';
+import { initialDestination, type PlannedFork, type VaultLook } from './destination.ts';
 import { forksOf, isForkable, isForkOf, newForkMeta } from './fork.ts';
-import { offerConvert } from './links-run.ts';
+import { nameOf, splitLink } from './links.ts';
+import { linkNew, type LinkWork } from './links-run.ts';
 import type { NoteParts } from './update.ts';
 
 /** The source to fork or mirror from, as a check saw it. */
@@ -26,12 +27,6 @@ export interface ForkSource {
 	/** The source's mirror folder, under the community folder; `null`: its name. */
 	folder: string | null;
 }
-
-const WHY: Record<FolderReason, string> = {
-	// The files go to their own folders; the folder field holds the fork folder, for when that is turned off.
-	matched: 'Your fork folder.',
-	default: 'Your fork folder.',
-};
 
 /**
  * Forks `paths` from a source: asks where they go (`ForkModal`), then writes them. A file the
@@ -63,7 +58,7 @@ export async function startFork(plugin: PublicTxtPlugin, from: ForkSource, paths
 		const moving = new Set(paths.map((p) => mirrors.get(p)?.path).filter((p): p is string => p !== undefined));
 		const look = lookAt(app);
 		const vault: VaultLook = { ...look, taken: (p) => look.taken(p) && !moving.has(normalizePath(p)) };
-		const { dest, reason } = initialDestination(paths, { forkFolder: data.forkFolder, matchFolders: data.matchFolders, folderExists: vault.folderExists });
+		const initial = initialDestination(paths, data);
 		const forks = scanForks(app);
 		const earlier = new Map(paths.map((p) => [p, forksOf(forks, from, p).map((f) => f.path)]));
 		const mirrored = new Map([...mirrors].map(([p, m]) => [p, m.path]));
@@ -76,7 +71,7 @@ export async function startFork(plugin: PublicTxtPlugin, from: ForkSource, paths
 			moved.push(fork.path);
 			return file;
 		};
-		const submit = async (plan: readonly PlannedFork[]): Promise<string | null> => {
+		const submit = async (plan: readonly PlannedFork[], work: LinkWork): Promise<string | null> => {
 			const [single] = plan;
 			let written: TFile[];
 			try {
@@ -89,10 +84,10 @@ export async function startFork(plugin: PublicTxtPlugin, from: ForkSource, paths
 			// The mirrors forked are mirrors no more: off the last check's lists.
 			plugin.mirrorsNow(from.url, { drop: moved });
 			done?.();
-			void offerConvert(app, host, from, written);
+			void linkNew(app, written, work);
 			return null;
 		};
-		new ForkModal(app, { from: from.name, paths, initial: dest, why: WHY[reason], earlier, mirrored, vault }, submit).open();
+		new ForkModal(app, { from: from.name, paths, initial, earlier, mirrored, vault }, submit).open();
 	} catch (e) {
 		new Notice(errorText(e));
 	}
@@ -136,8 +131,8 @@ async function forkTo(app: App, host: RemoteHost, from: ForkSource, files: Tree[
 }
 
 /**
- * Makes the mirror the user's fork: moves its note to `to` (Obsidian updates the links to it) and
- * renames its `mirror_*` keys to `fork_*`. Its text stays as it is: the version it mirrors, and
+ * Makes the mirror the user's fork: moves its note to `to` (Obsidian updates the links to it,
+ * mirrors' aside) and renames its `mirror_*` keys to `fork_*`. Its text stays as it is: the version it mirrors, and
  * anything edited in it. Moved, never copied: two notes of one name would split every link by name.
  */
 async function forkMirror(app: App, mirror: Mirror, to: string): Promise<TFile> {
@@ -150,12 +145,37 @@ async function forkMirror(app: App, mirror: Mirror, to: string): Promise<TFile> 
 		if (app.vault.getAbstractFileByPath(to)) throw new Error(`${to} already exists.`);
 		const slash = to.lastIndexOf('/');
 		if (slash > 0) await ensureFolder(app, to.slice(0, slash));
-		await app.fileManager.renameFile(file, to);
+		await moveMirror(app, file, to);
 	}
 	await app.fileManager.processFrontMatter(file, (front: Record<string, unknown>) => {
 		writeForkMeta(front, forkedMeta(meta, new Date()));
 	});
 	return file;
+}
+
+/**
+ * Moves a mirror's note to `to`. Obsidian updates the links to it, even those by name, which go
+ * to it still: in the vault's link format, so `[[b]]` can become `[[../../x/b]]`. The user's notes
+ * keep that. Mirrors, and this note, get their text back: their links stay as upstream wrote them.
+ */
+async function moveMirror(app: App, file: TFile, to: string): Promise<void> {
+	const names = [nameOf(file.path), nameOf(to)];
+	const before: [TFile, string][] = [[file, await app.vault.read(file)]];
+	for (const m of scanMirrors(app)) {
+		const mirror = app.vault.getFileByPath(m.path);
+		if (!mirror || mirror === file) continue;
+		const cache = app.metadataCache.getFileCache(mirror);
+		const links = [...(cache?.links ?? []), ...(cache?.embeds ?? []), ...(cache?.frontmatterLinks ?? [])];
+		if (links.some((l) => names.includes(nameOf(splitLink(l.link).path)))) before.push([mirror, await app.vault.read(mirror)]);
+	}
+	try {
+		// Done once the links are updated, or the user says not to.
+		await app.fileManager.renameFile(file, to);
+	} finally {
+		for (const [note, text] of before) {
+			if ((await app.vault.read(note)) !== text) await app.vault.modify(note, text);
+		}
+	}
 }
 
 /** The vault as the fork modal needs to see it. */

@@ -39,7 +39,9 @@ Left as upstream wrote them; Obsidian resolves them. The folder has upstream's l
 `../` links go to the mirror, or dangle until it is mirrored. A link from the repo root (`/b.md`)
 doesn't find its mirror. Any other goes by Obsidian's order: that exact path from the vault root,
 a note at or below the mirror's own folder, then the shortest path ending in it. So it may land on
-the user's note, or another source's page, of that name: the wiki way, unguarded.
+the user's note, or another source's page, of that name: the wiki way, unguarded. Obsidian
+rewrites links when a note moves; when forking moves a mirror, the other mirrors get their text
+back. A link by path to a page forked away dangles.
 
 ## Update
 

@@ -4,6 +4,7 @@
 
 import { App, Modal, Setting, type ButtonComponent, type TextComponent } from 'obsidian';
 import { canMatch, noteName, remoteFolder, resolveForks, type Destination, type Layout, type PlannedFork, type Resolved, type VaultLook } from '../fork/destination.ts';
+import type { LinkWork } from '../fork/links-run.ts';
 import { suggestFolders } from './folder-suggest.ts';
 import { renderForkPreview } from './fork-preview.ts';
 
@@ -14,8 +15,6 @@ export interface ForkModalInfo {
 	paths: readonly string[];
 	/** The destination to open with. */
 	initial: Destination;
-	/** Which rule chose `initial.folder`, as a sentence. */
-	why: string;
 	/** Notes already forked from each path that has any. */
 	earlier: ReadonlyMap<string, readonly string[]>;
 	/** The mirror note of each path that has one: forking moves it. */
@@ -23,8 +22,8 @@ export interface ForkModalInfo {
 	vault: VaultLook;
 }
 
-/** Writes the forks. Returns an error to show, keeping the modal open, or `null` to close it. */
-export type SubmitForks = (plan: readonly PlannedFork[]) => Promise<string | null>;
+/** Writes the forks and does `work` on their links. Returns an error to show, keeping the modal open, or `null` to close it. */
+export type SubmitForks = (plan: readonly PlannedFork[], work: LinkWork) => Promise<string | null>;
 
 export class ForkModal extends Modal {
 	private readonly info: ForkModalInfo;
@@ -36,6 +35,7 @@ export class ForkModal extends Modal {
 	/** The name as typed, for one file; `null` until the user types one: the modal suggests. */
 	private name: string | null = null;
 	private folderEdited = false;
+	private readonly work: LinkWork = { convert: true, match: false };
 	private running = false;
 
 	/** Whether any file has a folder in the source: else only `flat` is offered. */
@@ -72,6 +72,7 @@ export class ForkModal extends Modal {
 		this.layoutField();
 		this.folderField();
 		if (only) this.nameField();
+		this.linkFields();
 		this.preview = contentEl.createDiv({ cls: 'publictxt-fork-preview' });
 		this.error = contentEl.createDiv({ cls: 'publictxt-error' });
 		new Setting(contentEl)
@@ -154,6 +155,17 @@ export class ForkModal extends Modal {
 		});
 	}
 
+	private linkFields(): void {
+		new Setting(this.contentEl)
+			.setName('Convert links')
+			.setDesc('Write links as this vault does: Markdown links or wikilinks. Their paths stay.')
+			.addToggle((t) => t.setValue(this.work.convert).onChange((on) => (this.work.convert = on)));
+		new Setting(this.contentEl)
+			.setName('Match links to existing pages')
+			.setDesc('Point a broken link at the note of that name, when your vault has just one.')
+			.addToggle((t) => t.setValue(this.work.match).onChange((on) => (this.work.match = on)));
+	}
+
 	private resolve(): Resolved {
 		return resolveForks(this.info.paths, this.dest, this.name, this.info.vault);
 	}
@@ -168,7 +180,7 @@ export class ForkModal extends Modal {
 		// While it isn't used, the field keeps what was typed (`dest.folder`), to come back.
 		if (same) this.folderText.setValue('');
 		else if (this.folderText.getValue() !== dest.folder) this.folderText.setValue(dest.folder);
-		this.folderRow.setDesc(`${this.folderEdited || !info.initial.folder ? '' : `${info.why} `}Empty: the vault root. A new folder is created.`);
+		this.folderRow.setDesc(`${this.folderEdited || !info.initial.folder ? '' : 'Your fork folder. '}Empty: the vault root. A new folder is created.`);
 
 		const resolved = this.resolve();
 		const [first] = resolved.ok ? resolved.plan : [];
@@ -183,7 +195,7 @@ export class ForkModal extends Modal {
 		this.running = true;
 		this.error.setText('');
 		this.forkButton.setDisabled(true).setButtonText('Forking…');
-		const problem = await this.submit(resolved.plan);
+		const problem = await this.submit(resolved.plan, this.work);
 		if (problem === null) {
 			this.close();
 			return;

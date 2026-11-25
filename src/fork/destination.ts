@@ -18,17 +18,6 @@ export interface Destination {
 	folder: string;
 }
 
-/** Which rule chose the destination the modal opens with. */
-export type FolderReason = 'matched' | 'default';
-
-export interface ForkFolderOptions {
-	/** `forkFolder`; `''` is the vault root. */
-	forkFolder: string;
-	/** Open with the `same` layout when the vault has every file's folder. */
-	matchFolders: boolean;
-	folderExists: (folder: string) => boolean;
-}
-
 /** What the fork modal needs to know about the vault. */
 export interface VaultLook {
 	/** Whether a vault path is in use, by a note or a folder. */
@@ -50,16 +39,11 @@ export function canMatch(paths: readonly string[]): boolean {
 }
 
 /**
- * The destination the modal opens with: `same`, if matching is on and every file has a folder in
- * the source that the vault already has; else the fork folder, every file straight into it. A
- * fork is the user's own note, so it never opens in the community folder. Nothing is created
- * for a match: the user picks a layout for that.
+ * The destination the modal opens with: `same` with `matchFolders` on, when any of `paths` has a
+ * folder in the source; else the fork folder, every file straight into it.
  */
-export function initialDestination(paths: readonly string[], o: ForkFolderOptions): { dest: Destination; reason: FolderReason } {
-	const folder = o.forkFolder;
-	const inVault = (p: string) => remoteFolder(p) !== '' && o.folderExists(remoteFolder(p));
-	if (o.matchFolders && paths.length > 0 && paths.every(inVault)) return { dest: { layout: 'same', folder }, reason: 'matched' };
-	return { dest: { layout: 'flat', folder }, reason: 'default' };
+export function initialDestination(paths: readonly string[], o: { forkFolder: string; matchFolders: boolean }): Destination {
+	return { layout: o.matchFolders && canMatch(paths) ? 'same' : 'flat', folder: o.forkFolder };
 }
 
 /** The vault folder the file `path` goes to. */

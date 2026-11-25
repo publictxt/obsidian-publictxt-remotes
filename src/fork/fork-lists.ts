@@ -82,7 +82,7 @@ export async function syncForkLists(app: App, wanted: (follow: Follow) => Wanted
  * one write and only when something changed. Returns whether it wrote, and the headings skipped
  * because they appear twice.
  */
-export async function writeSections(app: App, note: TFile, sections: readonly (readonly [string, string | null])[]): Promise<{ written: boolean; skipped: string[] }> {
+async function writeSections(app: App, note: TFile, sections: readonly (readonly [string, string | null])[]): Promise<{ written: boolean; skipped: string[] }> {
 	// The cached text is enough to tell whether to write: `process` reads the file itself.
 	const text = await app.vault.cachedRead(note);
 	const r = withSections(text, sections);

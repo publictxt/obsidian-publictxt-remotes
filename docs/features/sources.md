@@ -5,8 +5,8 @@
 | Field | Default | Meaning |
 |---|---|---|
 | `communityFolder` | `community` | Holds each source's mirror folder (`''`: vault root). publictxt-pages names the same folder in its own settings, set by hand |
-| `forkFolder` | `''` | Where forks go when not to their source folder (`''`: vault root). Not under the community folder by default |
-| `matchFolders` | `true` | Fork modal opens on **Same folder as in the source** when the vault has that exact folder |
+| `forkFolder` | `''` | Where forks go when not to their source folder (`''`: vault root) |
+| `matchFolders` | `true` | Fork modal opens on **Same folder as in the source** |
 | `listMirrors` / `listForks` | `false` | Keep a mirror / fork list in each follow note ([lists.md](lists.md)) |
 | `clonesFolder` | `.clones` | Holds the clones; never empty. Hidden, so not indexed and skipped by Sync |
 | `gitPath` | `git` | The git executable, for when Obsidian lacks the shell's PATH (macOS from Finder) |
