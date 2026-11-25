@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isEdited } from '../src/copy/edited.ts';
+import { isEdited, sameText } from '../src/copy/edited.ts';
 import { forkMetaProps, type ForkMeta } from '../src/sources/fork-meta.ts';
 
 const sha = (c: string) => c.repeat(40);
@@ -30,4 +30,11 @@ test('isEdited: not by converted links; by a link showing other words', () => {
 	const forked = { front: null, body: 'See [sorting](../cs/algorithms.md).\n' };
 	assert.ok(!isEdited({ front: forkMetaProps(META), body: '\nSee [[algorithms|sorting]].\n' }, forked));
 	assert.ok(isEdited({ front: forkMetaProps(META), body: 'See [[algorithms]].\n' }, forked));
+});
+
+test('sameText: all but a byte order mark counts', () => {
+	assert.ok(sameText('a\n', 'a\n'));
+	assert.ok(sameText('\uFEFFa\n', 'a\n'));
+	assert.ok(!sameText('a\n', 'a\r\n'));
+	assert.ok(!sameText('a\n', 'a\n\n'));
 });

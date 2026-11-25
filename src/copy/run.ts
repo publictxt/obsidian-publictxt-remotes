@@ -4,7 +4,7 @@
 import { App, getFrontMatterInfo, parseYaml, type TFile } from 'obsidian';
 import { isRecord } from '../util/validate.ts';
 import { ensureFolder } from '../util/vault.ts';
-import type { NoteParts } from './edited.ts';
+import { sameText, type NoteParts } from './edited.ts';
 
 /** A note taken apart: its front matter parsed (`null`: none, or not valid YAML) and the text after it. */
 export function noteParts(text: string): NoteParts {
@@ -48,17 +48,22 @@ export async function writeWithProvenance(app: App, path: string, text: string, 
 }
 
 /**
- * Replaces the text of the copy `file` with `text`, then `write` adds its provenance keys. When
- * they can't be added, the note gets `before`, its text until now, back.
+ * Replaces the text of the copy `file` with `text`, then `write` adds its provenance keys.
+ * `before`: its text as it was read, to decide on. A note that has changed since is left, and this
+ * throws. When the keys can't be added, the note gets `before` back.
  */
 export async function overwriteWithProvenance(app: App, file: TFile, before: string, text: string, write: (front: Record<string, unknown>) => void): Promise<void> {
 	needFrontMatter(text);
-	await app.vault.modify(file, text);
+	await app.vault.process(file, (now) => {
+		if (!sameText(now, before)) throw new Error('The note changed while it was being updated, so it was left as it is. Try again.');
+		return text;
+	});
 	try {
 		await app.fileManager.processFrontMatter(file, write);
 	} catch (e) {
-		// Upstream's text without its provenance is neither a fork nor a mirror: put the note back as it was.
-		await app.vault.modify(file, before);
+		// Upstream's text without its provenance is neither a fork nor a mirror: put the note back as
+		// it was, unless it was typed in meanwhile.
+		await app.vault.process(file, (now) => (sameText(now, text) ? before : now));
 		throw e;
 	}
 }

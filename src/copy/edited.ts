@@ -40,3 +40,8 @@ function same(a: unknown, b: unknown): boolean {
 	const keys = Object.keys(a);
 	return keys.length === Object.keys(b).length && keys.every((k) => k in b && same(a[k], b[k]));
 }
+
+/** Whether two reads of a note give the same text. A byte order mark doesn't count: `vault.read` drops it, `vault.process` doesn't. */
+export function sameText(a: string, b: string): boolean {
+	return a.replace(/^\uFEFF/, '') === b.replace(/^\uFEFF/, '');
+}
