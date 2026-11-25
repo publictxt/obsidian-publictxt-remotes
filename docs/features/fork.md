@@ -58,6 +58,8 @@ under the community folder, though the user can type it.
 with a note saying so. It follows the destination until typed in; then it must be free. Empty,
 `/` or `\` is an error. Earlier forks of the file are named.
 
+**Convert links**: on each time. Off, links stay as upstream wrote them.
+
 **Preview**, redrawn on change: "Goes to `<path>`", or a row per file (`source → vault`, "Name
 taken." when numbered (case-insensitive), "Forked before.", "Its mirror moves."), plus folders
 to be made. An error replaces it and disables **Fork** / **Fork all**. Enter forks. Nothing is
@@ -72,7 +74,8 @@ YAML is refused before writing.
 - Several: each in turn, continuing past failures; one notice (sticky if any failed); nothing
   opened. Ticks are cleared.
 
-Then the new forks' links are converted to the vault's format ([fork-links.md](fork-links.md)).
+Then, with **Convert links** on, the new forks' links are converted to the vault's format
+([fork-links.md](fork-links.md)).
 
 ## Code
 

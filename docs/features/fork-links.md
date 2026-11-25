@@ -44,11 +44,11 @@ Left: a Markdown link with a bare `)` in its path, a name with `| # ^ [ ]`, an a
 
 ## When
 
-- After a fork (a mirror that moves too), **Overwrite** and **Write alongside**: the notes just
-  written, unasked, with no notice. It waits up to 10 s for the metadata cache to see each; a
-  sticky notice names any it couldn't do and why.
-- **Convert links in this note** (`convert-links`): the active fork, for pages copied since. A
-  link Obsidian already finds a copy of this source by stays on that copy. A notice says how many.
+- After a fork (a mirror that moves too) unless **Convert links** is off in the modal, and after
+  **Overwrite** and **Write alongside** always: the notes just written, with no notice. It waits up
+  to 10 s for the metadata cache to see each; a sticky notice names any it couldn't do and why.
+- **Convert links in this note** (`convert-links`): the active fork, for pages copied since or
+  a fork made with it off. A link Obsidian already finds a copy of this source by stays on that copy. A notice says how many.
 
 A note is written once (`vault.process`), only if a link changed, and not at all if a cached link
 position no longer matches the text. `fork_*` keys are untouched, so `fork_blob` stays the base,

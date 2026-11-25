@@ -23,8 +23,8 @@ export interface ForkModalInfo {
 	vault: VaultLook;
 }
 
-/** Writes the forks. Returns an error to show, keeping the modal open, or `null` to close it. */
-export type SubmitForks = (plan: readonly PlannedFork[]) => Promise<string | null>;
+/** Writes the forks, with their links converted if `convert`. Returns an error to show, keeping the modal open, or `null` to close it. */
+export type SubmitForks = (plan: readonly PlannedFork[], convert: boolean) => Promise<string | null>;
 
 export class ForkModal extends Modal {
 	private readonly info: ForkModalInfo;
@@ -36,6 +36,7 @@ export class ForkModal extends Modal {
 	/** The name as typed, for one file; `null` until the user types one: the modal suggests. */
 	private name: string | null = null;
 	private folderEdited = false;
+	private convert = true;
 	private running = false;
 
 	/** Whether any file has a folder in the source: else only `flat` is offered. */
@@ -72,6 +73,7 @@ export class ForkModal extends Modal {
 		this.layoutField();
 		this.folderField();
 		if (only) this.nameField();
+		this.convertField();
 		this.preview = contentEl.createDiv({ cls: 'publictxt-fork-preview' });
 		this.error = contentEl.createDiv({ cls: 'publictxt-error' });
 		new Setting(contentEl)
@@ -154,6 +156,13 @@ export class ForkModal extends Modal {
 		});
 	}
 
+	private convertField(): void {
+		new Setting(this.contentEl)
+			.setName('Convert links')
+			.setDesc('Write links in this vault\'s format, to your copies of the pages. Off: as upstream wrote them.')
+			.addToggle((t) => t.setValue(this.convert).onChange((on) => (this.convert = on)));
+	}
+
 	private resolve(): Resolved {
 		return resolveForks(this.info.paths, this.dest, this.name, this.info.vault);
 	}
@@ -183,7 +192,7 @@ export class ForkModal extends Modal {
 		this.running = true;
 		this.error.setText('');
 		this.forkButton.setDisabled(true).setButtonText('Forking…');
-		const problem = await this.submit(resolved.plan);
+		const problem = await this.submit(resolved.plan, this.convert);
 		if (problem === null) {
 			this.close();
 			return;

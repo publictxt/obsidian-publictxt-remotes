@@ -77,7 +77,7 @@ export async function startFork(plugin: PublicTxtPlugin, from: ForkSource, paths
 			moved.push(fork.path);
 			return file;
 		};
-		const submit = async (plan: readonly PlannedFork[]): Promise<string | null> => {
+		const submit = async (plan: readonly PlannedFork[], convert: boolean): Promise<string | null> => {
 			const [single] = plan;
 			let written: TFile[];
 			try {
@@ -90,7 +90,7 @@ export async function startFork(plugin: PublicTxtPlugin, from: ForkSource, paths
 			// The mirrors forked are mirrors no more: off the last check's lists.
 			plugin.mirrorsNow(from.url, { drop: moved });
 			done?.();
-			void convertNew(app, host, from, written);
+			if (convert) void convertNew(app, host, from, written);
 			return null;
 		};
 		new ForkModal(app, { from: from.name, paths, initial: dest, why: WHY[reason], earlier, mirrored, vault }, submit).open();

@@ -49,8 +49,8 @@ make some my own; see when those change upstream.
 - **Updating a fork is a compare, not a merge.** Overwrite, write alongside as a new copy, or
   keep mine. `fork_seen` records what was dealt with, so `fork_blob` stays the merge base.
 - **A fork's links are the vault's; a mirror's are upstream's.** A fork's are read as upstream reads
-  them and converted, unasked, to links to the vault's copies in its own format; those to pages not
-  copied go by name (the wiki way, unguarded). Converting isn't an edit. The plugin never changes a
+  them and converted, unless turned off for a fork, to links to the vault's copies in its own format;
+  those to pages not copied go by name (the wiki way, unguarded). Converting isn't an edit. The plugin never changes a
   mirror's links: it is upstream's text, and they resolve the wiki way.
 - **The community folder is named for readers**: it's a section of the published site, and
   publictxt-pages uses "community" for where pages came from.
