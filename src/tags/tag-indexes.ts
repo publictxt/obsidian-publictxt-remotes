@@ -1,22 +1,13 @@
 // The tag indexes in use (docs/features/tags.md): built from what is in memory, a file or the
 // clone, whichever is nearest, and saved later. Pure: host, files and timer are passed in.
 
+import type { IndexFiles } from '../remote/clone-files.ts';
 import type { RemoteHost } from '../remote/host.ts';
 import { indexFromJson, indexToJson, tagsByBlob, type TagIndex } from './tag-index.ts';
 import { readTags, type ParseYaml } from './tags.ts';
 
 /** Blobs read at once: between batches others get their turn on the clone, and progress is told. */
 const BATCH = 200;
-
-/** Index files, in each source's clone. */
-export interface IndexFiles {
-	read(repo: string, commit: string): Promise<string | null>;
-	/** Writes it whole or not at all. `false`: there is no clone to write it in. */
-	write(repo: string, commit: string, text: string): Promise<boolean>;
-	/** The commits there are files for. */
-	commits(repo: string): Promise<string[]>;
-	remove(repo: string, commit: string): Promise<void>;
-}
 
 /** A source at a commit, and the files whose tags are wanted. */
 export interface Wanted {

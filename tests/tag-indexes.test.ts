@@ -1,8 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import type { IndexFiles } from '../src/remote/clone-files.ts';
 import type { RemoteHost } from '../src/remote/host.ts';
 import { indexFromJson, indexToJson } from '../src/tags/tag-index.ts';
-import { TagIndexes, type IndexFiles, type Wanted } from '../src/tags/tag-indexes.ts';
+import { TagIndexes, type Wanted } from '../src/tags/tag-indexes.ts';
 
 const REPO = 'https://example.com/a/b';
 const [A, B, C] = ['a', 'b', 'c'].map((x) => x.repeat(40)) as [string, string, string];
