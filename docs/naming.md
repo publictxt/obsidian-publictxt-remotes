@@ -7,7 +7,7 @@
 | Repo | `publictxt/obsidian-publictxt-remotes` |
 | Plugin `id` / name | `publictxt-remotes` / PublicTxt Remotes |
 | View types | `publictxt-check`, `publictxt-upstream` |
-| Command ids | `check-sources`, `open-check-view`, `mirror-file`, `stop-mirroring`, `fork-mirror`, `fork-file`, `compare-fork`, `convert-links`, `convert-links-all`, `update-page-lists` |
+| Command ids | `check-sources`, `open-check-view`, `mirror-file`, `stop-mirroring`, `fork-mirror`, `fork-file`, `compare-fork`, `convert-links`, `update-page-lists` |
 
 ## Vocabulary
 
@@ -32,7 +32,6 @@
 | community folder | Holds each source's **mirror folder** (`communityFolder`; the source's `folder`, else its remote name) |
 | fork folder | Default fork destination (`forkFolder`) |
 | mirror list / fork list | The "Mirrored pages" / "Forked pages" sections in a follow note |
-| links to fix / to check | Follow note sections: links converting left / made a call on |
 | link by name | A link without a path (`[[b]]`, `[b](b.md)`) |
 | check | One pass over the sources: what's new, mirrors, forks |
 | head / blob | The tracked branch's latest commit / a file's git blob SHA |
@@ -48,7 +47,7 @@ file in [features/](features/) names its modules.
 | `src/remote/` | `RemoteHost`, `GitHost`, local folders, snapshot; `git-process.ts` is the only Node module |
 | `src/check/` | A check and its vault run; file tree; ticks |
 | `src/mirror/` | Mirroring, update, stop |
-| `src/fork/` | Fork destination and writing, fork update, lists, convert links |
+| `src/fork/` | Fork destination and writing, fork update, lists, fork links |
 | `src/snapshot/` | Snapshot and make-a-repo from the vault |
 | `src/ui/` | Views, modals, tree rows |
 | `src/util/` | Small helpers |

@@ -21,8 +21,8 @@ records where it came from in its front matter.
 - **Fork** a page: your own note with `fork_*` provenance. [Fork](docs/features/fork.md)
 - **Compare** a fork with its new upstream version, then overwrite, write alongside or keep
   yours. Nothing is merged. [Fork update](docs/features/fork-update.md)
-- **Convert links** so a fork's links point at your copies in your vault's style.
-  [Convert links](docs/features/convert-links.md)
+- A fork's links by path become links by name, so they work wherever you put it.
+  [Fork links](docs/features/fork-links.md)
 - **Local sources**: follow a git repo on your computer, such as another vault, and snapshot it;
   or give a hosted source a local copy to check from. [Local](docs/features/local.md)
 - Optional **Mirrored pages** / **Forked pages** lists in follow notes.

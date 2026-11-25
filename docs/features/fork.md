@@ -30,9 +30,9 @@ fork of a fork never keeps upstream's provenance. A fork (or mirror) belongs to 
 Markdown only.
 
 **A mirrored file is moved, not fetched**: `renameFile` (Obsidian updates links to it), keys
-`mirror_*` → `fork_*`, `fork_date` now, text unchanged. Never copied: two notes of one name would
-split every link by name. Its own path doesn't count as taken. If upstream has moved on, the
-next check lists it under Forks.
+`mirror_*` → `fork_*`, `fork_date` now, text unchanged but for its links. Never copied: two notes
+of one name would split every link by name. Its own path doesn't count as taken. If upstream has
+moved on, the next check lists it under Forks.
 
 ## The modal
 
@@ -71,7 +71,7 @@ YAML is refused before writing.
 - Several: each in turn, continuing past failures; one notice (sticky if any failed); nothing
   opened. Ticks are cleared.
 
-Then links may be offered for conversion ([convert-links.md](convert-links.md)).
+Then the links by path in the new forks become links by name ([fork-links.md](fork-links.md)).
 
 ## Code
 

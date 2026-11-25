@@ -10,8 +10,8 @@ import { UpstreamView } from './ui/upstream-view.ts';
 import { forkActiveMirror, forkFromSource, mirrorFromSource } from './fork/command.ts';
 import { stopMirroringActive } from './mirror/run.ts';
 import { compareActiveFork, VIEW_TYPE_UPSTREAM } from './fork/compare-run.ts';
+import { nameLinksInActive } from './fork/links-run.ts';
 import { ForkLists } from './fork/fork-lists.ts';
-import { convertActiveFork, convertAllForks } from './fork/links-run.ts';
 import { snapshotAndTell } from './snapshot/run.ts';
 
 export default class PublicTxtPlugin extends Plugin {
@@ -39,8 +39,7 @@ export default class PublicTxtPlugin extends Plugin {
 		this.addCommand({ id: 'fork-mirror', name: 'Fork this mirror', callback: () => forkActiveMirror(this) });
 		this.addCommand({ id: 'fork-file', name: 'Fork a file from a source', callback: () => forkFromSource(this) });
 		this.addCommand({ id: 'compare-fork', name: 'Compare this fork with upstream', callback: () => void compareActiveFork(this.app, this.data) });
-		this.addCommand({ id: 'convert-links', name: 'Convert links in this note', callback: () => void convertActiveFork(this.app, this.data) });
-		this.addCommand({ id: 'convert-links-all', name: 'Convert links in every fork', callback: () => void convertAllForks(this.app, this.data) });
+		this.addCommand({ id: 'convert-links', name: 'Convert links in this note', callback: () => void nameLinksInActive(this.app, this.data) });
 		this.addCommand({ id: 'update-page-lists', name: 'Update mirror and fork lists in follow notes', callback: () => void this.forkLists.update(true) });
 
 		this.forkLists = new ForkLists(this);

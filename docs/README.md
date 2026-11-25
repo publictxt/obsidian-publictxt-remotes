@@ -21,7 +21,7 @@ Features:
 | [fork.md](features/fork.md) | Fork provenance; the fork modal |
 | [fork-update.md](features/fork-update.md) | Compare, overwrite, write alongside, keep, detach |
 | [lists.md](features/lists.md) | Mirror and fork lists in follow notes |
-| [convert-links.md](features/convert-links.md) | Pointing a fork's links at the vault's copies |
+| [fork-links.md](features/fork-links.md) | A fork's links by path become links by name |
 
 Each feature file ends with its code. Nothing is released yet: everything, ids included, can
 still change until the first release.

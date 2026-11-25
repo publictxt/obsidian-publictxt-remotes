@@ -48,10 +48,10 @@ make some my own; see when those change upstream.
   local or remote, and a missing folder is an error, never a silent network fetch.
 - **Updating a fork is a compare, not a merge.** Overwrite, write alongside as a new copy, or
   keep mine. `fork_seen` records what was dealt with, so `fork_blob` stays the merge base.
-- **A fork's links mean what they mean upstream.** They are read against the source and pointed
-  at the vault's copies in the vault's style, when the user accepts the offer; links to pages not
-  copied go by name (the wiki way, unguarded). Converted links aren't edits. The plugin
-  never changes a mirror's links: it is upstream's text, and they resolve the wiki way.
+- **Links are changed only where forking breaks them.** A fork's links by path become links by
+  name, unasked, guarded only so upstream would still read them as the same note; where they land
+  in the vault is the wiki way, unguarded. They aren't edits. The plugin never changes a mirror's
+  links: it is upstream's text, and they resolve the wiki way.
 - **The community folder is named for readers**: it's a section of the published site, and
   publictxt-pages uses "community" for where pages came from.
 
@@ -72,7 +72,7 @@ make some my own; see when those change upstream.
 Merge a fork (`git merge-file` on `fork_blob`); propose changes upstream (converting links
 back); tag filters (need file contents); offer to fork or mirror the notes dangling links name;
 warn when a local copy is ahead of its origin; mirror attachments; update mirrors at each check
-if wanted; per-source link style.
+if wanted.
 
 ## Proposed for the publictext spec
 

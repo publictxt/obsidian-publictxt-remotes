@@ -47,9 +47,9 @@ test('withForkList: the heading twice leaves the note alone', () => {
 });
 
 test('withSections: each in place in one pass; a heading twice is skipped, the rest still put', () => {
-	const fix = '## Links to fix\n\n- a';
-	assert.deepEqual(withSections('Prose.\n', [[FORK_LIST_HEADING, S], ['## Links to fix', fix]]), { text: `Prose.\n\n${S}\n\n${fix}\n`, skipped: [] });
-	assert.deepEqual(withSections(`${S}\n\n${S}\n`, [[FORK_LIST_HEADING, S2], ['## Links to fix', fix]]), { text: `${S}\n\n${S}\n\n${fix}\n`, skipped: [FORK_LIST_HEADING] });
+	const fix = '## Other section\n\n- a';
+	assert.deepEqual(withSections('Prose.\n', [[FORK_LIST_HEADING, S], ['## Other section', fix]]), { text: `Prose.\n\n${S}\n\n${fix}\n`, skipped: [] });
+	assert.deepEqual(withSections(`${S}\n\n${S}\n`, [[FORK_LIST_HEADING, S2], ['## Other section', fix]]), { text: `${S}\n\n${S}\n\n${fix}\n`, skipped: [FORK_LIST_HEADING] });
 });
 
 test('renderMirrorList: its own heading; with the fork list, each section in its place', () => {

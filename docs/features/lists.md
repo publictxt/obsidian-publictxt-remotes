@@ -31,9 +31,6 @@ a list no longer kept is left as is. **Update mirror and fork lists in follow no
 (`update-page-lists`) syncs every note now, skipping lists turned off in the note, whatever the
 settings.
 
-The "Links to fix" and "Links to check" sections ([convert-links.md](convert-links.md)) are
-owned the same way and written in the same pass.
-
 ## Code
 
 Pure: `src/fork/fork-list.ts`. Vault: `src/fork/fork-lists.ts`.
