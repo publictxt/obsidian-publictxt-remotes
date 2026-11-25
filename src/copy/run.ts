@@ -20,7 +20,7 @@ export function noteParts(text: string): NoteParts {
 }
 
 /** Throws if `text` has front matter that isn't valid YAML: the provenance keys couldn't be added to it. */
-export function needFrontMatter(text: string): void {
+function needFrontMatter(text: string): void {
 	const fm = getFrontMatterInfo(text);
 	if (!fm.exists) return;
 	try {
@@ -45,4 +45,20 @@ export async function writeWithProvenance(app: App, path: string, text: string, 
 		throw e;
 	}
 	return file;
+}
+
+/**
+ * Replaces the text of the copy `file` with `text`, then `write` adds its provenance keys. When
+ * they can't be added, the note gets `before`, its text until now, back.
+ */
+export async function overwriteWithProvenance(app: App, file: TFile, before: string, text: string, write: (front: Record<string, unknown>) => void): Promise<void> {
+	needFrontMatter(text);
+	await app.vault.modify(file, text);
+	try {
+		await app.fileManager.processFrontMatter(file, write);
+	} catch (e) {
+		// Upstream's text without its provenance is neither a fork nor a mirror: put the note back as it was.
+		await app.vault.modify(file, before);
+		throw e;
+	}
 }

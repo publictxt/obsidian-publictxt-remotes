@@ -7,7 +7,7 @@ import type PublicTxtPlugin from '../main.ts';
 import type { MirrorChange } from '../check/check.ts';
 import { isCopyable, isFrom, type CopySource, type Remote } from '../copy/copy.ts';
 import { isEdited } from '../copy/edited.ts';
-import { needFrontMatter, noteParts, writeWithProvenance } from '../copy/run.ts';
+import { noteParts, overwriteWithProvenance, writeWithProvenance } from '../copy/run.ts';
 import type { Head, RemoteHost } from '../remote/host.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
 import { readMirrorMeta, writeMirrorMeta, type Mirror, type MirrorMeta } from '../sources/fork-meta.ts';
@@ -113,16 +113,8 @@ async function overwriteMirrors(app: App, host: RemoteHost, url: string, head: H
 			continue;
 		}
 		upstream ??= await host.blob(url, change.blob);
-		needFrontMatter(upstream);
 		const next = updatedMirrorMeta(mirror.meta, head, change.blob, new Date());
-		await app.vault.modify(mirror.file, upstream);
-		try {
-			await app.fileManager.processFrontMatter(mirror.file, (front: Record<string, unknown>) => writeMirrorMeta(front, next));
-		} catch (e) {
-			// Upstream's text without the provenance isn't a mirror: put the note back as it was.
-			await app.vault.modify(mirror.file, mirror.text);
-			throw e;
-		}
+		await overwriteWithProvenance(app, mirror.file, mirror.text, upstream, (front) => writeMirrorMeta(front, next));
 	}
 	return edited;
 }

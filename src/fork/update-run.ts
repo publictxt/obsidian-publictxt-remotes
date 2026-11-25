@@ -7,7 +7,7 @@ import type PublicTxtPlugin from '../main.ts';
 import { isSettled, type ForkChange } from '../check/check.ts';
 import { copiesOf, isFrom } from '../copy/copy.ts';
 import { isEdited, type NoteParts } from '../copy/edited.ts';
-import { needFrontMatter, noteParts as parts } from '../copy/run.ts';
+import { noteParts as parts, overwriteWithProvenance } from '../copy/run.ts';
 import { scanForks } from '../sources/forks.ts';
 import type { DiffStat } from '../remote/host.ts';
 import { vaultHost } from '../remote/vault-host.ts';
@@ -75,18 +75,8 @@ export async function copyEdited(app: App, c: Compare, info: CompareInfo): Promi
 /** Replaces the copy's text with upstream's and rewrites its provenance. The caller asks first. */
 export async function overwrite(plugin: PublicTxtPlugin, c: Compare, info: CompareInfo): Promise<void> {
 	const { app } = plugin;
-	needFrontMatter(info.text);
 	const { file, text: before, meta } = await copyOf(app, c);
-	await app.vault.modify(file, info.text);
-	try {
-		await app.fileManager.processFrontMatter(file, (front: Record<string, unknown>) => {
-			writeForkMeta(front, updatedMeta(meta, c, c.blob, new Date()));
-		});
-	} catch (e) {
-		// Upstream's text without the provenance isn't a fork: put the note back as it was.
-		await app.vault.modify(file, before);
-		throw e;
-	}
+	await overwriteWithProvenance(app, file, before, info.text, (front) => writeForkMeta(front, updatedMeta(meta, c, c.blob, new Date())));
 	await settle(plugin, c, info.follow, c.note);
 	new Notice(`Updated ${c.note} from ${info.follow.name}.`);
 	void linkNew(app, [file], { convert: true, match: false });
