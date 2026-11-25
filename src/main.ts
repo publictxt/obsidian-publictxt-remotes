@@ -13,6 +13,7 @@ import { compareActiveFork, VIEW_TYPE_UPSTREAM } from './fork/compare-run.ts';
 import { convertActive, matchActive } from './fork/links-run.ts';
 import { ForkLists } from './fork/fork-lists.ts';
 import { snapshotAndTell } from './snapshot/run.ts';
+import { SourceTags } from './tags/run.ts';
 
 export default class PublicTxtPlugin extends Plugin {
 	/** Everything in data.json, always normalized (docs/features/sources.md). */
@@ -23,9 +24,12 @@ export default class PublicTxtPlugin extends Plugin {
 	checking: string | null = null;
 	/** Keeps follow notes' mirror and fork lists current. */
 	forkLists!: ForkLists;
+	/** The tags of checked sources, once they are used. */
+	tags!: SourceTags;
 
 	async onload() {
 		this.data = normalizeData(await this.loadData());
+		this.tags = new SourceTags(this, () => this.renderViews());
 		const tab = new PublicTxtSettingTab(this.app, this);
 		this.addSettingTab(tab);
 
@@ -75,6 +79,7 @@ export default class PublicTxtPlugin extends Plugin {
 	onunload(): void {
 		// Anything typed and not yet written.
 		this.writeSoon.run();
+		this.tags?.stop();
 	}
 
 	/** Checks every source; saves `checkedAt`, keeps the results for the view. */
