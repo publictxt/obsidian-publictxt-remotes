@@ -16,18 +16,18 @@ const queues = new Map<string, Promise<unknown>>();
 
 /** A runner for the git at `gitPath` (`git`: whatever is on PATH); a command is killed after `timeoutMs`. */
 export function gitRunner(gitPath = 'git', timeoutMs = GIT_TIMEOUT_MS): RunGit {
-	return (args, cwd) =>
+	return (args, cwd, { input, binary = false, lazyFetch = true } = {}) =>
 		new Promise<GitResult>((resolve, reject) => {
-			execFile(
+			const child = execFile(
 				gitPath,
 				args,
 				{
 					cwd: cwd ?? undefined,
-					encoding: 'utf8',
-					maxBuffer: 64 * 1024 * 1024,
+					encoding: binary ? 'latin1' : 'utf8',
+					maxBuffer: (binary ? 512 : 64) * 1024 * 1024,
 					timeout: timeoutMs,
 					// Never wait on a terminal prompt for credentials.
-					env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+					env: { ...process.env, GIT_TERMINAL_PROMPT: '0', ...(lazyFetch ? {} : { GIT_NO_LAZY_FETCH: '1' }) },
 				},
 				(err, stdout, stderr) => {
 					const e = err as (Error & { code?: unknown; killed?: boolean }) | null;
@@ -48,6 +48,10 @@ export function gitRunner(gitPath = 'git', timeoutMs = GIT_TIMEOUT_MS): RunGit {
 					resolve({ code: e ? (e.code as number) : 0, stdout, stderr });
 				},
 			);
+			if (input === undefined) return;
+			// git may end without reading it all; how it ended is what counts.
+			child.stdin?.on('error', () => undefined);
+			child.stdin?.end(input);
 		});
 }
 

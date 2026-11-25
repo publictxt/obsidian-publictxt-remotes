@@ -4,6 +4,7 @@
 
 import { isLocalRepo, localName } from '../sources/repo-url.ts';
 import { isSha } from '../util/validate.ts';
+import { parseBatch } from './cat-file.ts';
 import { RemoteError, type Change, type ChangeStatus, type DiffStat, type Head, type RemoteHost, type Tree } from './host.ts';
 
 export interface GitResult {
@@ -12,8 +13,17 @@ export interface GitResult {
 	stderr: string;
 }
 
+export interface RunOptions {
+	/** What git reads on its standard input. */
+	input?: string;
+	/** `true`: `stdout` is binary text, a character per byte (latin1), not UTF-8. */
+	binary?: boolean;
+	/** `false`: an object missing from a partial clone is missing, and not asked of the remote. */
+	lazyFetch?: boolean;
+}
+
 /** Runs `git <args>` in `cwd` (no shell). Rejects with `RemoteError('no-git')` if git can't start. */
-export type RunGit = (args: string[], cwd: string | null) => Promise<GitResult>;
+export type RunGit = (args: string[], cwd: string | null, options?: RunOptions) => Promise<GitResult>;
 
 /** Runs git and throws a `RemoteError('git')` unless its exit code is one of `ok`. */
 export async function gitOrThrow(run: RunGit, args: string[], cwd: string | null, ok: number[] = [0]): Promise<GitResult> {
@@ -145,7 +155,7 @@ export class GitHost implements RemoteHost {
 	constructor(options: GitHostOptions) {
 		this.o = options;
 		this.queues = options.queues ?? new Map<string, Promise<unknown>>();
-		this.run = (args, cwd) => options.run(cwd === null ? args : ['--git-dir=.', ...args], cwd);
+		this.run = (args, cwd, o) => options.run(cwd === null ? args : ['--git-dir=.', ...args], cwd, o);
 	}
 
 	private dir(repo: string): string {
@@ -216,7 +226,8 @@ export class GitHost implements RemoteHost {
 
 	tree(repo: string, tree: string): Promise<Tree> {
 		return this.serial(repo, async () => {
-			const out = await this.git(['ls-tree', '-r', '-z', sha(tree, 'tree')], this.dir(repo));
+			// The clone has every tree it was given: one it lacks is gone, so the remote isn't asked.
+			const out = await gitOrThrow((args, cwd) => this.run(args, cwd, { lazyFetch: false }), ['ls-tree', '-r', '-z', sha(tree, 'tree')], this.dir(repo));
 			return { files: parseLsTree(out.stdout) };
 		});
 	}
@@ -243,16 +254,40 @@ export class GitHost implements RemoteHost {
 
 	prefetch(repo: string, blobs: readonly string[]): Promise<void> {
 		return this.serial(repo, async () => {
+			// Failing is fine: `blob` fetches each on demand.
+			await this.fetchBlobs(this.dir(repo), [...new Set(blobs.map((b) => sha(b, 'blob')))]);
+		});
+	}
+
+	/** Fetches `ids` as git fetches a missing object itself, but many in one go. Stops at a fetch that fails. */
+	private async fetchBlobs(dir: string, ids: readonly string[]): Promise<void> {
+		// Blobs already here cost nothing to ask for again.
+		for (let i = 0; i < ids.length; i += PREFETCH_BATCH) {
+			const args = ['-c', 'fetch.negotiationAlgorithm=noop', 'fetch', '--quiet', '--no-tags', '--no-write-fetch-head', '--recurse-submodules=no', '--filter=blob:none', 'origin'];
+			const r = await this.run([...args, ...ids.slice(i, i + PREFETCH_BATCH)], dir);
+			if (r.code !== 0) return;
+		}
+	}
+
+	blobs(repo: string, blobs: readonly string[]): Promise<Map<string, string>> {
+		return this.serial(repo, async () => {
 			const dir = this.dir(repo);
 			const ids = [...new Set(blobs.map((b) => sha(b, 'blob')))];
-			// As git fetches a missing object itself, but many in one go. Blobs already here cost
-			// nothing to ask for again. Failing is fine: `blob` fetches each on demand.
-			for (let i = 0; i < ids.length; i += PREFETCH_BATCH) {
-				const args = ['-c', 'fetch.negotiationAlgorithm=noop', 'fetch', '--quiet', '--no-tags', '--no-write-fetch-head', '--recurse-submodules=no', '--filter=blob:none', 'origin'];
-				const r = await this.run([...args, ...ids.slice(i, i + PREFETCH_BATCH)], dir);
-				if (r.code !== 0) return;
-			}
+			// What is here first: with everything here, the remote isn't asked at all.
+			const found = await this.catFiles(dir, ids);
+			const missing = ids.filter((id) => !found.has(id));
+			if (!missing.length) return found;
+			await this.fetchBlobs(dir, missing);
+			return new Map([...found, ...(await this.catFiles(dir, missing))]);
 		});
+	}
+
+	/** Those of `ids` that are in the clone. Never fetched on demand: that is a fetch per blob. */
+	private async catFiles(dir: string, ids: readonly string[]): Promise<Map<string, string>> {
+		if (!ids.length) return new Map();
+		const r = await this.run(['cat-file', '--batch'], dir, { input: ids.map((id) => `${id}\n`).join(''), binary: true, lazyFetch: false });
+		if (r.code !== 0) throw new RemoteError('git', `git cat-file failed: ${r.stderr.trim() || `exit ${r.code}`}`);
+		return parseBatch(r.stdout);
 	}
 
 	diffStat(repo: string, from: string, to: string): Promise<DiffStat | null> {

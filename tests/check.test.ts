@@ -18,6 +18,7 @@ function fakeHost(files: Record<string, string>, changes: Change[] | null = []):
 		tree: async () => (calls.push('tree'), { files: new Map(Object.entries(files)) }),
 		changes: async () => (calls.push('changes'), changes),
 		blob: async () => '',
+		blobs: async () => new Map(),
 		diffStat: async () => null,
 	};
 }
