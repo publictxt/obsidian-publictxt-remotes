@@ -14,7 +14,7 @@ vaults are not migrated.
 | `follow_*` keys (planned) | `mirror_*` | "Follow" is for repos; publictxt-pages uses `follow_*` on follow pages |
 | Source's fork `folder` | Mirror folder | |
 | Fork links left as written when not forked | Link by name | The wiki way |
-| Converting fork links offered; "Links to fix" / "Links to check" reports; **Convert links in every fork** | Converted unasked, no reports | Simpler |
+| Fork links read against the source and pointed at copies, when offered; "Links to fix" / "Links to check" reports; **Convert links in every fork** | Converted in form only, paths kept; matching broken links apart | Simpler |
 | Mirror links by full path into the mirror folder | Left as written | Simpler: a mirror is upstream's text; the wiki way |
 | Separate one-file and many-file fork modals | One `ForkModal` | |
 

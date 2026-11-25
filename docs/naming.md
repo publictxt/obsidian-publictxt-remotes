@@ -7,7 +7,7 @@
 | Repo | `publictxt/obsidian-publictxt-remotes` |
 | Plugin `id` / name | `publictxt-remotes` / PublicTxt Remotes |
 | View types | `publictxt-check`, `publictxt-upstream` |
-| Command ids | `check-sources`, `open-check-view`, `mirror-file`, `stop-mirroring`, `fork-mirror`, `fork-file`, `compare-fork`, `convert-links`, `update-page-lists` |
+| Command ids | `check-sources`, `open-check-view`, `mirror-file`, `stop-mirroring`, `fork-mirror`, `fork-file`, `compare-fork`, `convert-links`, `match-links`, `update-page-lists` |
 
 ## Vocabulary
 
@@ -32,7 +32,8 @@
 | community folder | Holds each source's **mirror folder** (`communityFolder`; the source's `folder`, else its remote name) |
 | fork folder | Default fork destination (`forkFolder`) |
 | mirror list / fork list | The "Mirrored pages" / "Forked pages" sections in a follow note |
-| link by name | A link without a path (`[[b]]`, `[b](b.md)`) |
+| convert links | Write a fork's links in the vault's form, paths kept |
+| match links | Point broken links at the one note of that name |
 | check | One pass over the sources: what's new, mirrors, forks |
 | head / blob | The tracked branch's latest commit / a file's git blob SHA |
 

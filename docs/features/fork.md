@@ -49,16 +49,17 @@ One modal for one file or several.
 - **Folder**: empty is the vault root. Suggests up to 50 vault folders; free text. End slashes
   dropped; `.`/`..` parts or a file path are errors.
 
-Opens on **Same folder as in the source** when `matchFolders` is on and the vault has every
-file's exact folder; else **Into the folder**. **Folder** starts as `forkFolder`. The modal says
-which rule applied until edited. The typed folder survives switching choices. A fork never opens
-under the community folder, though the user can type it.
+Opens on **Same folder as in the source** when `matchFolders` is on and any file has a folder;
+else **Into the folder**. **Folder** starts as `forkFolder`. The modal says so until edited. The
+typed folder survives switching choices. The modal doesn't stop a fork going under the community
+folder.
 
 **One file** also has **Name** (no `.md`): the source name, or the first free `<name> 1`, `2`, …
 with a note saying so. It follows the destination until typed in; then it must be free. Empty,
 `/` or `\` is an error. Earlier forks of the file are named.
 
-**Convert links**: on each time. Off, links stay as upstream wrote them.
+**Convert links** (on each time) and **Match links to existing pages** (off each time):
+[fork-links.md](fork-links.md). Both off, links stay as upstream wrote them.
 
 **Preview**, redrawn on change: "Goes to `<path>`", or a row per file (`source → vault`, "Name
 taken." when numbered (case-insensitive), "Forked before.", "Its mirror moves."), plus folders
@@ -74,8 +75,7 @@ YAML is refused before writing.
 - Several: each in turn, continuing past failures; one notice (sticky if any failed); nothing
   opened. Ticks are cleared.
 
-Then, with **Convert links** on, the new forks' links are converted to the vault's format
-([fork-links.md](fork-links.md)).
+Then the new forks' links are converted and matched, as chosen.
 
 ## Code
 

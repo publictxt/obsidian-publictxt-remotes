@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { canMatch, checkFolder, checkName, folderFor, initialDestination, newFolders, noteName, planForks, remoteFolder, resolveForks, type VaultLook } from '../src/fork/destination.ts';
 
 const VAULT_FOLDERS = new Set(['wiki', 'wiki/cs', 'forks']);
-const options = { forkFolder: 'forks', matchFolders: true, folderExists: (f: string) => VAULT_FOLDERS.has(f) };
+const options = { forkFolder: 'forks', matchFolders: true };
 const SAME = { layout: 'same', folder: 'forks' } as const;
 const ONE = { layout: 'flat', folder: 'forks' } as const;
 const NESTED = { layout: 'nested', folder: 'notes/research' } as const;
@@ -23,18 +23,14 @@ test('canMatch: any file with a folder in the source', () => {
 	assert.ok(!canMatch([]));
 });
 
-test('initialDestination: same when matching finds every folder, else the fork folder; never the community folder', () => {
-	assert.deepEqual(initialDestination(['wiki/cs/a.md'], options), { dest: SAME, reason: 'matched' });
-	assert.deepEqual(initialDestination(['wiki/cs/a.md', 'wiki/b.md'], options), { dest: SAME, reason: 'matched' });
-	// Exact folders only, and every one of them.
-	assert.deepEqual(initialDestination(['wiki/cs/se/a.md'], options), { dest: ONE, reason: 'default' });
-	assert.deepEqual(initialDestination(['wiki/a.md', 'blog/b.md'], options), { dest: ONE, reason: 'default' });
-	assert.deepEqual(initialDestination(['wiki/cs/a.md'], { ...options, matchFolders: false }), { dest: ONE, reason: 'default' });
-	// A file at the top of the repo has no folder to match.
-	assert.deepEqual(initialDestination(['a.md'], options), { dest: ONE, reason: 'default' });
-	assert.deepEqual(initialDestination(['wiki/a.md', 'b.md'], options), { dest: ONE, reason: 'default' });
-	// No fork folder set: the vault root.
-	assert.deepEqual(initialDestination(['a.md'], { ...options, forkFolder: '' }), { dest: { layout: 'flat', folder: '' }, reason: 'default' });
+test('initialDestination: same when a file has a folder in the source, else the fork folder', () => {
+	assert.deepEqual(initialDestination(['wiki/cs/a.md'], options), SAME);
+	// Whether or not the vault has the folder, or every file has one.
+	assert.deepEqual(initialDestination(['wiki/cs/se/a.md'], options), SAME);
+	assert.deepEqual(initialDestination(['wiki/a.md', 'b.md'], options), SAME);
+	assert.deepEqual(initialDestination(['a.md'], options), ONE);
+	assert.deepEqual(initialDestination(['wiki/cs/a.md'], { ...options, matchFolders: false }), ONE);
+	assert.deepEqual(initialDestination(['a.md'], { ...options, forkFolder: '' }), { layout: 'flat', folder: '' });
 });
 
 test('folderFor: as in the source, the one folder, or the source\'s folder under the folder', () => {

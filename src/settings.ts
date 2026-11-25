@@ -31,7 +31,7 @@ export class PublicTxtSettingTab extends PluginSettingTab {
 
 		this.text('communityFolder', 'Community folder', 'Mirrors go here: upstream\'s copies of the pages you mirror, each source in a folder named for it unless its mirror folder is set, with the source\'s folders kept. Empty: the vault root. If you publish with publictxt-pages, name the same folder in its settings.', true, '');
 		this.text('forkFolder', 'Fork folder', 'Where your forks go when they don\'t go to the folder they are in in the source. Empty: the vault root. You can change it at each fork.', true, '');
-		this.toggle('matchFolders', 'Match source folders', 'Offer the same folder as in the source first when your vault has that folder, instead of the fork folder. You can change it at each fork.');
+		this.toggle('matchFolders', 'Match source folders', 'Open the fork dialog on the same folder as in the source, instead of the fork folder. You can change it at each fork.');
 		this.toggle('listMirrors', 'List mirrors in follow notes', 'Keep a list of links to the pages mirrored from each source at the end of its follow note, under Mirrored pages. The plugin rewrites that section; the rest of the note is yours.', (on) => {
 			if (on) void this.plugin.forkLists.update(false);
 		});

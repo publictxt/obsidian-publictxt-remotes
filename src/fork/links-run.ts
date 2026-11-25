@@ -1,145 +1,151 @@
-// A fork's links as the vault writes them (docs/features/fork-links.md): the Obsidian side of links.ts.
+// A fork's links (docs/features/fork-links.md): the Obsidian side of links.ts. Converting writes
+// them as the vault writes links; matching points the broken ones at notes of the vault.
 
 import { App, getFrontMatterInfo, Notice, parseYaml, type CachedMetadata, type EventRef, type TFile } from 'obsidian';
-import { latestFirst } from '../check/check.ts';
-import type { RemoteHost } from '../remote/host.ts';
-import { errorText, vaultHost } from '../remote/vault-host.ts';
-import { readForkMeta } from '../sources/fork-meta.ts';
-import { scanFollows } from '../sources/follows.ts';
-import { scanForks, scanMirrors } from '../sources/forks.ts';
-import type { PublicTxtData } from '../sources/schema.ts';
+import { errorText } from '../remote/vault-host.ts';
+import { readForkMeta, readMirrorMeta } from '../sources/fork-meta.ts';
 import { isRecord } from '../util/validate.ts';
-import { isForkOf, type Remote } from './fork.ts';
-import { missingName, relink, rewriteLinks, shortestName, splitLink, upstreamFiles, upstreamTarget, type LinkRef, type UpstreamFiles } from './links.ts';
+import { nameOf, notePath, reformat, relink, rewriteLinks, splitLink, type LinkRef } from './links.ts';
 
 /** How long to wait for Obsidian to read a note just written. */
 const CACHE_WAIT_MS = 10_000;
 
+/** What to do with a note's links. */
+export interface LinkWork {
+	/** Write them as the vault writes links, to the same paths. */
+	convert: boolean;
+	/** Point those Obsidian finds no note by at the one note of that name. */
+	match: boolean;
+}
+
+/** What came of it: links changed, and of the broken ones, how many were matched, or why not. */
+interface LinkTally {
+	changed: number;
+	matched: number;
+	several: number;
+	none: number;
+}
+
 /**
- * Converts the links in the forks just `written` from `remote`. A notice names the notes it
- * couldn't do. Never throws: the forks stand whatever happens here.
+ * Does `work` on the links of the forks just `written`. A notice says what it couldn't do, and
+ * what matching left. Never throws: the forks stand whatever happens here.
  */
-export async function convertNew(app: App, host: RemoteHost, remote: Remote, written: readonly TFile[]): Promise<void> {
+export async function linkNew(app: App, written: readonly TFile[], work: LinkWork): Promise<void> {
+	if (!work.convert && !work.match) return;
 	const failed: string[] = [];
 	const ready: TFile[] = [];
-	// All of them first: they may link to each other, and a fork not read yet isn't known as a copy.
+	// All of them first: they may link to each other.
 	for (const file of written) {
 		if (await whenCached(app, file, CACHE_WAIT_MS)) ready.push(file);
-		else failed.push(`${file.path}: Obsidian has not read the note yet.`);
+		else failed.push(`${file.path}: ${NOT_READ}`);
 	}
-	const source = new SourceLinks(app, host, remote);
+	const total: LinkTally = { changed: 0, matched: 0, several: 0, none: 0 };
 	for (const file of ready) {
 		try {
-			await source.convert(file, true);
+			const t = await workOn(app, file, work);
+			total.changed += t.changed;
+			total.matched += t.matched;
+			total.several += t.several;
+			total.none += t.none;
 		} catch (e) {
 			failed.push(`${file.path}: ${errorText(e)}`);
 		}
 	}
+	if (total.matched + total.several + total.none > 0) new Notice(matchText(total));
 	// Stays until dismissed: it is the only record of it.
 	if (failed.length) new Notice(['Links left as upstream wrote them in:', ...failed].join('\n'), 0);
 }
 
 /** The "Convert links in this note" command: the active fork. */
-export async function convertActive(app: App, data: PublicTxtData): Promise<void> {
+export async function convertActive(app: App): Promise<void> {
 	const file = app.workspace.getActiveFile();
-	const meta = file ? readForkMeta(app.metadataCache.getFileCache(file)?.frontmatter) : null;
-	if (!file || !meta) {
+	if (!file || !readForkMeta(app.metadataCache.getFileCache(file)?.frontmatter)) {
 		new Notice('This note is not a fork.');
 		return;
 	}
-	const follow = scanFollows(app).follows.find((f) => isForkOf(meta, f));
-	if (!follow) {
-		new Notice('The source this note was forked from is not followed.');
-		return;
-	}
 	try {
-		const n = await new SourceLinks(app, vaultHost(app, data), follow).convert(file, false);
-		new Notice(n === 0 ? 'No links to convert.' : `Converted ${n} ${n === 1 ? 'link' : 'links'}.`);
+		const { changed } = await workOn(app, file, { convert: true, match: false });
+		new Notice(changed === 0 ? 'No links to convert.' : `Converted ${changed} ${changed === 1 ? 'link' : 'links'}.`);
 	} catch (e) {
 		new Notice(errorText(e));
 	}
 }
 
-/** Converts links in the forks of one source. Its copies are read once, and its files once a commit. */
-class SourceLinks {
-	private readonly app: App;
-	private readonly host: RemoteHost;
-	private readonly remote: Remote;
-	private readonly copies: { path: string; meta: { path: string } }[];
-	private readonly trees = new Map<string, Promise<UpstreamFiles>>();
-
-	constructor(app: App, host: RemoteHost, remote: Remote) {
-		this.app = app;
-		this.host = host;
-		this.remote = remote;
-		// The copy of a page is its newest fork, else its mirror.
-		this.copies = [...latestFirst(scanForks(app)), ...scanMirrors(app)].filter((c) => isForkOf(c.meta, remote));
+/** The "Match links in this note" command: the active note, unless it is a mirror. */
+export async function matchActive(app: App): Promise<void> {
+	const file = app.workspace.getActiveFile();
+	if (!file || file.extension !== 'md') {
+		new Notice('No note is open.');
+		return;
 	}
+	if (readMirrorMeta(app.metadataCache.getFileCache(file)?.frontmatter)) {
+		new Notice('This note is a mirror: its links stay as upstream wrote them.');
+		return;
+	}
+	try {
+		new Notice(matchText(await workOn(app, file, { convert: false, match: true })));
+	} catch (e) {
+		new Notice(errorText(e));
+	}
+}
 
-	/**
-	 * Converts the links in the fork `file`; how many it changed. `fresh`: its links are as upstream
-	 * wrote them. Throws why it couldn't.
-	 */
-	async convert(file: TFile, fresh: boolean): Promise<number> {
-		const { app } = this;
-		if (!(await whenCached(app, file, CACHE_WAIT_MS))) throw new Error('Obsidian has not read the note yet.');
-		const cache = app.metadataCache.getFileCache(file);
-		const refs = refsOf(cache);
-		const meta = readForkMeta(cache?.frontmatter);
-		if (!meta || refs.length === 0) return 0;
-		if (!meta.commit) throw new Error('The commit it is from is not known.');
-		const files = await this.filesAt(meta.commit);
-		// Obsidian's setting isn't public API: ask it for a link and see which kind comes back.
-		const wiki = app.fileManager.generateMarkdownLink(file, file.path).startsWith('[[');
-		const converted = (text: string) =>
-			rewriteLinks(text, refs, (ref, line) => {
-				const to = this.target(ref, file, meta.path, files, fresh, wiki);
-				if (to === null) return null;
-				return relink(ref, typeof to === 'string' ? to : app.metadataCache.fileToLinktext(to, file.path, true), wiki, line);
-			});
-		if (converted(await app.vault.cachedRead(file))?.changed === 0) return 0;
-		// `process` reads the file itself: the offsets are checked again against what it reads.
-		let changed: number | null = null;
-		await app.vault.process(file, (text) => {
-			const now = converted(text);
-			changed = now?.changed ?? null;
-			return now?.text ?? text;
+/** What matching did, as a notice. */
+function matchText(t: LinkTally): string {
+	if (t.matched + t.several + t.none === 0) return 'No broken links.';
+	const left: string[] = [];
+	if (t.several) left.push(`${t.several} ${t.several === 1 ? 'has' : 'have'} several matches`);
+	if (t.none) left.push(`${t.none} ${t.none === 1 ? 'has' : 'have'} none`);
+	return `Matched ${t.matched} ${t.matched === 1 ? 'link' : 'links'}.${left.length ? ` ${left.join(', ')}.` : ''}`;
+}
+
+const NOT_READ = 'Obsidian has not read the note yet.';
+
+/** Does `work` on the links of `file`, in one write. Throws why it couldn't. */
+async function workOn(app: App, file: TFile, work: LinkWork): Promise<LinkTally> {
+	if (!(await whenCached(app, file, CACHE_WAIT_MS))) throw new Error(NOT_READ);
+	const refs = refsOf(app.metadataCache.getFileCache(file));
+	const { matches, several, none } = work.match ? matchesFor(app, file, refs) : { matches: new Map<LinkRef, TFile>(), several: 0, none: 0 };
+	// Obsidian's setting isn't public API: ask it for a link and see which kind comes back.
+	const wiki = app.fileManager.generateMarkdownLink(file, file.path).startsWith('[[');
+	let matched = 0;
+	const rewrite = (text: string) => {
+		matched = 0;
+		return rewriteLinks(text, refs, (ref, line) => {
+			const to = matches.get(ref);
+			const link = to ? relink(ref, app.metadataCache.fileToLinktext(to, file.path, true), wiki, line) : null;
+			if (link !== null) matched++;
+			return link ?? (work.convert ? reformat(ref, wiki, line) : null);
 		});
-		if (changed === null) throw new Error('The note changed meanwhile.');
-		return changed;
-	}
+	};
+	if (rewrite(await app.vault.cachedRead(file))?.changed === 0) return { changed: 0, matched, several, none };
+	// `process` reads the file itself: the offsets are checked again against what it reads.
+	let changed: number | null = null;
+	await app.vault.process(file, (text) => {
+		const now = rewrite(text);
+		changed = now?.changed ?? null;
+		return now?.text ?? text;
+	});
+	if (changed === null) throw new Error('The note changed meanwhile.');
+	return { changed, matched, several, none };
+}
 
-	/** The note a link in `file` goes to, or a name for one the vault may not have; `null`: the link is left. */
-	private target(ref: LinkRef, file: TFile, forkPath: string, files: UpstreamFiles, fresh: boolean, wiki: boolean): TFile | string | null {
-		const upstream = upstreamTarget(ref, forkPath, files);
-		if (upstream === null) return null;
-		const found = this.app.metadataCache.getFirstLinkpathDest(splitLink(ref.link).path, file.path);
-		// Converted already, so its path is the vault's: upstream could read it as another page.
-		if (!fresh && found && this.copies.some((c) => c.path === found.path)) return found;
-		if ('path' in upstream) {
-			const copy = upstream.path === forkPath ? file : this.copyOf(upstream.path);
-			return copy ?? shortestName(upstream.path, forkPath, files, wiki);
-		}
-		// No one page upstream: what the vault has there, else a page not written yet.
-		if (found) return found.extension === 'md' ? found : null;
-		return missingName(ref, forkPath, files, wiki);
+/** The links of `file` Obsidian finds no note by: the one note of the name each has, and how many have several or none. */
+function matchesFor(app: App, file: TFile, refs: readonly LinkRef[]): { matches: Map<LinkRef, TFile>; several: number; none: number } {
+	const byName = new Map<string, TFile[]>();
+	for (const f of app.vault.getMarkdownFiles()) byName.set(nameOf(f.path), [...(byName.get(nameOf(f.path)) ?? []), f]);
+	const matches = new Map<LinkRef, TFile>();
+	let several = 0;
+	let none = 0;
+	for (const ref of refs) {
+		const path = notePath(ref);
+		if (path === null || app.metadataCache.getFirstLinkpathDest(splitLink(ref.link).path, file.path)) continue;
+		const named = byName.get(nameOf(path)) ?? [];
+		const [only] = named;
+		if (!only) none++;
+		else if (named.length > 1) several++;
+		else matches.set(ref, only);
 	}
-
-	/** The vault's copy of the upstream page `path`: its newest fork, else its mirror. */
-	private copyOf(path: string): TFile | null {
-		const [copy] = this.copies.filter((c) => c.meta.path === path);
-		return copy ? this.app.vault.getFileByPath(copy.path) : null;
-	}
-
-	/** The source's files at `commit`. No fetch: the clone holds every tree, and `ls-tree` takes any tree-ish. */
-	private filesAt(commit: string): Promise<UpstreamFiles> {
-		let files = this.trees.get(commit);
-		if (!files) {
-			files = this.host.tree(this.remote.url, commit).then((t) => upstreamFiles(t.files.keys()));
-			this.trees.set(commit, files);
-		}
-		return files;
-	}
+	return { matches, several, none };
 }
 
 /** The links and embeds Obsidian found in a note's body, in the form `rewriteLinks` takes. */
@@ -152,11 +158,10 @@ function refsOf(cache: CachedMetadata | null): LinkRef[] {
 }
 
 /**
- * Whether Obsidian's cache of `file` matches its text, waiting up to `ms` for it to: the note
- * reads as a fork of the blob its text says, and every cached link is where the cache says it
- * is. A note just forked is written twice (text, then front matter), and each write moves the
- * links. The blob tells an overwritten note from its old cache, which a note with no links would
- * otherwise match.
+ * Whether Obsidian's cache of `file` matches its text, waiting up to `ms` for it to: both give
+ * the same fork, if it is one, and every cached link is where the cache says it is. A note just
+ * forked is written twice (text, then front matter), and each write moves the links. The blob
+ * tells an overwritten note from its old cache, which a note with no links would otherwise match.
  */
 async function whenCached(app: App, file: TFile, ms: number): Promise<boolean> {
 	const deadline = Date.now() + ms;
@@ -170,10 +175,9 @@ async function whenCached(app: App, file: TFile, ms: number): Promise<boolean> {
 
 async function isCached(app: App, file: TFile): Promise<boolean> {
 	const cache = app.metadataCache.getFileCache(file);
-	const cached = readForkMeta(cache?.frontmatter);
-	if (!cache || !cached) return false;
+	if (!cache) return false;
 	const text = await app.vault.cachedRead(file);
-	if (readForkMeta(frontMatterOf(text))?.blob !== cached.blob) return false;
+	if (readForkMeta(frontMatterOf(text))?.blob !== readForkMeta(cache.frontmatter)?.blob) return false;
 	return refsOf(cache).every((r) => text.slice(r.start, r.end) === r.original);
 }
 
