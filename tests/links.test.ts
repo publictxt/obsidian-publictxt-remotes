@@ -1,10 +1,9 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { isWikilink, linkShows, matchesExceptLinks, nameOf, notePath, reformat, relink, rewriteLinks, splitLink, type LinkRef } from '../src/fork/links.ts';
+import { matchesExceptLinks } from '../src/copy/link-text.ts';
+import { isWikilink, nameOf, notePath, reformat, relink, rewriteLinks, type LinkRef } from '../src/fork/links.ts';
 
-test('splitLink and isWikilink', () => {
-	assert.deepEqual(splitLink('a.md#H#I'), { path: 'a.md', subpath: '#H#I' });
-	assert.deepEqual(splitLink('a'), { path: 'a', subpath: '' });
+test('isWikilink: embedded or not', () => {
 	assert.ok(isWikilink('[[a]]'));
 	assert.ok(isWikilink('![[a]]'));
 	assert.ok(!isWikilink('[a](a.md)'));
@@ -62,17 +61,6 @@ test('reformat: is no edit', () => {
 	}
 });
 
-test('linkShows: text, alias, or name and subpath', () => {
-	assert.equal(linkShows('[sorting](../cs/algorithms.md)'), 'sorting');
-	assert.equal(linkShows('![alt](p.png)'), 'alt');
-	assert.equal(linkShows('[[cs/algorithms]]'), 'algorithms');
-	assert.equal(linkShows('[[cs/algorithms.md]]'), 'algorithms');
-	assert.equal(linkShows('[[algorithms|sorting]]'), 'sorting');
-	assert.equal(linkShows('[[b#H#I]]'), 'b > H > I');
-	assert.equal(linkShows('[[b#^blk]]'), 'b > ^blk');
-	assert.equal(linkShows('![[c]]'), 'c');
-});
-
 /** Refs for every `[[…]]` and `[…](…)` in `text`, as the cache would give them. */
 function refsOf(text: string): LinkRef[] {
 	return [...text.matchAll(/!?\[\[([^\]|]*)(?:\|[^\]]*)?\]\]|!?\[[^\]]*\]\(([^)]*)\)/g)].map((m) => ({
@@ -99,23 +87,6 @@ test('rewriteLinks: a link holding one rewritten is left', () => {
 	const text = '[![[x/y]]](../top.md)';
 	const refs = [{ start: 0, end: text.length, original: text, link: '../top.md' }, { start: 1, end: 9, original: '![[x/y]]', link: 'x/y' }];
 	assert.deepEqual(rewriteLinks(text, refs, (r) => (r.link === 'x/y' ? '![[y]]' : 'WRONG')), { text: '[![[y]]](../top.md)', changed: 1 });
-});
-
-test('matchesExceptLinks: converted links are not edits', () => {
-	const forked = 'See [sorting](../cs/algorithms.md) and [[cs/b]], [[c#H]].\n\n![[c]]\n[x](b.md#My%20Heading)\n';
-	const note = 'See [[algorithms|sorting]] and [[b]], [[c 1#H|c > H]].\n\n![[c 1|c]]\n[[b#My Heading|x]]\n';
-	assert.ok(matchesExceptLinks(note, forked));
-	assert.ok(matchesExceptLinks(forked, forked));
-});
-
-test('matchesExceptLinks: changed words, subpath, embed, links or text are edits', () => {
-	const forked = 'See [sorting](cs/a.md#H) and ![[c]].\n';
-	assert.ok(!matchesExceptLinks('See [[a#H|sorted]] and ![[c]].\n', forked));
-	assert.ok(!matchesExceptLinks('See [[a#I|sorting]] and ![[c]].\n', forked));
-	assert.ok(!matchesExceptLinks('See [[a#H|sorting]] and [[c]].\n', forked));
-	assert.ok(!matchesExceptLinks('See [[a#H|sorting]] and ![[c]] [[d]].\n', forked));
-	assert.ok(!matchesExceptLinks('See [[a#H|sorting]], and ![[c]].\n', forked));
-	assert.ok(!matchesExceptLinks('See [sorting](cs/a.md#H) and ![[c]].\nMore.\n', forked));
 });
 
 /** `original` pointed at `to`, in a wikilink vault and in a Markdown one. */

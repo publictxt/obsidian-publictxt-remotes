@@ -1,7 +1,7 @@
 import { debounce, Notice, Plugin, type TAbstractFile } from 'obsidian';
 import { normalizeData, type CheckFrom, type PublicTxtData } from './sources/schema.ts';
 import { isFollowPath } from './sources/follow-note.ts';
-import { acknowledged, checked, checkedAll, type SourceCheck } from './check/check.ts';
+import { acknowledged, checked, checkedAll, withMirrors, type MirrorsNow, type SourceCheck } from './check/check.ts';
 import { checkOne, runCheck, type CheckRun } from './check/run.ts';
 import { errorText } from './remote/vault-host.ts';
 import { PublicTxtSettingTab } from './settings.ts';
@@ -136,19 +136,10 @@ export default class PublicTxtPlugin extends Plugin {
 		this.replaceCheck(c, { ...c, changes: [], reason: null });
 	}
 
-	/**
-	 * Brings the last check of the source `url` in line with what was just done to its mirrors:
-	 * `add` (upstream path → its new mirror note), `drop` (no longer mirrored), `settled` (updated
-	 * to what is at head). The metadata cache lags a write, so the check isn't read from it.
-	 */
-	mirrorsNow(url: string, now: { add?: ReadonlyMap<string, string>; drop?: readonly string[]; settled?: readonly string[] }): void {
+	/** Brings the last check of the source `url` in line with what was just done to its mirrors. */
+	mirrorsNow(url: string, now: MirrorsNow): void {
 		const c = this.checkOf(url);
-		if (!c) return;
-		const mirrored = new Map(c.mirrored);
-		for (const [path, note] of now.add ?? []) mirrored.set(path, note);
-		for (const path of now.drop ?? []) mirrored.delete(path);
-		const off = new Set([...(now.drop ?? []), ...(now.settled ?? [])]);
-		this.replaceCheck(c, { ...c, mirrored, mirrors: c.mirrors.filter((m) => !off.has(m.path)) });
+		if (c) this.replaceCheck(c, withMirrors(c, now));
 	}
 
 	/** Drops an upstream file from the last check's forks: every note forked from it is settled. */

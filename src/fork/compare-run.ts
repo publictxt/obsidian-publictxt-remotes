@@ -3,12 +3,12 @@
 
 import { App, Notice, type WorkspaceLeaf } from 'obsidian';
 import type { ForkChange } from '../check/check.ts';
+import { isFrom } from '../copy/copy.ts';
 import type { Head } from '../remote/host.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
 import { readForkMeta } from '../sources/fork-meta.ts';
 import { scanFollows } from '../sources/follows.ts';
 import type { PublicTxtData } from '../sources/schema.ts';
-import { isForkOf } from './fork.ts';
 import type { Compare } from './update.ts';
 
 export const VIEW_TYPE_UPSTREAM = 'publictxt-upstream';
@@ -55,7 +55,7 @@ export async function compareActiveFork(app: App, data: PublicTxtData): Promise<
 		new Notice('This note is not a fork.');
 		return;
 	}
-	const follow = scanFollows(app).follows.find((f) => isForkOf(meta, f));
+	const follow = scanFollows(app).follows.find((f) => isFrom(meta, f));
 	if (!follow) {
 		new Notice('The source this note was forked from is not followed.');
 		return;

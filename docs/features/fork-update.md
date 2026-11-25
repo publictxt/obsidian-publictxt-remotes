@@ -34,7 +34,8 @@ Each leaves every copy settled, so the file leaves the check view and the pane c
 copies aren't written.
 
 - **Overwrite** asks first if the copy is edited or can't tell. Same name and path. Invalid
-  upstream YAML is refused; if keys can't be written the note is restored.
+  upstream YAML is refused; a note that changes meanwhile is left; if keys can't be written the
+  note is restored (`overwriteWithProvenance()`).
 - **Write alongside**: a new fork (`writeFork()`) in the copy's folder named
   `<name> (up-01)`, `(up-02)`, … (an existing ` (up-nn)` dropped first). Opens where the copy
   was; now the latest copy.
@@ -51,5 +52,5 @@ followed, it says so and offers nothing.
 
 ## Code
 
-Pure: `src/fork/update.ts`; `isSettled()`, `latestFirst()` in `src/check/check.ts`. Vault:
+Pure: `src/fork/update.ts`, `src/copy/edited.ts`; `isSettled()`, `latestFirst()` in `src/check/check.ts`. Vault:
 `src/fork/update-run.ts`, `compare-run.ts`. UI: `src/ui/upstream-view.ts`.

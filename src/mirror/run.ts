@@ -1,29 +1,20 @@
-// Mirroring source files into the vault, keeping the mirrors current, and stopping
-// (docs/features/mirror.md): the Obsidian side of mirror.ts. A mirror is upstream's copy: an
-// update overwrites it, and asks first only when it was edited.
+// Mirroring source files into the vault, and stopping (docs/features/mirror.md): the Obsidian side
+// of mirror.ts.
 
 import { App, normalizePath, Notice, type TFile } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
-import type { MirrorChange } from '../check/check.ts';
-import { isForkable, isForkOf, type Remote } from '../fork/fork.ts';
-import { needFrontMatter, noteParts, writeWithProvenance, type ForkSource } from '../fork/run.ts';
-import { isEdited } from '../fork/update.ts';
-import type { Head, RemoteHost } from '../remote/host.ts';
+import { copiesOf, firstByPath, inPathOrder, isCopyable, isFrom, type CopySource, type Remote } from '../copy/copy.ts';
+import { writeWithProvenance } from '../copy/run.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
 import { readMirrorMeta, writeMirrorMeta, type Mirror, type MirrorMeta } from '../sources/fork-meta.ts';
 import { scanFollows } from '../sources/follows.ts';
 import { scanMirrors } from '../sources/forks.ts';
 import { ConfirmModal } from '../ui/confirm-modal.ts';
-import { mirroredText, mirrorFolderOf, newMirrorMeta, planMirrors, updatedMirrorMeta } from './mirror.ts';
+import { mirroredText, mirrorFolderOf, newMirrorMeta, planMirrors } from './mirror.ts';
 
 /** This source's mirrors: upstream path → the note mirroring it (the first by path). */
 function mirroredBy(app: App, remote: Remote): Map<string, string> {
-	const out = new Map<string, string>();
-	const mine = scanMirrors(app).filter((m) => isForkOf(m.meta, remote)).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-	for (const m of mine) {
-		if (!out.has(m.meta.path)) out.set(m.meta.path, m.path);
-	}
-	return out;
+	return new Map([...firstByPath(inPathOrder(scanMirrors(app)), remote)].map(([path, m]) => [path, m.path]));
 }
 
 /**
@@ -32,7 +23,7 @@ function mirroredBy(app: App, remote: Remote): Map<string, string> {
  * choice. One already mirrored is left alone; one whose place is taken isn't written. A notice
  * says how it went. `done` runs once anything may have been written.
  */
-export async function mirrorFiles(plugin: PublicTxtPlugin, from: ForkSource, paths: readonly string[], done?: () => void): Promise<void> {
+export async function mirrorFiles(plugin: PublicTxtPlugin, from: CopySource, paths: readonly string[], done?: () => void): Promise<void> {
 	const { app, data } = plugin;
 	const { head } = from;
 	if (!head) return;
@@ -51,7 +42,7 @@ export async function mirrorFiles(plugin: PublicTxtPlugin, from: ForkSource, pat
 		for (const p of fresh) {
 			try {
 				const blob = files.get(p.path);
-				if (!isForkable(p.path)) throw new Error('Only Markdown files can be mirrored.');
+				if (!isCopyable(p.path)) throw new Error('Only Markdown files can be mirrored.');
 				if (!blob) throw new Error(`Not in ${head.branch} any more.`);
 				const text = await host.blob(from.url, blob);
 				const meta = newMirrorMeta(from, p.path, head, blob, new Date());
@@ -75,130 +66,16 @@ export async function mirrorFiles(plugin: PublicTxtPlugin, from: ForkSource, pat
 	}
 }
 
-/** A mirror note as it is on disk now, or `null` if it is gone or no longer mirrors `path`. */
-async function readMirror(app: App, note: string, path: string): Promise<{ file: TFile; text: string; meta: MirrorMeta } | null> {
-	const file = app.vault.getFileByPath(note);
-	if (!file) return null;
-	// From the file, not the metadata cache, which may lag a write.
-	const text = await app.vault.read(file);
-	const meta = readMirrorMeta(noteParts(text).front);
-	return meta && meta.path === path ? { file, text, meta } : null;
-}
-
-/**
- * Whether a mirror's text differs from the version it mirrors, the `mirror_*` keys aside. When
- * that version can't be read (history rewritten), it counts as edited: better to ask.
- */
-async function mirrorEdited(host: RemoteHost, url: string, text: string, meta: MirrorMeta): Promise<boolean> {
-	try {
-		return isEdited(noteParts(text), noteParts(await host.blob(url, meta.blob)));
-	} catch {
-		return true;
-	}
-}
-
-/**
- * Overwrites the mirrors of `change` with upstream's text at `head`. An edited one is left as it
- * is unless `force`. Gives the notes left alone because they were edited.
- */
-async function overwriteMirrors(app: App, host: RemoteHost, url: string, head: Head, change: MirrorChange, force: boolean): Promise<string[]> {
-	const edited: string[] = [];
-	if (change.blob === null) return edited;
-	let upstream: string | null = null;
-	for (const note of change.notes) {
-		const mirror = await readMirror(app, note.path, change.path);
-		if (!mirror || mirror.meta.blob === change.blob) continue;
-		if (!force && (await mirrorEdited(host, url, mirror.text, mirror.meta))) {
-			edited.push(note.path);
-			continue;
-		}
-		upstream ??= await host.blob(url, change.blob);
-		needFrontMatter(upstream);
-		const next = updatedMirrorMeta(mirror.meta, head, change.blob, new Date());
-		await app.vault.modify(mirror.file, upstream);
-		try {
-			await app.fileManager.processFrontMatter(mirror.file, (front: Record<string, unknown>) => writeMirrorMeta(front, next));
-		} catch (e) {
-			// Upstream's text without the provenance isn't a mirror: put the note back as it was.
-			await app.vault.modify(mirror.file, mirror.text);
-			throw e;
-		}
-	}
-	return edited;
-}
-
-/** What overwriting an edited mirror does, before it is done. */
-function editedQuestion(notes: readonly string[]): string {
-	const [one] = notes;
-	const what = notes.length === 1 && one ? `${one} was` : `${notes.join(', ')} were`;
-	return `${what} edited since it was mirrored. Updating replaces the text with upstream's, and the edits are lost. To keep them, fork it instead: it becomes your note.`;
-}
-
-/**
- * Updates one upstream file's mirrors from the last check's head. An edited mirror is
- * overwritten only after asking.
- */
-export async function updateMirror(plugin: PublicTxtPlugin, url: string, head: Head, change: MirrorChange): Promise<void> {
-	const { app, data } = plugin;
-	const host = vaultHost(app, data);
-	const updated = () => {
-		plugin.mirrorsNow(url, { settled: [change.path] });
-		new Notice(`Updated the mirror of ${change.path}.`);
-	};
-	const edited = await overwriteMirrors(app, host, url, head, change, false);
-	if (edited.length === 0) {
-		updated();
-		return;
-	}
-	const overwrite = async () => {
-		try {
-			await overwriteMirrors(app, host, url, head, change, true);
-			updated();
-		} catch (e) {
-			new Notice(errorText(e));
-		}
-	};
-	new ConfirmModal(app, 'Overwrite an edited mirror?', editedQuestion(edited), 'Overwrite', overwrite).open();
-}
-
-/** Updates every mirror the last check found changed upstream. Edited ones are left, and named. */
-export async function updateMirrors(plugin: PublicTxtPlugin, url: string, name: string, head: Head, changes: readonly MirrorChange[]): Promise<void> {
-	const { app, data } = plugin;
-	const host = vaultHost(app, data);
-	const todo = changes.filter((c) => c.blob !== null);
-	const blobs = todo.map((c) => c.blob).filter((b): b is string => b !== null);
-	if (blobs.length > 1) await host.prefetch?.(url, blobs);
-	const settled: string[] = [];
-	const edited: string[] = [];
-	const failed: string[] = [];
-	for (const change of todo) {
-		try {
-			const left = await overwriteMirrors(app, host, url, head, change, false);
-			if (left.length) edited.push(...left);
-			else settled.push(change.path);
-		} catch (e) {
-			failed.push(`${change.path}: ${errorText(e)}`);
-		}
-	}
-	plugin.mirrorsNow(url, { settled });
-	const n = settled.length;
-	const lines = [`Updated ${n} ${n === 1 ? 'mirror' : 'mirrors'} from ${name}.`];
-	if (edited.length) lines.push('Edited since mirrored, so left as they are:', ...edited, 'Update one on its own to overwrite it, or fork it to keep the edits.');
-	if (failed.length) lines.push('Not updated:', ...failed);
-	// With anything left over it stays until dismissed: it is the only record of it.
-	new Notice(lines.join('\n'), lines.length > 1 ? 0 : undefined);
-}
-
-/** Moves the notes mirroring `path` from the source `remote` to the trash, after asking. Nothing of the user's is lost: the text is upstream's. */
+/** Moves the notes mirroring `path` from the source `remote` to the trash, after asking: edits made to them go too. */
 export function stopMirroring(plugin: PublicTxtPlugin, remote: Remote, path: string): void {
 	const { app } = plugin;
-	const notes: Mirror[] = scanMirrors(app).filter((m) => isForkOf(m.meta, remote) && m.meta.path === path);
+	const notes: Mirror[] = copiesOf(scanMirrors(app), remote, path);
 	if (notes.length === 0) {
 		plugin.mirrorsNow(remote.url, { drop: [path] });
 		return;
 	}
 	const where = notes.map((m) => m.path).join(', ');
-	const message = `${where} ${notes.length === 1 ? 'moves' : 'move'} to the trash. It is upstream's copy of ${path}: to keep it as your own note, fork it instead.`;
+	const message = `${where} ${notes.length === 1 ? 'moves' : 'move'} to the trash, with any edits made to ${notes.length === 1 ? 'it' : 'them'}. To keep it as your own note, fork it instead.`;
 	new ConfirmModal(app, 'Stop mirroring?', message, 'Move to trash', async () => {
 		try {
 			for (const m of notes) {
@@ -221,7 +98,7 @@ export function activeMirror(app: App): { file: TFile; meta: MirrorMeta; follow:
 		new Notice('This note is not a mirror.');
 		return null;
 	}
-	const follow = scanFollows(app).follows.find((f) => isForkOf(meta, f));
+	const follow = scanFollows(app).follows.find((f) => isFrom(meta, f));
 	if (!follow) {
 		new Notice('The source this note mirrors is not followed.');
 		return null;

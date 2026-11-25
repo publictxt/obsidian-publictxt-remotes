@@ -4,7 +4,7 @@
 import { SEEN_GONE, type Fork, type ForkMeta, type Mirror } from '../sources/fork-meta.ts';
 import type { Source, SourceState } from '../sources/schema.ts';
 import type { Change, Head, RemoteHost } from '../remote/host.ts';
-import { isForkOf, type Remote } from '../fork/fork.ts';
+import { copiesByPath, inPathOrder, type Remote } from '../copy/copy.ts';
 
 /** Why "what's new" lists every file instead of the changes. */
 export type NewReason = 'first-check' | 'history-rewritten';
@@ -70,7 +70,7 @@ export async function checkSource(host: RemoteHost, source: Source & Remote, sta
 	if (reason) changes = [...files.keys()].sort().map((path) => ({ path, status: 'added' as const, from: null }));
 	const inScope = (changes ?? []).filter((c) => inInclude(c.path, source.include) || (c.from !== null && inInclude(c.from, source.include)));
 
-	const byPath = copiesByPath(source, forks);
+	const byPath = copiesByPath(forks, source);
 	const mine = mirrorsByPath(source, mirrors);
 	const mirrored = new Map([...mine].map(([path, notes]) => [path, notes[0]?.path ?? '']));
 	return { url: source.url, head, changes: inScope, reason, mirrors: mirrorChanges(mine, files), mirrored, forks: forkChanges(byPath, files), forked: new Set(byPath.keys()), files: all };
@@ -78,14 +78,7 @@ export async function checkSource(host: RemoteHost, source: Source & Remote, sta
 
 /** This source's mirrors by the upstream file they are of, each list by vault path. */
 function mirrorsByPath(source: Remote, mirrors: readonly Mirror[]): Map<string, Mirror[]> {
-	const byPath = new Map<string, Mirror[]>();
-	const sorted = mirrors.filter((m) => isForkOf(m.meta, source)).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-	for (const m of sorted) {
-		const notes = byPath.get(m.meta.path);
-		if (notes) notes.push(m);
-		else byPath.set(m.meta.path, [m]);
-	}
-	return byPath;
+	return copiesByPath(inPathOrder(mirrors), source);
 }
 
 /** The upstream files whose mirrors aren't what is at head, by path. */
@@ -97,18 +90,6 @@ function mirrorChanges(byPath: ReadonlyMap<string, Mirror[]>, files: ReadonlyMap
 		if (notes.length) out.push({ path, status: blob ? 'modified' : 'removed', blob, notes });
 	}
 	return out;
-}
-
-/** This source's forks by the upstream file they came from: that file's copies. */
-function copiesByPath(source: Remote, forks: readonly Fork[]): Map<string, Fork[]> {
-	const byPath = new Map<string, Fork[]>();
-	for (const fork of forks) {
-		if (!isForkOf(fork.meta, source)) continue;
-		const copies = byPath.get(fork.meta.path);
-		if (copies) copies.push(fork);
-		else byPath.set(fork.meta.path, [fork]);
-	}
-	return byPath;
 }
 
 /** The upstream files that changed under their copies, by path: listed while any copy isn't settled for what is at head. */
@@ -143,6 +124,27 @@ export function latestFirst<T extends { path: string; meta: { date: string | nul
 		if (ta !== tb) return ta > tb ? -1 : 1;
 		return a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
 	});
+}
+
+/** What was just done to a source's mirrors. */
+export interface MirrorsNow {
+	/** Upstream path → its new mirror note. */
+	add?: ReadonlyMap<string, string>;
+	/** Upstream paths not mirrored any more. */
+	drop?: readonly string[];
+	/** Upstream paths whose mirrors are what is at head. */
+	settled?: readonly string[];
+}
+
+/**
+ * The check `c` in line with what was just done to its mirrors. The metadata cache lags a write,
+ * so this isn't read from the vault.
+ */
+export function withMirrors(c: SourceCheck, { add = new Map(), drop = [], settled = [] }: MirrorsNow): SourceCheck {
+	const mirrored = new Map([...c.mirrored, ...add]);
+	for (const path of drop) mirrored.delete(path);
+	const off = new Set([...drop, ...settled]);
+	return { ...c, mirrored, mirrors: c.mirrors.filter((m) => !off.has(m.path)) };
 }
 
 /** State after a check, before it is acknowledged: only `checkedAt` moves. */

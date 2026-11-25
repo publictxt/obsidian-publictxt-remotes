@@ -5,6 +5,9 @@
 import { App, Notice, type TFile } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
 import { isSettled, type ForkChange } from '../check/check.ts';
+import { copiesOf, isFrom } from '../copy/copy.ts';
+import { isEdited, type NoteParts } from '../copy/edited.ts';
+import { noteParts as parts, overwriteWithProvenance } from '../copy/run.ts';
 import { scanForks } from '../sources/forks.ts';
 import type { DiffStat } from '../remote/host.ts';
 import { vaultHost } from '../remote/vault-host.ts';
@@ -12,10 +15,10 @@ import { clearForkMeta, readForkMeta, SEEN_GONE, setForkSeen, writeForkMeta, typ
 import type { Follow } from '../sources/follow-note.ts';
 import { scanFollows } from '../sources/follows.ts';
 import { leafShowing } from './compare-run.ts';
-import { forksOf, isForkOf, newForkMeta } from './fork.ts';
+import { newForkMeta } from './fork.ts';
 import { linkNew } from './links-run.ts';
-import { needFrontMatter, noteParts as parts, writeFork } from './run.ts';
-import { alongsidePath, isEdited, updatedMeta, type Compare, type NoteParts } from './update.ts';
+import { writeFork } from './run.ts';
+import { alongsidePath, updatedMeta, type Compare } from './update.ts';
 
 /** What the Upstream view shows for a compare. */
 export interface CompareInfo {
@@ -46,7 +49,7 @@ export async function loadCompare(plugin: PublicTxtPlugin, c: Compare): Promise<
 	const { app, data } = plugin;
 	const { meta } = await copyOf(app, c);
 	const follow = scanFollows(app).follows.find((f) => f.url === c.source);
-	if (!follow || !isForkOf(meta, follow)) throw new Error(`The source ${c.note} was forked from is not followed.`);
+	if (!follow || !isFrom(meta, follow)) throw new Error(`The source ${c.note} was forked from is not followed.`);
 	const host = vaultHost(app, data);
 	const text = await host.blob(c.source, c.blob);
 	const stat = await host.diffStat(c.source, meta.blob, c.blob);
@@ -72,18 +75,8 @@ export async function copyEdited(app: App, c: Compare, info: CompareInfo): Promi
 /** Replaces the copy's text with upstream's and rewrites its provenance. The caller asks first. */
 export async function overwrite(plugin: PublicTxtPlugin, c: Compare, info: CompareInfo): Promise<void> {
 	const { app } = plugin;
-	needFrontMatter(info.text);
 	const { file, text: before, meta } = await copyOf(app, c);
-	await app.vault.modify(file, info.text);
-	try {
-		await app.fileManager.processFrontMatter(file, (front: Record<string, unknown>) => {
-			writeForkMeta(front, updatedMeta(meta, c, c.blob, new Date()));
-		});
-	} catch (e) {
-		// Upstream's text without the provenance isn't a fork: put the note back as it was.
-		await app.vault.modify(file, before);
-		throw e;
-	}
+	await overwriteWithProvenance(app, file, before, info.text, (front) => writeForkMeta(front, updatedMeta(meta, c, c.blob, new Date())));
 	await settle(plugin, c, info.follow, c.note);
 	new Notice(`Updated ${c.note} from ${info.follow.name}.`);
 	void linkNew(app, [file], { convert: true, match: false });
@@ -110,7 +103,7 @@ export async function keepMine(plugin: PublicTxtPlugin, c: Compare, info: Compar
  * the last check. `written`: the note that now holds that version, which needs no mark.
  */
 async function settle(plugin: PublicTxtPlugin, c: Compare, follow: Follow, written: string | null): Promise<void> {
-	for (const copy of forksOf(scanForks(plugin.app), follow, c.path)) {
+	for (const copy of copiesOf(scanForks(plugin.app), follow, c.path)) {
 		if (copy.path !== written && !isSettled(copy.meta, c.blob)) await setSeen(plugin.app, copy.path, c.blob);
 	}
 	plugin.forkSettled(c.source, c.path);

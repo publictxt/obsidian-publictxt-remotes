@@ -1,14 +1,10 @@
 // Forking a source file into the vault (docs/features/fork.md). Pure.
 
+import type { Remote } from '../copy/copy.ts';
 import type { Head } from '../remote/host.ts';
 import type { ForkMeta } from '../sources/fork-meta.ts';
 import { isLocalRepo } from '../sources/repo-url.ts';
 import { localIso } from '../util/time.ts';
-
-/** Only Markdown has front matter to record where a fork came from. */
-export function isForkable(path: string): boolean {
-	return path.toLowerCase().endsWith('.md');
-}
 
 /** The vault path a fork goes to by default: `<folder>/<file name>`; `''` is the vault root. */
 export function forkPath(folder: string, path: string): string {
@@ -25,26 +21,6 @@ export function freePath(path: string, taken: (p: string) => boolean): string {
 		const p = `${stem} ${n}${ext}`;
 		if (!taken(p)) return p;
 	}
-}
-
-/** A followed remote: its key (`Source.url`) and its name. */
-export interface Remote {
-	url: string;
-	name: string;
-}
-
-/**
- * Whether `meta` is a fork (or a mirror) from `remote`: by `fork_remote` when the fork has one (names compared
- * without case, as file names are), else by `fork_repo`.
- */
-export function isForkOf(meta: Pick<ForkMeta, 'remote' | 'repo'>, remote: Remote): boolean {
-	if (meta.remote !== null) return meta.remote.toLowerCase() === remote.name.toLowerCase();
-	return meta.repo === remote.url;
-}
-
-/** Notes already forked from `path` in `remote`. */
-export function forksOf<T extends { meta: Pick<ForkMeta, 'remote' | 'repo' | 'path'> }>(forks: readonly T[], remote: Remote, path: string): T[] {
-	return forks.filter((f) => isForkOf(f.meta, remote) && f.meta.path === path);
 }
 
 /** Provenance for `path` forked from `remote` at `head`, at `now`. A local source has no `fork_repo`. */

@@ -2,14 +2,14 @@
 // "Mirror a file from a source", "Fork this mirror".
 
 import { Notice } from 'obsidian';
+import { isCopyable, type CopySource } from '../copy/copy.ts';
 import type PublicTxtPlugin from '../main.ts';
 import { activeMirror, mirrorFiles } from '../mirror/run.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
 import { scanFollows } from '../sources/follows.ts';
 import type { Follow } from '../sources/follow-note.ts';
 import { PickModal } from '../ui/pick-modal.ts';
-import { isForkable } from './fork.ts';
-import { startFork, type ForkSource } from './run.ts';
+import { startFork } from './run.ts';
 
 type Verb = 'Fork' | 'Mirror';
 
@@ -27,12 +27,12 @@ export function mirrorFromSource(plugin: PublicTxtPlugin): void {
 export function forkActiveMirror(plugin: PublicTxtPlugin): void {
 	const active = activeMirror(plugin.app);
 	if (!active) return;
-	const { follow, meta } = active;
+	const { file, follow, meta } = active;
 	// Nothing is read from the source: the mirror is in the vault.
-	void startFork(plugin, { url: follow.url, name: follow.name, head: null, folder: follow.folder }, [meta.path]);
+	void startFork(plugin, { url: follow.url, name: follow.name, head: null, folder: follow.folder }, [meta.path], { chosen: { path: file.path, meta } });
 }
 
-function pickSource(plugin: PublicTxtPlugin, verb: Verb, then: (from: ForkSource, path: string) => void): void {
+function pickSource(plugin: PublicTxtPlugin, verb: Verb, then: (from: CopySource, path: string) => void): void {
 	const { follows } = scanFollows(plugin.app);
 	if (follows.length === 0) {
 		new Notice('No sources. Add one in settings first.');
@@ -43,19 +43,19 @@ function pickSource(plugin: PublicTxtPlugin, verb: Verb, then: (from: ForkSource
 }
 
 /** Fetches the source's head, then offers its Markdown files. */
-async function pickFile(plugin: PublicTxtPlugin, verb: Verb, follow: Follow, then: (from: ForkSource, path: string) => void): Promise<void> {
+async function pickFile(plugin: PublicTxtPlugin, verb: Verb, follow: Follow, then: (from: CopySource, path: string) => void): Promise<void> {
 	const { app, data } = plugin;
 	const fetching = new Notice(`Fetching ${follow.name}…`, 0);
 	try {
 		const host = vaultHost(app, data);
 		const head = await host.head(follow.url, follow.branch);
-		const paths = [...(await host.tree(follow.url, head.tree)).files.keys()].filter(isForkable).sort();
+		const paths = [...(await host.tree(follow.url, head.tree)).files.keys()].filter(isCopyable).sort();
 		fetching.hide();
 		if (paths.length === 0) {
 			new Notice(`No Markdown files in ${follow.name} at ${head.branch}.`);
 			return;
 		}
-		const from: ForkSource = { url: follow.url, name: follow.name, head, folder: follow.folder };
+		const from: CopySource = { url: follow.url, name: follow.name, head, folder: follow.folder };
 		new PickModal(app, `${verb} which file from ${head.branch}?`, paths, (p) => p, (path) => then(from, path)).open();
 	} catch (e) {
 		fetching.hide();

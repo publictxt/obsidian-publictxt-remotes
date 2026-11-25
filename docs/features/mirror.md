@@ -46,18 +46,23 @@ back. A link by path to a page forked away dangles.
 ## Update
 
 **Update** on a file, or **Update mirrors (n)**, overwrites with upstream at the head the check
-saw and rewrites `mirror_*`. No compare. An edited mirror (text differs from its version,
-keys and links showing the same words aside, since Obsidian rewrites links when their targets
-move; or that version can't be read) isn't overwritten unasked: **Update** asks and suggests
-forking; **Update mirrors** skips and names it.
+saw and rewrites `mirror_*`. No compare. Its mirrors are looked up again, so one moved by hand
+since the check is updated where it is.
+
+A mirror isn't overwritten unasked (`mirrorState()`) when it is edited (text differs from its
+version, keys and links showing the same words aside, since Obsidian rewrites links when their
+targets move), or when that can't be told (its version can't be read). **Update** asks, saying
+which, and suggests forking; **Update mirrors** skips and names it. A note that changes while it
+is being updated is left and reported. A file whose mirrors are all gone leaves the list.
 
 ## Stop
 
 **Stop** on a mirrored file, **Remove** on one gone upstream, or **Stop mirroring this note**:
-after confirming, the mirror is trashed. Nothing of the user's is lost. A gone mirror stays
+after confirming, the mirror is trashed, with any edits made to it: the question says so, and
+suggests forking. A page mirrored twice stops with both notes, which it names. A gone mirror stays
 listed until removed or forked.
 
 ## Code
 
-Pure: `src/mirror/mirror.ts`, `src/sources/fork-meta.ts`. Vault: `src/mirror/run.ts`,
-`src/sources/forks.ts`.
+Pure: `src/mirror/mirror.ts`, `update.ts`, `src/copy/copy.ts`, `edited.ts`,
+`src/sources/fork-meta.ts`. Vault: `src/mirror/run.ts`, `update-run.ts`, `src/copy/run.ts`, `src/sources/forks.ts`.

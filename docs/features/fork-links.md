@@ -51,4 +51,4 @@ the same subpath): **Overwrite** doesn't ask because of them.
 
 ## Code
 
-Pure: `src/fork/links.ts`. Vault: `src/fork/links-run.ts`.
+Pure: `src/fork/links.ts`, `src/copy/link-text.ts`. Vault: `src/fork/links-run.ts`.

@@ -1,20 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { forkPath, forksOf, freePath, isForkable, newForkMeta } from '../src/fork/fork.ts';
-import type { Fork } from '../src/sources/fork-meta.ts';
+import { forkPath, freePath, newForkMeta } from '../src/fork/fork.ts';
 import { localIso } from '../src/util/time.ts';
 import { readForkMeta, forkMetaProps } from '../src/sources/fork-meta.ts';
 
 const sha = (c: string) => c.repeat(40);
 const REPO = 'https://github.com/a/b';
 const REMOTE = { url: REPO, name: 'a-b' };
-
-test('isForkable: Markdown only', () => {
-	assert.ok(isForkable('wiki/a.md'));
-	assert.ok(isForkable('A.MD'));
-	assert.ok(!isForkable('media/x.png'));
-	assert.ok(!isForkable('README'));
-});
 
 test('forkPath: file name in the folder; empty folder is the root', () => {
 	assert.equal(forkPath('forks', 'wiki/deep/a.md'), 'forks/a.md');
@@ -28,18 +20,6 @@ test('freePath: the path if free, else numbered before the extension', () => {
 	assert.equal(freePath('f/a.md', (p) => taken.has(p)), 'f/a 2.md');
 	// A dot in a folder name is not an extension.
 	assert.equal(freePath('f.d/noext', (p) => taken.has(p)), 'f.d/noext 1');
-});
-
-test('forksOf: same remote (or repo, for forks without one) and path only', () => {
-	const fork = (path: string, remote: string | null, repo: string, from: string): Fork => ({ path, meta: { remote, repo, path: from, blob: sha('1'), branch: null, commit: null, date: null, seen: null } });
-	const forks = [
-		fork('a.md', 'a-b', REPO, 'wiki/a.md'),
-		fork('old.md', null, REPO, 'wiki/a.md'),
-		fork('b.md', 'a-b', REPO, 'wiki/b.md'),
-		fork('c.md', 'x-y', REPO, 'wiki/a.md'),
-		fork('d.md', null, 'https://github.com/x/y', 'wiki/a.md'),
-	];
-	assert.deepEqual(forksOf(forks, REMOTE, 'wiki/a.md').map((f) => f.path), ['a.md', 'old.md']);
 });
 
 test('localIso: local time with offset, to the second', () => {

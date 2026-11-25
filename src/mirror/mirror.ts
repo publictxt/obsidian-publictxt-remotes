@@ -1,11 +1,11 @@
 // Mirroring a source file into the vault (docs/features/mirror.md): upstream's copy, in the
 // source's folder under the community folder, at the path it has upstream. Pure.
 
+import type { Remote } from '../copy/copy.ts';
 import type { Head } from '../remote/host.ts';
 import type { ForkMeta, MirrorMeta } from '../sources/fork-meta.ts';
 import { isLocalRepo } from '../sources/repo-url.ts';
 import { localIso } from '../util/time.ts';
-import type { Remote } from '../fork/fork.ts';
 
 /** A source's folder of mirrors: its `folder`, else its name, under the community folder. */
 export function mirrorFolderOf(communityFolder: string, folder: string | null, name: string): string {

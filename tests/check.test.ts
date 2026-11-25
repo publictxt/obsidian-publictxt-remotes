@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { acknowledged, checkSource, checked, checkedAll, hasNews, inInclude, isSettled, latestFirst } from '../src/check/check.ts';
+import { acknowledged, checkSource, checked, checkedAll, hasNews, inInclude, isSettled, latestFirst, withMirrors } from '../src/check/check.ts';
 import type { Fork, Mirror } from '../src/sources/fork-meta.ts';
 import type { Change, Head, RemoteHost } from '../src/remote/host.ts';
 import type { Source, SourceState } from '../src/sources/schema.ts';
-import type { Remote } from '../src/fork/fork.ts';
+import type { Remote } from '../src/copy/copy.ts';
 
 const sha = (c: string) => c.repeat(40);
 const URL_ = 'https://github.com/a/b';
@@ -87,6 +87,18 @@ test('mirrors: this source only; modified and removed; current left out, still m
 	]);
 	assert.deepEqual([...c.mirrored].sort(), [['gone.md', 'community/a-b/gone.md'], ['m.md', 'community/a-b/m.md'], ['same.md', 'community/a-b/copy.md']]);
 	assert.ok(hasNews(c));
+});
+
+test('withMirrors: a check in line with what was done to its mirrors, itself unchanged', async () => {
+	const mirror = (path: string, mp: string): Mirror => ({ path, meta: { remote: 'a-b', repo: null, path: mp, blob: sha('9'), branch: null, commit: null, date: null } });
+	const c = await checkSource(fakeHost({ 'a.md': sha('1'), 'b.md': sha('2') }), source(), state({ seenCommit: HEAD.commit }), [], [mirror('m/a.md', 'a.md'), mirror('m/b.md', 'b.md')]);
+	const settled = withMirrors(c, { settled: ['a.md'] });
+	assert.deepEqual(settled.mirrors.map((m) => m.path), ['b.md']);
+	assert.equal(settled.mirrored.get('a.md'), 'm/a.md');
+	const dropped = withMirrors(c, { drop: ['b.md'], add: new Map([['c.md', 'm/c.md']]) });
+	assert.deepEqual(dropped.mirrors.map((m) => m.path), ['a.md']);
+	assert.deepEqual([...dropped.mirrored], [['a.md', 'm/a.md'], ['c.md', 'm/c.md']]);
+	assert.deepEqual([c.mirrors.length, c.mirrored.size], [2, 2]);
 });
 
 test('forks: this source only; modified and removed; unchanged left out', async () => {

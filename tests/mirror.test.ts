@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { forkedMeta, mirroredText, mirrorFolderOf, mirrorPath, newMirrorMeta, planMirrors, updatedMirrorMeta } from '../src/mirror/mirror.ts';
 import { forkMetaProps, mirrorMetaProps, readForkMeta, readMirrorMeta, writeForkMeta, writeMirrorMeta, type MirrorMeta } from '../src/sources/fork-meta.ts';
-import { isEdited } from '../src/fork/update.ts';
+import { isEdited } from '../src/copy/edited.ts';
 
 const B = '0123456789abcdef0123456789abcdef01234567';
 const C = 'c'.repeat(40);

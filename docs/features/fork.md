@@ -21,7 +21,7 @@ Flat front matter keys, so Properties can show them. Upstream front matter is ke
 A note is a fork when `fork_path` and `fork_blob` are valid and it has a valid `fork_remote` or
 `fork_repo`. Writing a fork sets these and removes other `fork_*` and all `mirror_*` keys, so a
 fork of a fork never keeps upstream's provenance. A fork (or mirror) belongs to a source by
-`fork_remote` (case-insensitive), else `fork_repo` (`isForkOf()`). Forks are found by scanning.
+`fork_remote` (case-insensitive), else `fork_repo` (`isFrom()`). Forks are found by scanning.
 
 ## Ways in
 
@@ -32,8 +32,9 @@ Markdown only.
 **A mirrored file is moved, not fetched**: `renameFile` (Obsidian updates links to it; mirrors and
 the moved note get their text back, `moveMirror()`), keys `mirror_*` → `fork_*`, `fork_date` now,
 text unchanged but for its links. Never copied: two notes of one name would split every link by
-name. Its own path doesn't count as taken. If upstream has moved on, the next check lists it under
-Forks.
+name. Its own path doesn't count as taken. Of a file mirrored twice (copied by hand), **Fork this
+mirror** moves the active note, anything else the first by path. If upstream has moved on, the
+next check lists it under Forks.
 
 ## The modal
 
@@ -79,6 +80,7 @@ Then the new forks' links are converted and matched, as chosen.
 
 ## Code
 
-Pure: `src/fork/destination.ts`, `fork.ts`, `src/sources/fork-meta.ts`,
-`src/check/selection.ts`. Vault: `src/fork/run.ts`, `command.ts`, `src/sources/forks.ts`. UI:
+Pure: `src/fork/destination.ts`, `fork.ts`, `src/copy/copy.ts`, `src/sources/fork-meta.ts`,
+`src/check/selection.ts`. Vault: `src/fork/run.ts`, `command.ts`, `src/copy/run.ts`,
+`src/sources/forks.ts`. UI:
 `src/ui/fork-modal.ts`, `fork-preview.ts`, `folder-suggest.ts`.
