@@ -2,6 +2,8 @@
 
 import { App, getFrontMatterInfo, normalizePath, Notice, parseYaml, TFile } from 'obsidian';
 import { copiesOf, isCopyable, isFrom, type CopySource } from '../copy/copy.ts';
+import type { NoteParts } from '../copy/edited.ts';
+import { splitLink } from '../copy/link-text.ts';
 import type PublicTxtPlugin from '../main.ts';
 import { forkedMeta } from '../mirror/mirror.ts';
 import { scanForks, scanMirrors } from '../sources/forks.ts';
@@ -13,9 +15,8 @@ import { isRecord } from '../util/validate.ts';
 import { ensureFolder } from '../util/vault.ts';
 import { initialDestination, type PlannedFork, type VaultLook } from './destination.ts';
 import { newForkMeta } from './fork.ts';
-import { nameOf, splitLink } from './links.ts';
+import { nameOf } from './links.ts';
 import { linkNew, type LinkWork } from './links-run.ts';
-import type { NoteParts } from './update.ts';
 
 /**
  * Forks `paths` from a source: asks where they go (`ForkModal`), then writes them. A file the

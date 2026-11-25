@@ -2,10 +2,11 @@
 // them as the vault writes links; matching points the broken ones at notes of the vault.
 
 import { App, getFrontMatterInfo, Notice, parseYaml, type CachedMetadata, type EventRef, type TFile } from 'obsidian';
+import { splitLink } from '../copy/link-text.ts';
 import { errorText } from '../remote/vault-host.ts';
 import { readForkMeta, readMirrorMeta } from '../sources/fork-meta.ts';
 import { isRecord } from '../util/validate.ts';
-import { nameOf, notePath, reformat, relink, rewriteLinks, splitLink, type LinkRef } from './links.ts';
+import { nameOf, notePath, reformat, relink, rewriteLinks, type LinkRef } from './links.ts';
 
 /** How long to wait for Obsidian to read a note just written. */
 const CACHE_WAIT_MS = 10_000;

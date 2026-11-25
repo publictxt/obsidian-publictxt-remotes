@@ -51,5 +51,5 @@ followed, it says so and offers nothing.
 
 ## Code
 
-Pure: `src/fork/update.ts`; `isSettled()`, `latestFirst()` in `src/check/check.ts`. Vault:
+Pure: `src/fork/update.ts`, `src/copy/edited.ts`; `isSettled()`, `latestFirst()` in `src/check/check.ts`. Vault:
 `src/fork/update-run.ts`, `compare-run.ts`. UI: `src/ui/upstream-view.ts`.

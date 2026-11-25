@@ -6,6 +6,7 @@ import { App, Notice, type TFile } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
 import { isSettled, type ForkChange } from '../check/check.ts';
 import { copiesOf, isFrom } from '../copy/copy.ts';
+import { isEdited, type NoteParts } from '../copy/edited.ts';
 import { scanForks } from '../sources/forks.ts';
 import type { DiffStat } from '../remote/host.ts';
 import { vaultHost } from '../remote/vault-host.ts';
@@ -16,7 +17,7 @@ import { leafShowing } from './compare-run.ts';
 import { newForkMeta } from './fork.ts';
 import { linkNew } from './links-run.ts';
 import { needFrontMatter, noteParts as parts, writeFork } from './run.ts';
-import { alongsidePath, isEdited, updatedMeta, type Compare, type NoteParts } from './update.ts';
+import { alongsidePath, updatedMeta, type Compare } from './update.ts';
 
 /** What the Upstream view shows for a compare. */
 export interface CompareInfo {
