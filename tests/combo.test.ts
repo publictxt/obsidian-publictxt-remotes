@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { comboKey, comboText, parseCombo, readCombos } from '../src/tags/combo.ts';
+import { addCombos, comboKey, comboText, parseCombo, readCombos } from '../src/tags/combo.ts';
 
 test('parseCombo: tags and exclusions, # dropped, each once by match', () => {
 	assert.deepEqual(parseCombo('  books   -fiction #Dev dev -#Fiction '), { tags: ['books', 'Dev'], not: ['fiction'] });
@@ -29,4 +29,9 @@ test('readCombos: a list or one string; lines without a tag and repeats dropped'
 test('comboKey: order and case don\'t count; included and left out differ', () => {
 	assert.equal(comboKey({ tags: ['B', 'a'], not: [] }), comboKey({ tags: ['a', 'b'], not: [] }));
 	assert.notEqual(comboKey({ tags: ['a'], not: ['b'] }), comboKey({ tags: ['a', 'b'], not: [] }));
+});
+
+test('addCombos: those not there yet, after the rest', () => {
+	const [a, b, c] = ['dev obsidian', 'Obsidian dev', 'books'].map((l) => parseCombo(l)) as [NonNullable<ReturnType<typeof parseCombo>>, NonNullable<ReturnType<typeof parseCombo>>, NonNullable<ReturnType<typeof parseCombo>>];
+	assert.deepEqual(addCombos([a], [b, c, c]), [a, c]);
 });

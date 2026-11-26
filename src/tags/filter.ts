@@ -30,6 +30,12 @@ export function matchTags(tags: readonly string[]): Set<string> {
 	return out;
 }
 
+/** Whether two filters let the same pages through. All or any only counts once two are included. */
+export function sameFilter(a: TagFilter, b: TagFilter): boolean {
+	const same = (x: ReadonlySet<string>, y: ReadonlySet<string>) => x.size === y.size && [...x].every((t) => y.has(t));
+	return same(a.include, b.include) && same(a.exclude, b.exclude) && (a.include.size < 2 || a.mode === b.mode);
+}
+
 export function isSet(f: TagFilter): boolean {
 	return f.include.size > 0 || f.exclude.size > 0;
 }

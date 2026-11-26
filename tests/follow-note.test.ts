@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { collectFollows, followNotePath, isFollowPath, readFollow, remoteName, writeFollow } from '../src/sources/follow-note.ts';
+import { addFollowTags, collectFollows, followNotePath, isFollowPath, readFollow, remoteName, writeFollow } from '../src/sources/follow-note.ts';
 
 test('isFollowPath: markdown under follows/, any depth', () => {
 	assert.ok(isFollowPath('follows/a-b.md'));
@@ -77,4 +77,11 @@ test('follow_tags: read as combos, written as lines, removed when empty', () => 
 	assert.deepEqual(fm.follow_tags, ['dev obsidian', 'books -fiction']);
 	if (s) writeFollow(fm, { ...s, followTags: [] });
 	assert.ok(!('follow_tags' in fm));
+});
+
+test('addFollowTags: to the note as it is, each line once, other keys kept', () => {
+	const fm: Record<string, unknown> = { url: 'https://github.com/a/b', follow_tags: 'Dev obsidian' };
+	const all = addFollowTags(fm, [{ tags: ['obsidian', 'dev'], not: [] }, { tags: ['books'], not: ['fiction'] }]);
+	assert.equal(all.length, 2);
+	assert.deepEqual(fm, { url: 'https://github.com/a/b', follow_tags: ['Dev obsidian', 'books -fiction'] });
 });

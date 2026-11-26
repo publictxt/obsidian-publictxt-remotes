@@ -2,7 +2,8 @@
 // The Obsidian side of follow-note.ts.
 
 import { App, TFile } from 'obsidian';
-import { collectFollows, FOLLOWS_FOLDER, followNotePath, isFollowPath, writeFollow, type FollowScan } from './follow-note.ts';
+import { addFollowTags, collectFollows, FOLLOWS_FOLDER, followNotePath, isFollowPath, writeFollow, type FollowScan } from './follow-note.ts';
+import type { TagCombo } from '../tags/combo.ts';
 import type { Source } from './schema.ts';
 import { ensureFolder } from '../util/vault.ts';
 
@@ -28,6 +29,13 @@ export async function createFollow(app: App, s: Source, name: string): Promise<s
 /** Rewrites the source keys in the note at `path`; other keys and the body are kept. */
 export async function updateFollow(app: App, path: string, s: Source): Promise<void> {
 	await app.fileManager.processFrontMatter(note(app, path), (fm: Record<string, unknown>) => writeFollow(fm, s));
+}
+
+/** Adds `more` to the followed tags of the note at `path`, as it is now. Returns them all. */
+export async function followMoreTags(app: App, path: string, more: readonly TagCombo[]): Promise<TagCombo[]> {
+	let combos: TagCombo[] = [];
+	await app.fileManager.processFrontMatter(note(app, path), (fm: Record<string, unknown>) => (combos = addFollowTags(fm, more)));
+	return combos;
 }
 
 /** Moves the note at `path` to the trash, as the user's trash setting says. */

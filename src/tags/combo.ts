@@ -1,4 +1,4 @@
-// Tag combos: the lines of a follow note's `follow_tags` (docs/plans/tags.md). Pure.
+// Tag combos: the lines of a follow note's `follow_tags` (docs/features/tags.md). Pure.
 
 import { tagMatch } from './tags.ts';
 
@@ -29,12 +29,19 @@ export function comboText(c: TagCombo): string {
 /** Front matter `follow_tags` → its combos: a list, or one string. A line said twice, in any order or case, is kept once. */
 export function readCombos(v: unknown): TagCombo[] {
 	const list: unknown[] = Array.isArray(v) ? v : [v];
-	const out = new Map<string, TagCombo>();
-	for (const line of list) {
-		const c = typeof line === 'string' ? parseCombo(line) : null;
-		if (c && !out.has(comboKey(c))) out.set(comboKey(c), c);
+	return addCombos([], list.map((line) => (typeof line === 'string' ? parseCombo(line) : null)).filter((c): c is TagCombo => c !== null));
+}
+
+/** `combos`, then those of `more` not among them. */
+export function addCombos(combos: readonly TagCombo[], more: readonly TagCombo[]): TagCombo[] {
+	const keys = new Set(combos.map(comboKey));
+	const out = [...combos];
+	for (const c of more) {
+		if (keys.has(comboKey(c))) continue;
+		keys.add(comboKey(c));
+		out.push(c);
 	}
-	return [...out.values()];
+	return out;
 }
 
 /** The same for any combo with the same tags, whatever their order or case. */

@@ -57,7 +57,7 @@ export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi,
 	// Counts are "3 of 12" once the filter has an answer.
 	const found = filtering(ui.tags) && tags.state === 'ready';
 	actions(el, c, ui, shown);
-	if (c.files.length) renderTagFilter(el, ui.tags, tags);
+	if (c.files.length) renderTagFilter(el, ui.tags, tags, r.follow.followTags);
 	changes(el, { ...d, c: shown }, c, found);
 	mirrors(el, c);
 	forks(el, c);

@@ -13,6 +13,16 @@ export function comboFilter(c: TagCombo): TagFilter {
 	return { include: new Set(c.tags.map(tagMatch)), exclude: new Set(c.not.map(tagMatch)), mode: 'all' };
 }
 
+/**
+ * The combos a filter stands for: one for **All**, one per included tag for **Any**, each with
+ * the exclusions. None for a filter that isn't set.
+ */
+export function filterCombos(f: TagFilter): TagCombo[] {
+	const not = [...f.exclude];
+	if (f.mode === 'any' && f.include.size > 1) return [...f.include].map((t) => ({ tags: [t], not }));
+	return f.include.size || not.length ? [{ tags: [...f.include], not }] : [];
+}
+
 /** Whether a page with these tags (as `matchTags` gives them) matches any of `combos`. */
 export function matchesAny(combos: readonly TagCombo[], tags: ReadonlySet<string>): boolean {
 	return combos.some((c) => passes(comboFilter(c), tags));

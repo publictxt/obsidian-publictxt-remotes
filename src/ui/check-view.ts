@@ -1,7 +1,7 @@
 // The check view: the last check, source by source (docs/features/check.md). It owns the
 // clicks; check-source.ts draws each source.
 
-import { ItemView, type WorkspaceLeaf } from 'obsidian';
+import { ItemView, Notice, type WorkspaceLeaf } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
 import type { SourceCheck } from '../check/check.ts';
 import type { SourceResult } from '../check/run.ts';
@@ -20,6 +20,8 @@ import { actOnForkChange } from './fork-change.ts';
 import { keepFocus } from './keep-focus.ts';
 import { folderOpen, newSourceUi, sourceOpen, type SourceUi } from './source-ui.ts';
 import { filterAction, narrowed, redrawChips } from './tag-filter.ts';
+import { errorText } from '../remote/vault-host.ts';
+import { filterCombos } from '../tags/follow.ts';
 
 export const VIEW_TYPE_CHECK = 'publictxt-check';
 
@@ -186,11 +188,15 @@ export class CheckView extends ItemView {
 			case 'tag-mode':
 			case 'tag-more':
 			case 'tag-clear':
+			case 'tag-combo':
 				filterAction(this.uiOf(url).tags, action, path);
 				this.render();
 				break;
 			case 'tag-retry':
 				this.retryTags(url);
+				break;
+			case 'tag-follow':
+				this.plugin.followTags(url, filterCombos(this.uiOf(url).tags.filter)).catch((e: unknown) => void new Notice(errorText(e)));
 				break;
 			default:
 				// A new action without a case here doesn't compile.

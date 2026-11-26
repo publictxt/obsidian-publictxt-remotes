@@ -2,8 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Change } from '../src/remote/host.ts';
 import { parseCombo, type TagCombo } from '../src/tags/combo.ts';
-import { matchTags } from '../src/tags/filter.ts';
-import { followedChanges, matchesAny, pagesToRead } from '../src/tags/follow.ts';
+import { matchTags, sameFilter, type TagFilter } from '../src/tags/filter.ts';
+import { filterCombos, followedChanges, matchesAny, pagesToRead } from '../src/tags/follow.ts';
 import type { TagIndex } from '../src/tags/tag-index.ts';
 
 const combos = (...lines: string[]): TagCombo[] => lines.map((l) => parseCombo(l)).filter((c): c is TagCombo => c !== null);
@@ -46,4 +46,21 @@ test('followedChanges: when every file is listed, only the version at head count
 	const changes = [ch('a.md', 'added'), ch('b.md', 'added')];
 	const got = followedChanges(changes, combos('dev'), index({ a: [], 'a.md': ['dev'], 'b.md': [] }), index({ 'b.md': ['dev'] }), true);
 	assert.deepEqual([...got], ['a.md']);
+});
+
+const filter = (include: string[], exclude: string[] = [], mode: TagFilter['mode'] = 'all'): TagFilter => ({ include: new Set(include), exclude: new Set(exclude), mode });
+
+test('filterCombos: one line for all, one per included tag for any, each with the exclusions', () => {
+	assert.deepEqual(filterCombos(filter(['dev', 'app'], ['old'])), [{ tags: ['dev', 'app'], not: ['old'] }]);
+	assert.deepEqual(filterCombos(filter(['dev', 'app'], ['old'], 'any')), [{ tags: ['dev'], not: ['old'] }, { tags: ['app'], not: ['old'] }]);
+	assert.deepEqual(filterCombos(filter(['dev'], [], 'any')), [{ tags: ['dev'], not: [] }]);
+	assert.deepEqual(filterCombos(filter([], ['old'])), [{ tags: [], not: ['old'] }]);
+	assert.deepEqual(filterCombos(filter([])), []);
+});
+
+test('sameFilter: same tags each way; the mode only once two are included', () => {
+	assert.ok(sameFilter(filter(['a', 'b'], ['c']), filter(['b', 'a'], ['c'])));
+	assert.ok(!sameFilter(filter(['a', 'b']), filter(['a', 'b'], [], 'any')));
+	assert.ok(sameFilter(filter(['a']), filter(['a'], [], 'any')));
+	assert.ok(!sameFilter(filter(['a'], ['c']), filter(['a', 'c'])));
 });

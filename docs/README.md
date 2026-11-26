@@ -7,7 +7,7 @@ Read only what the task needs.
 | [intent.md](intent.md) | Why the plugin exists, the decisions that shape it, what's open |
 | [naming.md](naming.md) | Vocabulary, frozen ids, where the code lives |
 | [features/](features/) | What each feature does: the reference. One file per feature |
-| [plans/](plans/) | What's planned and not built: [tags.md](plans/tags.md). A plan goes once built |
+| `plans/` | What's planned and not built: none now. A plan goes once built |
 
 Features:
 
@@ -15,7 +15,7 @@ Features:
 |---|---|
 | [sources.md](features/sources.md) | `data.json`, follow notes, canonical URL, settings tab, state |
 | [check.md](features/check.md) | A check, and the check view |
-| [tags.md](features/tags.md) | Tags of a source's pages: the filter, the tag index |
+| [tags.md](features/tags.md) | Tags of a source's pages: the filter, the tag index, followed tags |
 | [git.md](features/git.md) | `RemoteHost` over the git CLI: clones, commands, errors |
 | [local.md](features/local.md) | Local sources, local copies, making a repo, snapshot |
 | [mirror.md](features/mirror.md) | Mirror provenance; mirror, update, stop |

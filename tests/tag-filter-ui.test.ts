@@ -105,3 +105,11 @@ test('folders are kept per list: one in what\'s new and other changes opens and 
 	assert.equal(folderOpen(check, ui, 'w', 'other'), false);
 	assert.equal(ui.others, false);
 });
+
+test('a followed combo sets the filter to it, and selected again clears it', () => {
+	const ui = newFilterUi();
+	filterAction(ui, 'tag-combo', 'Dev -old');
+	assert.deepEqual([[...ui.filter.include], [...ui.filter.exclude], ui.filter.mode], [['dev'], ['old'], 'all']);
+	filterAction(ui, 'tag-combo', 'dev -old');
+	assert.equal(filtering({ ...ui, open: true }), false);
+});
