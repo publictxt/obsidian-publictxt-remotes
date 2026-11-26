@@ -3,6 +3,7 @@
 
 import { normalizeSource, type Source } from './schema.ts';
 import type { Follow } from './follow-note.ts';
+import { comboText } from '../tags/combo.ts';
 import { canonicalRepoUrl, defaultRemoteName, isLocalRepo, localPathInput, remoteNameProblem } from './repo-url.ts';
 
 /** What the source form holds: raw text, one path per line for lists. */
@@ -15,6 +16,8 @@ export interface SourceForm {
 	path: string;
 	branch: string;
 	include: string;
+	/** A tag combo per line, as in `follow_tags`. */
+	followTags: string;
 	folder: string;
 	/** `''`: the setting decides. */
 	listMirrors: '' | 'on' | 'off';
@@ -22,7 +25,7 @@ export interface SourceForm {
 	listForks: '' | 'on' | 'off';
 }
 
-export const EMPTY_FORM: SourceForm = { name: '', url: '', path: '', branch: '', include: '', folder: '', listMirrors: '', listForks: '' };
+export const EMPTY_FORM: SourceForm = { name: '', url: '', path: '', branch: '', include: '', followTags: '', folder: '', listMirrors: '', listForks: '' };
 
 /** A source to write, its remote name, and its folder on this computer: a local source's, or a hosted source's local copy (`null`: none). */
 export type Checked = { ok: true; source: Source; name: string; localPath: string | null } | { ok: false; error: string };
@@ -43,6 +46,7 @@ export function sourceToForm(f: Follow, localPath: string | null): SourceForm {
 		path: localPath ?? '',
 		branch: f.branch ?? '',
 		include: f.include.join('\n'),
+		followTags: f.followTags.map(comboText).join('\n'),
 		folder: f.folder ?? '',
 		listMirrors: f.listMirrors === null ? '' : f.listMirrors ? 'on' : 'off',
 		listForks: f.listForks === null ? '' : f.listForks ? 'on' : 'off',
@@ -67,6 +71,7 @@ export function formToSource(f: SourceForm, name: string): Checked {
 			local: !f.url.trim(),
 			branch: f.branch,
 			include: lines(f.include),
+			follow_tags: lines(f.followTags),
 			folder: f.folder,
 			list_mirrors: f.listMirrors === '' ? null : f.listMirrors === 'on',
 			list_forks: f.listForks === '' ? null : f.listForks === 'on',

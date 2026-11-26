@@ -17,7 +17,7 @@ records where it came from in its front matter.
 - **Check** what's new, which mirrors are behind, and which forks changed upstream.
   [Check](docs/features/check.md)
 - **Filter by tag**: narrow a source's news and pages by a combination of tags, before mirroring any.
-  [Tags](docs/features/tags.md)
+  **Follow** tags: what's new lists the pages with them, the rest folded. [Tags](docs/features/tags.md)
 - **Mirror** a page: upstream's copy under the **community folder**, to read, search and link
   to. Updates overwrite it. [Mirror](docs/features/mirror.md)
 - **Fork** a page: your own note with `fork_*` provenance. [Fork](docs/features/fork.md)
@@ -67,7 +67,8 @@ Add `.obsidian/plugins/publictxt-remotes/` to the vault's `.gitignore` if you do
 ## Privacy
 
 The network is used only through git, to fetch the repos you follow, with your own credentials.
-Filtering a source by tag downloads its pages into its clone. No other services, no telemetry.
+Filtering a source by tag downloads its pages into its clone; following tags downloads the
+changed pages at each check. No other services, no telemetry.
 
 The plugin writes outside your vault only for local sources and local copies, and only when you
 choose **Snapshot** or **Make repo**: git commits in that folder, as you, and a `.gitignore`

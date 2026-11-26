@@ -13,6 +13,7 @@ import { prepareLocalCopy, prepareLocalFolder } from './snapshot/run.ts';
 import { errorText } from './remote/vault-host.ts';
 import { SourceModal } from './ui/source-modal.ts';
 import { mirrorFolderOf } from './mirror/mirror.ts';
+import { comboText } from './tags/combo.ts';
 
 type TextField = 'communityFolder' | 'forkFolder' | 'clonesFolder' | 'gitPath';
 type ToggleField = 'matchFolders' | 'listMirrors' | 'listForks';
@@ -215,6 +216,7 @@ function summary(f: Follow, folder: string | null, root: string): string {
 		...(!isLocalRepo(f.url) && folder ? [`local copy: ${folder}`] : []),
 		`branch: ${f.branch ?? 'default'}`,
 		f.include.length ? `include: ${f.include.join(', ')}` : 'whole repo',
+		...(f.followTags.length ? [`tags: ${f.followTags.map(comboText).join(', ')}`] : []),
 	];
 	parts.push(`mirrors to: ${mirrorFolderOf(root, f.folder, f.name)}`);
 	if (f.listMirrors !== null) parts.push(`mirror list: ${f.listMirrors ? 'on' : 'off'}`);

@@ -69,7 +69,6 @@ make some my own; see when those change upstream.
 
 - Merge a fork (`git merge-file` on `fork_blob`)
 - propose changes upstream (converting links back)
-- followed tags ([plan](plans/tags.md))
 - offer to fork or mirror the notes dangling links name
 - warn when a local copy is ahead of its origin
 - mirror attachments; update mirrors at each check if wanted

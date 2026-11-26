@@ -4,7 +4,9 @@
 import type { SourceCheck } from '../check/check.ts';
 import { isCopyable } from '../copy/copy.ts';
 import type { Change } from '../remote/host.ts';
-import { chips, isSet, NO_FILTER, passes, passing, press, shownChips, type Chip, type PageTags, type TagFilter } from '../tags/filter.ts';
+import { comboKey, comboText, parseCombo, type TagCombo } from '../tags/combo.ts';
+import { chips, isSet, NO_FILTER, passes, passing, press, sameFilter, shownChips, type Chip, type PageTags, type TagFilter } from '../tags/filter.ts';
+import { comboFilter, filterCombos } from '../tags/follow.ts';
 import type { TagsState } from '../tags/run.ts';
 import { actionAttrs, type CheckAction } from './check-actions.ts';
 
@@ -61,8 +63,8 @@ function news(changes: readonly Change[], pages: PageTags, filter: TagFilter): C
 
 export type FilterAction = Extract<CheckAction, `tag-${string}`>;
 
-/** Does what a click in the filter does to what is set; `tag` is the chip's. */
-export function filterAction(ui: FilterUi, action: Exclude<FilterAction, 'tag-retry'>, tag: string | undefined): void {
+/** Does what a click in the filter does to what is set; `tag` is the chip's, or a followed combo's line. */
+export function filterAction(ui: FilterUi, action: Exclude<FilterAction, 'tag-retry' | 'tag-follow'>, tag: string | undefined): void {
 	switch (action) {
 		case 'tag-filter':
 			ui.open = !ui.open;
@@ -81,6 +83,12 @@ export function filterAction(ui: FilterUi, action: Exclude<FilterAction, 'tag-re
 			ui.filter = NO_FILTER;
 			ui.typed = '';
 			break;
+		case 'tag-combo': {
+			// A followed combo sets the filter to it; selected again, it clears it.
+			const c = tag === undefined ? null : parseCombo(tag);
+			if (c) ui.filter = sameFilter(ui.filter, comboFilter(c)) ? NO_FILTER : comboFilter(c);
+			break;
+		}
 		default:
 			action satisfies never;
 	}
@@ -91,8 +99,8 @@ export function tagFilterButton(actions: HTMLElement, ui: FilterUi): void {
 	actions.createEl('button', { text: ui.open ? 'Hide tag filter' : 'Filter by tag', attr: { ...actionAttrs('tag-filter'), 'aria-expanded': String(ui.open), 'aria-label': 'Show only pages with the tags you choose, in what\'s new and all files' } });
 }
 
-/** The filter itself, when shown. */
-export function renderTagFilter(parent: HTMLElement, ui: FilterUi, tags: TagsState): void {
+/** The filter itself, when shown; `followed`: the source's followed tags. */
+export function renderTagFilter(parent: HTMLElement, ui: FilterUi, tags: TagsState, followed: readonly TagCombo[]): void {
 	if (!ui.open) return;
 	const el = parent.createDiv({ cls: 'publictxt-tag-filter' });
 	const row = el.createDiv({ cls: 'publictxt-actions' });
@@ -110,6 +118,7 @@ export function renderTagFilter(parent: HTMLElement, ui: FilterUi, tags: TagsSta
 		el.createEl('p', { cls: 'publictxt-warning', text: `${pagesText(tags.unread)} couldn't be read.` });
 		retry(el);
 	}
+	if (followed.length) followedRow(el, ui.filter, followed);
 	const list = chips(tags.pages, ui.filter);
 	if (!list.length) {
 		el.createEl('p', { cls: 'publictxt-quiet', text: 'No tags in these files.' });
@@ -122,7 +131,24 @@ export function renderTagFilter(parent: HTMLElement, ui: FilterUi, tags: TagsSta
 		row.createEl('button', { text: mode === 'all' ? 'All' : 'Any', attr: { ...actionAttrs('tag-mode'), 'aria-label': `Pages with ${mode} of the tags. Select for ${mode === 'all' ? 'any' : 'all'}.` } });
 	}
 	if (isSet(ui.filter)) row.createEl('button', { text: 'Clear', attr: actionAttrs('tag-clear') });
+	if (isNew(ui.filter, followed)) row.createEl('button', { text: 'Follow these tags', attr: { ...actionAttrs('tag-follow'), 'aria-label': 'Add them to the follow note: what\'s new then lists the pages with them, the rest folded' } });
 	renderChips(el.createDiv({ cls: 'publictxt-chips' }), ui, list);
+}
+
+/** The followed combos: selecting one sets the filter to it. */
+function followedRow(el: HTMLElement, filter: TagFilter, followed: readonly TagCombo[]): void {
+	const row = el.createDiv({ cls: 'publictxt-actions' });
+	row.createSpan({ cls: 'publictxt-quiet', text: 'Followed:' });
+	for (const c of followed) {
+		const line = comboText(c);
+		row.createEl('button', { text: line, attr: { ...actionAttrs('tag-combo', line), 'aria-pressed': String(sameFilter(filter, comboFilter(c))) } });
+	}
+}
+
+/** Whether the filter is set and stands for a combo not followed yet. */
+function isNew(filter: TagFilter, followed: readonly TagCombo[]): boolean {
+	const keys = new Set(followed.map(comboKey));
+	return filterCombos(filter).some((c) => !keys.has(comboKey(c)));
 }
 
 function pagesText(n: number): string {

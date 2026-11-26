@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { collectFollows, followNotePath, isFollowPath, readFollow, remoteName, writeFollow } from '../src/sources/follow-note.ts';
+import { addFollowTags, collectFollows, followNotePath, isFollowPath, readFollow, remoteName, writeFollow } from '../src/sources/follow-note.ts';
 
 test('isFollowPath: markdown under follows/, any depth', () => {
 	assert.ok(isFollowPath('follows/a-b.md'));
@@ -12,7 +12,7 @@ test('isFollowPath: markdown under follows/, any depth', () => {
 
 test('readFollow: spec keys, single strings as lists, other keys ignored', () => {
 	assert.deepEqual(readFollow({ url: 'https://github.com/a/b.git', include: 'wiki', tags: ['x'] }), {
-		url: 'https://github.com/a/b', branch: null, include: ['wiki/'], folder: null, listMirrors: null, listForks: null,
+		url: 'https://github.com/a/b', branch: null, include: ['wiki/'], followTags: [], folder: null, listMirrors: null, listForks: null,
 	});
 	assert.equal(readFollow({ url: 'https://github.com/a/b', list_forks: false })?.listForks, false);
 	assert.equal(readFollow({ url: 'https://github.com/a/b', list_forks: 'yes' })?.listForks, null);
@@ -24,9 +24,9 @@ test('readFollow: spec keys, single strings as lists, other keys ignored', () =>
 
 test('writeFollow: sets keys, removes cleared ones, keeps the rest', () => {
 	const fm: Record<string, unknown> = { tags: ['t'], branch: 'old' };
-	writeFollow(fm, { url: 'https://github.com/a/b', branch: null, include: ['w/'], folder: null, listMirrors: null, listForks: null });
+	writeFollow(fm, { url: 'https://github.com/a/b', branch: null, include: ['w/'], followTags: [], folder: null, listMirrors: null, listForks: null });
 	assert.deepEqual(fm, { tags: ['t'], url: 'https://github.com/a/b', include: ['w/'] });
-	writeFollow(fm, { url: 'https://github.com/a/b', branch: null, include: [], folder: null, listMirrors: false, listForks: true });
+	writeFollow(fm, { url: 'https://github.com/a/b', branch: null, include: [], followTags: [], folder: null, listMirrors: false, listForks: true });
 	assert.equal((fm as Record<string, unknown>).list_forks, true);
 	assert.equal((fm as Record<string, unknown>).list_mirrors, false);
 });
@@ -67,4 +67,21 @@ test('collectFollows: one name per remote, compared without case', () => {
 	]);
 	assert.deepEqual(scan.follows.map((f) => [f.name, f.url]), [['notes', 'https://github.com/a/b'], ['local', 'local:local']]);
 	assert.deepEqual(scan.duplicates.map((f) => [f.path, f.of]), [['follows/b/Notes.md', 'name']]);
+});
+
+test('follow_tags: read as combos, written as lines, removed when empty', () => {
+	const s = readFollow({ url: 'https://github.com/a/b', follow_tags: ['dev  obsidian', 'books -#fiction'] });
+	assert.deepEqual(s?.followTags, [{ tags: ['dev', 'obsidian'], not: [] }, { tags: ['books'], not: ['fiction'] }]);
+	const fm: Record<string, unknown> = {};
+	if (s) writeFollow(fm, s);
+	assert.deepEqual(fm.follow_tags, ['dev obsidian', 'books -fiction']);
+	if (s) writeFollow(fm, { ...s, followTags: [] });
+	assert.ok(!('follow_tags' in fm));
+});
+
+test('addFollowTags: to the note as it is, each line once, other keys kept', () => {
+	const fm: Record<string, unknown> = { url: 'https://github.com/a/b', follow_tags: 'Dev obsidian' };
+	const all = addFollowTags(fm, [{ tags: ['obsidian', 'dev'], not: [] }, { tags: ['books'], not: ['fiction'] }]);
+	assert.equal(all.length, 2);
+	assert.deepEqual(fm, { url: 'https://github.com/a/b', follow_tags: ['Dev obsidian', 'books -fiction'] });
 });

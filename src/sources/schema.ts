@@ -3,6 +3,7 @@
 
 import { canonicalRepoUrl, localKey, localPathInput, remoteNameProblem, sourceKey } from './repo-url.ts';
 import { isRecord, isSha, repoPath, str } from '../util/validate.ts';
+import { readCombos, type TagCombo } from '../tags/combo.ts';
 
 export const DATA_VERSION = 1;
 
@@ -14,6 +15,8 @@ export interface Source {
 	branch: string | null;
 	/** Folder prefixes ending in `/`. Empty: the whole repo. */
 	include: string[];
+	/** Followed tags, a combo per line; a page must match one. Empty: no tags are followed. */
+	followTags: TagCombo[];
 	/** Folder for this source's mirrors, under `communityFolder`; `null`: the remote name. */
 	folder: string | null;
 	/** Keep this follow note's mirror list; `null`: the `listMirrors` setting decides. */
@@ -107,6 +110,7 @@ export function normalizeSource(v: unknown, name: string | null = null): Source 
 		url,
 		branch: str(v.branch),
 		include: paths(v.include, true),
+		followTags: readCombos(v.follow_tags),
 		folder: folder || null,
 		listMirrors: typeof v.list_mirrors === 'boolean' ? v.list_mirrors : null,
 		listForks: typeof v.list_forks === 'boolean' ? v.list_forks : null,

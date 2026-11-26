@@ -6,7 +6,7 @@
 
 import { hasNews, type NewReason, type SourceCheck } from '../check/check.ts';
 import type { SourceResult } from '../check/run.ts';
-import { selectedPaths } from '../check/selection.ts';
+import { changesIn, selectedPaths } from '../check/selection.ts';
 import { isLocalRepo } from '../sources/repo-url.ts';
 import type { CheckFrom } from '../sources/schema.ts';
 import type { TagsState } from '../tags/run.ts';
@@ -57,8 +57,8 @@ export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi,
 	// Counts are "3 of 12" once the filter has an answer.
 	const found = filtering(ui.tags) && tags.state === 'ready';
 	actions(el, c, ui, shown);
-	if (c.files.length) renderTagFilter(el, ui.tags, tags);
-	changes(el, { ...d, c: shown }, c.changes.length, found);
+	if (c.files.length) renderTagFilter(el, ui.tags, tags, r.follow.followTags);
+	changes(el, { ...d, c: shown }, c, found);
 	mirrors(el, c);
 	forks(el, c);
 	allFiles(el, { ...d, c: shown }, c.files.length, found);
@@ -112,11 +112,12 @@ function header(source: HTMLElement, r: SourceResult, open: boolean, offers: Hea
 	return item.children;
 }
 
-/** What a closed source still says: `New 4 · Mirrors 2 · Forks 1`. */
+/** What a closed source still says: `New 4 · Other 3 · Mirrors 2 · Forks 1`; other changes only with followed tags. */
 function summary(r: SourceResult): string {
 	if (r.check === null) return 'Error';
 	const counts: [string, number][] = [
-		['New', r.check.changes.length],
+		['New', changesIn(r.check, 'new').length],
+		['Other', changesIn(r.check, 'other').length],
 		['Mirrors', r.check.mirrors.length],
 		['Forks', r.check.forks.length],
 	];
@@ -124,14 +125,35 @@ function summary(r: SourceResult): string {
 	return parts.join(' · ') || 'Nothing new';
 }
 
-/** What changed, those the tag filter lets through; `total` is how many there are without it. */
-function changes(el: HTMLElement, d: Drawing, total: number, found: boolean): void {
+/** `n`, or "n of total" once the tag filter has an answer (`found`). */
+function counted(n: number, total: number, found: boolean): string {
+	return found ? `${n} of ${total}` : String(total);
+}
+
+/**
+ * What changed, those the tag filter lets through (`all`: the check without it). With followed
+ * tags, those that match, then the others, folded.
+ */
+function changes(el: HTMLElement, d: Drawing, all: SourceCheck, found: boolean): void {
 	const { c } = d;
-	if (!total) return;
-	el.createEl('h5', { text: `What's new (${found ? `${c.changes.length} of ${total}` : total})` });
+	if (!all.changes.length) return;
+	const [n, total] = [changesIn(c, 'new').length, changesIn(all, 'new').length];
+	el.createEl('h5', { text: `What's new (${counted(n, total, found)})` });
 	if (d.reason) el.createEl('p', { cls: 'publictxt-quiet', text: d.reason });
-	if (found && !c.changes.length) el.createEl('p', { cls: 'publictxt-quiet', text: 'No pages match.' });
+	if (!total) el.createEl('p', { cls: 'publictxt-quiet', text: 'Nothing new with your followed tags.' });
+	else if (found && !n) el.createEl('p', { cls: 'publictxt-quiet', text: 'No pages match.' });
 	folderRows(el, listed(c, 'new').tree, d, 'new');
+	otherChanges(el, d, all, found);
+}
+
+/** The changes that don't match the followed tags, folded: **Mark as seen** covers them too. */
+function otherChanges(el: HTMLElement, d: Drawing, all: SourceCheck, found: boolean): void {
+	const total = changesIn(all, 'other').length;
+	if (!total) return;
+	const item = treeItem(el, d.ui.others);
+	setAction(item.self, 'toggle-others');
+	item.inner.setText(`Other changes (${counted(changesIn(d.c, 'other').length, total, found)})`);
+	if (item.children) folderRows(item.children, listed(d.c, 'other').tree, d, 'other');
 }
 
 /**
@@ -141,7 +163,7 @@ function changes(el: HTMLElement, d: Drawing, total: number, found: boolean): vo
 function allFiles(el: HTMLElement, d: Drawing, total: number, found: boolean): void {
 	const { c, ui } = d;
 	if (!ui.browse) return;
-	el.createEl('h5', { text: `All files (${found ? `${c.files.length} of ${total}` : total})` });
+	el.createEl('h5', { text: `All files (${counted(c.files.length, total, found)})` });
 	if (!total) el.createEl('p', { cls: 'publictxt-quiet', text: 'No files at head.' });
 	else if (found && !c.files.length) el.createEl('p', { cls: 'publictxt-quiet', text: 'No pages match.' });
 	folderRows(el, listed(c, 'all').tree, d, 'all');

@@ -3,7 +3,7 @@
 
 import type { SourceCheck } from '../check/check.ts';
 import { fileTree, type TreeFolder } from '../check/file-tree.ts';
-import { canFork, forkableByFolder, ticked, type FileList, type Ticked } from '../check/selection.ts';
+import { canFork, changesIn, forkableByFolder, ticked, type FileList, type Ticked } from '../check/selection.ts';
 import { actionAttrs, setAction, type CheckAction } from './check-actions.ts';
 import { folderOpen, type SourceUi } from './source-ui.ts';
 import { treeFlair, treeItem, type TreeItem } from './tree.ts';
@@ -26,7 +26,7 @@ export function listed(c: SourceCheck, list: FileList): ListedFiles {
 	if (!byList) listedOf.set(c, (byList = {}));
 	let n = byList[list];
 	if (!n) {
-		const files: readonly RemoteFile[] = list === 'new' ? c.changes : c.files.map((path) => ({ path, status: null }));
+		const files: readonly RemoteFile[] = list === 'all' ? c.files.map((path) => ({ path, status: null })) : changesIn(c, list);
 		byList[list] = n = { tree: fileTree(files, (f) => f.path), forkable: forkableByFolder(c, list) };
 	}
 	return n;
@@ -35,11 +35,21 @@ export function listed(c: SourceCheck, list: FileList): ListedFiles {
 /** What a mirrored file's row says, where one not mirrored offers "Mirror". Lower case, as "forked" is. */
 const MIRRORED: string = 'mirrored';
 
-/** What a click on a folder row, or its tick box, does: in what's new, or in all files. */
-const FOLDER_ACTIONS: Record<FileList, { toggle: CheckAction; select: Extract<CheckAction, 'select-folder' | 'select-all-folder'> }> = {
+type ToggleFolder = Extract<CheckAction, 'toggle-folder' | 'toggle-other-folder' | 'toggle-all-folder'>;
+type SelectFolder = Extract<CheckAction, 'select-folder' | 'select-other-folder' | 'select-all-folder'>;
+
+/** What a click on a folder row, or its tick box, does, in each list. */
+const FOLDER_ACTIONS: Record<FileList, { toggle: ToggleFolder; select: SelectFolder }> = {
 	new: { toggle: 'toggle-folder', select: 'select-folder' },
+	other: { toggle: 'toggle-other-folder', select: 'select-other-folder' },
 	all: { toggle: 'toggle-all-folder', select: 'select-all-folder' },
 };
+
+/** The list a folder's action is in. */
+export function folderList(action: ToggleFolder | SelectFolder): FileList {
+	const list = (Object.keys(FOLDER_ACTIONS) as FileList[]).find((l) => FOLDER_ACTIONS[l].toggle === action || FOLDER_ACTIONS[l].select === action);
+	return list ?? 'new';
+}
 
 /** A check being drawn. */
 export interface Drawing {
@@ -114,7 +124,7 @@ function fileRow(parent: HTMLElement, label: string, file: RemoteFile, d: Drawin
 }
 
 /** A tick box at the start of a row, for the file or folder `path`: ticked, half ticked or clear. */
-function tickBox(item: TreeItem, action: Extract<CheckAction, 'select' | 'select-folder' | 'select-all-folder'>, path: string, state: Ticked): void {
+function tickBox(item: TreeItem, action: SelectFolder | 'select', path: string, state: Ticked): void {
 	const box = item.self.createEl('input', { type: 'checkbox', prepend: true, attr: { ...actionAttrs(action, path), 'aria-label': `Select ${path}` } });
 	box.checked = state === 'all';
 	box.indeterminate = state === 'some';

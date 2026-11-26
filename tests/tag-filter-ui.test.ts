@@ -14,6 +14,7 @@ const check: SourceCheck = {
 	head: { branch: 'main', commit: 'c'.repeat(40), tree: 't'.repeat(40) },
 	changes: [{ path: 'w/b.md', status: 'modified', from: null }],
 	reason: null,
+	followed: null,
 	mirrors: [],
 	mirrored: new Map(),
 	forks: [],
@@ -91,6 +92,24 @@ test('folders in all files start closed, filter or not, until the user opens the
 	assert.equal(folderOpen(check, ui, 'w', 'all'), false);
 	ui.tags = on('dev');
 	assert.equal(folderOpen(narrowed(check, ui.tags, ready), ui, 'w', 'all'), false);
-	ui.allFolders.set('w', true);
+	ui.folders.all.set('w', true);
 	assert.equal(folderOpen(narrowed(check, ui.tags, ready), ui, 'w', 'all'), true);
+});
+
+test('folders are kept per list: one in what\'s new and other changes opens and closes apart', () => {
+	const ui = newSourceUi();
+	assert.equal(folderOpen(check, ui, 'w', 'new'), true);
+	assert.equal(folderOpen(check, ui, 'w', 'other'), true);
+	ui.folders.other.set('w', false);
+	assert.equal(folderOpen(check, ui, 'w', 'new'), true);
+	assert.equal(folderOpen(check, ui, 'w', 'other'), false);
+	assert.equal(ui.others, false);
+});
+
+test('a followed combo sets the filter to it, and selected again clears it', () => {
+	const ui = newFilterUi();
+	filterAction(ui, 'tag-combo', 'Dev -old');
+	assert.deepEqual([[...ui.filter.include], [...ui.filter.exclude], ui.filter.mode], [['dev'], ['old'], 'all']);
+	filterAction(ui, 'tag-combo', 'dev -old');
+	assert.equal(filtering({ ...ui, open: true }), false);
 });

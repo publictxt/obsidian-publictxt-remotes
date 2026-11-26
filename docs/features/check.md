@@ -31,7 +31,7 @@ acknowledged mid-run stays acknowledged. A check at startup waits for the worksp
 so a half-loaded metadata cache can't make sources look unfollowed.
 
 Per source, a header: remote name (opens the follow note), branch, summary (`New 4 · Mirrors 1 ·
-Forks 2`, "Nothing new" or "Error"). It starts open when there's an error or anything new;
+Forks 2`, with `Other 3` for a source with followed tags; "Nothing new" or "Error"). It starts open when there's an error or anything new;
 once the user opens or closes it, it stays that way until the view closes. In the header too:
 
 - **Local** / **Remote**: hosted sources with a local copy; the one in use marked. Selecting
@@ -51,6 +51,9 @@ Then lists:
 - **What's new**: a folder tree, folders first with file counts, then files with status. A
   folder holding only one folder is joined (`wiki/cs/se`). Folders start open, or closed when
   every file is listed; then stay as the user left them. Closed folders aren't drawn.
+  With followed tags ([tags.md](tags.md#followed-tags)), only the changes that match; the rest
+  are under **Other changes (n)**, closed until opened, with folders of their own. Folded, not
+  hidden: **Mark as seen** covers them too.
 - **Mirrors changed upstream**: a row per `mirror_path`, then each stale mirror. Changed:
   **Update**. Gone: **Remove**, **Fork**.
 - **Forks changed upstream**: a row per `fork_path`, then each copy latest first (the first
@@ -70,7 +73,7 @@ Then lists:
 | Forked, settled | Also "forked" |
 
 **Ticks.** A folder's tick box is ticked, half or clear; selecting it ticks all or clears all. It
-leaves out forked files, so ticking a folder never re-forks. Ticks are per file across both
+leaves out forked files, so ticking a folder never re-forks. Ticks are per file across the
 lists, persist like open folders, and don't count files a later check doesn't list.
 
 ## Code

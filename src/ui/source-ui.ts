@@ -9,20 +9,20 @@ import { newFilterUi, type FilterUi } from './tag-filter.ts';
 export interface SourceUi {
 	/** Opened or closed by the user; `null`: left alone. */
 	open: boolean | null;
-	/** Folders in what's new the user opened (`true`) or closed, by path. */
-	folders: Map<string, boolean>;
+	/** Folders the user opened (`true`) or closed, by list, then path. */
+	folders: Record<FileList, Map<string, boolean>>;
+	/** Whether other changes, those not matching the followed tags, are shown. */
+	others: boolean;
 	/** Repo paths of the files ticked, to mirror or fork. */
 	selected: Set<string>;
 	/** Whether all files are shown. */
 	browse: boolean;
-	/** Folders in all files the user opened (`true`) or closed, by path. */
-	allFolders: Map<string, boolean>;
 	/** The tag filter on all files. */
 	tags: FilterUi;
 }
 
 export function newSourceUi(): SourceUi {
-	return { open: null, folders: new Map(), selected: new Set(), browse: false, allFolders: new Map(), tags: newFilterUi() };
+	return { open: null, folders: { new: new Map(), other: new Map(), all: new Map() }, others: false, selected: new Set(), browse: false, tags: newFilterUi() };
 }
 
 /** Whether a source shows what's under its header: as the user left it, else when it has an error or news. */
@@ -31,11 +31,10 @@ export function sourceOpen(r: SourceResult, ui: SourceUi): boolean {
 }
 
 /**
- * Whether a folder in what's new shows what's in it: as the user left it, else open. When every
+ * Whether a folder shows what's in it: as the user left it, else open in the changes. When every
  * file is listed (`reason`), nothing there is news, so folders start closed. In all files they
  * start closed too: their counts show where the files are.
  */
 export function folderOpen(c: SourceCheck, ui: SourceUi, path: string, list: FileList = 'new'): boolean {
-	if (list === 'all') return ui.allFolders.get(path) ?? false;
-	return ui.folders.get(path) ?? c.reason === null;
+	return ui.folders[list].get(path) ?? (list !== 'all' && c.reason === null);
 }

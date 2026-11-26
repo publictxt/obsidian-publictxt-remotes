@@ -35,9 +35,11 @@
 | convert links | Write a fork's links in the vault's form, paths kept |
 | match links | Point broken links at the one note of that name |
 | check | One pass over the sources: what's new, mirrors, forks |
-| tag filter | Included and excluded tags that narrow all files |
+| tag filter | Included and excluded tags that narrow what's new and all files |
 | tag index | The tags of a commit's Markdown files, kept in the clone |
 | unread | Of a page: not in the tag index, so its tags aren't known |
+| tag combo | One line of `follow_tags`: tags a page needs all of, and tags with `-` it must not have |
+| followed tags | A source's tag combos; a page matches when any line does |
 | head / blob | The tracked branch's latest commit / a file's git blob SHA |
 
 ## Code layout
@@ -53,7 +55,7 @@ Each feature file in [features/](features/) names its modules. Tests are in
 | `src/copy/` | What forks and mirrors share. Imports neither; `fork/` may import `mirror/`, never the reverse |
 | `src/mirror/` | Mirroring, update, stop |
 | `src/fork/` | Fork destination and writing, fork update, lists, fork links |
-| `src/tags/` | Tags from text, the tag filter, the tag index |
+| `src/tags/` | Tags from text, the tag filter, the tag index, tag combos |
 | `src/snapshot/` | Snapshot and make-a-repo from the vault |
 | `src/ui/` | Views, modals, tree rows |
 | `src/util/` | Small helpers |

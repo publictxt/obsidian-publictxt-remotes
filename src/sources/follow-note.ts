@@ -3,6 +3,7 @@
 
 import { normalizeSource, type Source } from './schema.ts';
 import { isLocalRepo } from './repo-url.ts';
+import { addCombos, comboText, readCombos, type TagCombo } from '../tags/combo.ts';
 
 /** Where follow notes live. Fixed by the spec, not a setting. */
 export const FOLLOWS_FOLDER = 'follows';
@@ -49,6 +50,7 @@ export function followProps(s: Source): Record<string, string | string[] | boole
 		local: local ? true : undefined,
 		branch: s.branch ?? undefined,
 		include: s.include.length ? s.include : undefined,
+		follow_tags: s.followTags.length ? s.followTags.map(comboText) : undefined,
 		folder: s.folder ?? undefined,
 		list_mirrors: s.listMirrors ?? undefined,
 		list_forks: s.listForks ?? undefined,
@@ -61,6 +63,13 @@ export function writeFollow(frontmatter: Record<string, unknown>, s: Source): vo
 		if (v === undefined) delete frontmatter[k];
 		else frontmatter[k] = v;
 	}
+}
+
+/** Adds `more` to the front matter's `follow_tags`, each line once. Returns them all. */
+export function addFollowTags(frontmatter: Record<string, unknown>, more: readonly TagCombo[]): TagCombo[] {
+	const combos = addCombos(readCombos(frontmatter.follow_tags), more);
+	if (combos.length) frontmatter.follow_tags = combos.map(comboText);
+	return combos;
 }
 
 /** Notes in `follows/` → follows, duplicates and invalid notes. */

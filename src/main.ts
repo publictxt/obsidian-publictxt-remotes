@@ -2,7 +2,7 @@ import { debounce, Notice, Plugin, type TAbstractFile } from 'obsidian';
 import { normalizeData, type CheckFrom, type PublicTxtData } from './sources/schema.ts';
 import { isFollowPath } from './sources/follow-note.ts';
 import { acknowledged, checked, checkedAll, withMirrors, type MirrorsNow, type SourceCheck } from './check/check.ts';
-import { checkOne, runCheck, type CheckRun } from './check/run.ts';
+import { checkOne, runCheck, type CheckRun, type SourceResult } from './check/run.ts';
 import { errorText } from './remote/vault-host.ts';
 import { PublicTxtSettingTab } from './settings.ts';
 import { CheckView, VIEW_TYPE_CHECK } from './ui/check-view.ts';
@@ -14,6 +14,8 @@ import { convertActive, matchActive } from './fork/links-run.ts';
 import { ForkLists } from './fork/fork-lists.ts';
 import { snapshotAndTell } from './snapshot/run.ts';
 import { SourceTags } from './tags/run.ts';
+import type { TagCombo } from './tags/combo.ts';
+import { followMoreTags } from './sources/follows.ts';
 
 export default class PublicTxtPlugin extends Plugin {
 	/** Everything in data.json, always normalized (docs/features/sources.md). */
@@ -89,7 +91,7 @@ export default class PublicTxtPlugin extends Plugin {
 			// Not as Obsidian starts: with the metadata cache half loaded, follow notes read as
 			// invalid, and the state of every source would be dropped as no longer followed.
 			await new Promise<void>((ready) => this.app.workspace.onLayoutReady(ready));
-			const run = await runCheck(this.app, this.data, (done, total) => {
+			const run = await runCheck(this.app, this.data, this.tags, (done, total) => {
 				this.checking = `Checking ${Math.min(done + 1, total)} of ${total}…`;
 				this.renderViews();
 			});
@@ -110,7 +112,7 @@ export default class PublicTxtPlugin extends Plugin {
 		if (!run || !follow || this.checking !== null) return;
 		await this.whileChecking(`Checking ${follow.name}…`, async () => {
 			await this.save({ ...this.data, checkFrom: { ...this.data.checkFrom, [follow.name]: from } });
-			const result = await checkOne(this.app, this.data, follow);
+			const result = await checkOne(this.app, this.data, this.tags, follow);
 			// Into the run as it is now: another source may have been acknowledged meanwhile.
 			const now = this.lastRun ?? run;
 			this.lastRun = { ...now, results: now.results.map((r) => (r.follow.url === url ? result : r)) };
@@ -151,6 +153,23 @@ export default class PublicTxtPlugin extends Plugin {
 	forkSettled(url: string, path: string): void {
 		const c = this.checkOf(url);
 		if (c) this.replaceCheck(c, { ...c, forks: c.forks.filter((f) => f.path !== path) });
+	}
+
+	/**
+	 * Adds `more` to the followed tags of the source `url`, and matches the last check's changes
+	 * with them all: no new check is needed.
+	 */
+	async followTags(url: string, more: readonly TagCombo[]): Promise<void> {
+		const r = this.lastRun?.results.find((x) => x.follow.url === url);
+		if (!r) return;
+		const follow = { ...r.follow, followTags: await followMoreTags(this.app, r.follow.path, more) };
+		const seen = this.data.state[url]?.seenCommit ?? null;
+		const next: SourceResult = r.check ? { follow, check: { ...r.check, followed: await this.tags.followed(r.check, follow.followTags, seen) }, error: null } : { ...r, follow };
+		// Into the run as it is now, unless a check replaced this result meanwhile.
+		const run = this.lastRun;
+		if (!run?.results.includes(r)) return;
+		this.lastRun = { ...run, results: run.results.map((x) => (x === r ? next : x)) };
+		this.renderViews();
 	}
 
 	/** The last check of the source `url`, if it was checked without an error. */

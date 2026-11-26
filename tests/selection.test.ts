@@ -1,13 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { SourceCheck } from '../src/check/check.ts';
-import { canFork, forkableByFolder, forkablePaths, forkableUnder, selectedPaths, ticked, toggleAll } from '../src/check/selection.ts';
+import { canFork, changesIn, forkableByFolder, forkablePaths, forkableUnder, selectedPaths, ticked, toggleAll } from '../src/check/selection.ts';
 import type { Change } from '../src/remote/host.ts';
 
 const change = (path: string, status: Change['status'] = 'modified'): Change => ({ path, status, from: null });
 
 function check(changes: Change[], forked: string[] = [], files: string[] = []): SourceCheck {
-	return { url: 'https://github.com/a/b', head: { branch: 'main', commit: '', tree: '' }, changes, reason: null, mirrors: [], mirrored: new Map(), forks: [], forked: new Set(forked), files };
+	return { url: 'https://github.com/a/b', head: { branch: 'main', commit: '', tree: '' }, changes, reason: null, followed: null, mirrors: [], mirrored: new Map(), forks: [], forked: new Set(forked), files };
 }
 
 const C = check(
@@ -74,4 +74,19 @@ test('all files: forkable under a folder, in its own list; ticks there count for
 	assert.deepEqual(forkableByFolder(c, 'all'), new Map([['old', ['old/b.md']], ['wiki', ['wiki/a.md']]]));
 	assert.deepEqual(forkablePaths(c), ['wiki/a.md', 'old/forked.md', 'old/b.md', 'top.md']);
 	assert.deepEqual(selectedPaths(c, new Set(['top.md', 'old/pic.png'])), ['top.md']);
+});
+
+test('changesIn: with followed tags, what\'s new matches them and other changes hold the rest', () => {
+	const paths = (cs: Change[]) => cs.map((ch) => ch.path);
+	assert.deepEqual(paths(changesIn(C, 'new')), paths([...C.changes]));
+	assert.deepEqual(changesIn(C, 'other'), []);
+	const f: SourceCheck = { ...C, followed: new Set(['wiki/a.md', 'wiki/gone.md']) };
+	assert.deepEqual(paths(changesIn(f, 'new')), ['wiki/a.md', 'wiki/gone.md']);
+	assert.deepEqual(paths(changesIn(f, 'other')), ['wiki/cs/b.md', 'wiki/pic.png', 'wikis/c.md']);
+	// A folder's tick box is of its own list's files.
+	assert.deepEqual(forkableUnder(f, 'wiki'), ['wiki/a.md']);
+	assert.deepEqual(forkableUnder(f, 'wiki', 'other'), ['wiki/cs/b.md']);
+	assert.deepEqual(forkableByFolder(f, 'other'), new Map([['wiki', ['wiki/cs/b.md']], ['wiki/cs', ['wiki/cs/b.md']], ['wikis', ['wikis/c.md']]]));
+	// Ticks are of files, whichever list shows them.
+	assert.deepEqual(selectedPaths(f, new Set(['wiki/cs/b.md'])), ['wiki/cs/b.md']);
 });

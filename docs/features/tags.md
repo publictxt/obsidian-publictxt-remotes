@@ -1,7 +1,6 @@
 # Tags
 
-Finding a source's pages by tag, though they aren't in the vault. Followed tags are
-[planned](../plans/tags.md).
+Finding a source's pages by tag, though they aren't in the vault, and following a source's tags.
 
 ## What is a tag
 
@@ -34,6 +33,11 @@ pages…").
 - **Hidden but still counted**: **Mark as seen** acknowledges hidden changes too, and says so;
   files ticked earlier stay ticked, and the buttons count them.
 - **Unread pages** are reported, with **Try again**.
+- **Followed:** the source's followed tags, above the chips; selecting one sets the filter to it,
+  and again clears it.
+- **Follow these tags**, while the filter is set to something not followed yet, adds it to the
+  follow note: one line for **All**, one per included tag for **Any**, each with the exclusions.
+  Lines already there aren't repeated. The last check is matched again at once.
 
 Per source; kept across checks as ticks are, and gone with the view. **Hide tag filter** keeps
 what is set and stops applying it.
@@ -41,7 +45,7 @@ what is set and stops applying it.
 ## Tag index
 
 Tags are in file contents, and clones don't hold contents up front ([git.md](git.md)). They are
-fetched at the first tag use for a source, never by a check alone. What was read is kept:
+fetched at the first tag use for a source, never by a check alone, unless it has followed tags. What was read is kept:
 
 ```
 <clonesFolder>/<host>/<owner>/<repo>.git/publictxt/tags-<commit>.json
@@ -77,8 +81,59 @@ and filtering never waits for it. Only head's and `seenCommit`'s files are kept.
 
 At 10,000 notes, building from nothing takes about 3 s and loading the file about 20 ms.
 
+## Followed tags
+
+A follow note's `follow_tags` ([sources.md](sources.md)) holds tag combos: `dev obsidian` needs
+both, `books -fiction` leaves fiction out, and a page matches when any line does. Compared by
+`match`, nested as in the filter. No `#`: in YAML, ` #` starts a comment. Properties edits it as a
+plain list; it isn't `tags`, which would be the note's own. Follow notes are public, so followed
+tags are too, as `include` is. It narrows with `include`: a page must be in both. It is what §13
+q1 of the spec leaves open, to be proposed there.
+
+Set in the source form (**Followed tags**, one combo per line), or from the filter (above).
+
+At each check of a source with followed tags, each change is matched (`SourceCheck.followed`):
+
+- By its version at head or the one at `seenCommit`, so a page that loses a tag, or is removed,
+  still matches. A rename's old version is at its old path.
+- When every file is listed (first check, history rewritten), only the version at head counts.
+- A page that couldn't be read matches; a file that isn't a page never does.
+- Only the changed pages are read, from the tag index of head and of `seenCommit`; the filter
+  reads the rest when it is opened.
+
+**What's new** lists the changes that match, and folds the rest under **Other changes**
+([check.md](check.md)). Mirrors and forks changed upstream are listed whatever their tags.
+
+## Later
+
+Not planned. What the design leaves open:
+
+- **Facets** could list remote pages that aren't mirrored, from the index files. They become a
+  contract then: `version` is there for that, and they'd need documenting for other readers.
+- **Pages** could too, when built on a computer with the clones. They are git-ignored, so a
+  hosted build has none.
+- **Blobs in the index file** (maybe): saves one `ls-tree` when head moves (20 ms at 10,000 notes),
+  lets an index be reused when its commit is gone, and lets another tool match pages by contents
+  without running git. Needs a new `version`.
+- **Search across sources**: the index and filter don't depend on one source; the view does.
+- **Tag aliases** (spec §7.4): tags are stored as written, so aliases can apply when filtering.
+- **Ratings per tag**: ADR-0016 puts `rating` on the follow. A list such as
+  `tag_ratings: [dev 5, politics 2]` could refine it, with `rating` as the fallback. Open: what a
+  page with both tags gets; whether it is public, as follow notes are; and whether a "community"
+  is a followed repo or a group of people, which the spec has no place for yet (§13 q9).
+
+## Decisions
+
+| Decision | Instead of | Because |
+|---|---|---|
+| Filter per source | One across sources | Combos are saved per source; across can come later |
+| Combos in the follow note | `data.json` | Follows are notes and carry their own facts |
+| `dev -fiction` lines | Pages' `tag=a&tag-not=b` | Reads well in Properties; lines give "or" |
+| Other changes folded | Hidden | **Mark as seen** covers them too |
+
 ## Code
 
 Pure: `src/tags/tags.ts` (text → tags), `filter.ts`, `tag-index.ts` (the file), `tag-indexes.ts`
-(getting and saving), `src/remote/clone-files.ts`, `cat-file.ts`. Vault: `src/tags/run.ts`. UI:
+(getting and saving), `follow.ts` (matching changes), `combo.ts` (`follow_tags` lines),
+`src/remote/clone-files.ts`, `cat-file.ts`. Vault: `src/tags/run.ts`. UI:
 `src/ui/tag-filter.ts`, `keep-focus.ts`.
