@@ -14,6 +14,7 @@ const check: SourceCheck = {
 	head: { branch: 'main', commit: 'c'.repeat(40), tree: 't'.repeat(40) },
 	changes: [{ path: 'w/b.md', status: 'modified', from: null }],
 	reason: null,
+	followed: null,
 	mirrors: [],
 	mirrored: new Map(),
 	forks: [],

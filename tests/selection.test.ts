@@ -7,7 +7,7 @@ import type { Change } from '../src/remote/host.ts';
 const change = (path: string, status: Change['status'] = 'modified'): Change => ({ path, status, from: null });
 
 function check(changes: Change[], forked: string[] = [], files: string[] = []): SourceCheck {
-	return { url: 'https://github.com/a/b', head: { branch: 'main', commit: '', tree: '' }, changes, reason: null, mirrors: [], mirrored: new Map(), forks: [], forked: new Set(forked), files };
+	return { url: 'https://github.com/a/b', head: { branch: 'main', commit: '', tree: '' }, changes, reason: null, followed: null, mirrors: [], mirrored: new Map(), forks: [], forked: new Set(forked), files };
 }
 
 const C = check(

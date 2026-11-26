@@ -39,6 +39,8 @@ export interface SourceCheck {
 	readonly changes: readonly Change[];
 	/** Set when `changes` lists every file in `include`. */
 	readonly reason: NewReason | null;
+	/** Paths of the `changes` that match the source's followed tags; `null`: it follows none, so all do. */
+	readonly followed: ReadonlySet<string> | null;
 	readonly mirrors: readonly MirrorChange[];
 	/** Every upstream path the user mirrors, changed or not → its mirror note (the first by path). */
 	readonly mirrored: ReadonlyMap<string, string>;
@@ -73,7 +75,7 @@ export async function checkSource(host: RemoteHost, source: Source & Remote, sta
 	const byPath = copiesByPath(forks, source);
 	const mine = mirrorsByPath(source, mirrors);
 	const mirrored = new Map([...mine].map(([path, notes]) => [path, notes[0]?.path ?? '']));
-	return { url: source.url, head, changes: inScope, reason, mirrors: mirrorChanges(mine, files), mirrored, forks: forkChanges(byPath, files), forked: new Set(byPath.keys()), files: all };
+	return { url: source.url, head, changes: inScope, reason, followed: null, mirrors: mirrorChanges(mine, files), mirrored, forks: forkChanges(byPath, files), forked: new Set(byPath.keys()), files: all };
 }
 
 /** This source's mirrors by the upstream file they are of, each list by vault path. */

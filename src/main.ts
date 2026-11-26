@@ -89,7 +89,7 @@ export default class PublicTxtPlugin extends Plugin {
 			// Not as Obsidian starts: with the metadata cache half loaded, follow notes read as
 			// invalid, and the state of every source would be dropped as no longer followed.
 			await new Promise<void>((ready) => this.app.workspace.onLayoutReady(ready));
-			const run = await runCheck(this.app, this.data, (done, total) => {
+			const run = await runCheck(this.app, this.data, this.tags, (done, total) => {
 				this.checking = `Checking ${Math.min(done + 1, total)} of ${total}…`;
 				this.renderViews();
 			});
@@ -110,7 +110,7 @@ export default class PublicTxtPlugin extends Plugin {
 		if (!run || !follow || this.checking !== null) return;
 		await this.whileChecking(`Checking ${follow.name}…`, async () => {
 			await this.save({ ...this.data, checkFrom: { ...this.data.checkFrom, [follow.name]: from } });
-			const result = await checkOne(this.app, this.data, follow);
+			const result = await checkOne(this.app, this.data, this.tags, follow);
 			// Into the run as it is now: another source may have been acknowledged meanwhile.
 			const now = this.lastRun ?? run;
 			this.lastRun = { ...now, results: now.results.map((r) => (r.follow.url === url ? result : r)) };

@@ -43,7 +43,7 @@ mirrors and forks record. It can't start with `.` or a space or contain
 | `local` | `true` | Plugin only. A local source: no `url`; folder in `localPaths` |
 | `branch` | string | Branch to track. Absent/blank: the remote's default |
 | `include` | string or list | Repo-relative folder prefixes ending in `/`. Empty: whole repo. Narrows "what's new" only |
-| `follow_tags` | string or list | Plugin only, for now (spec §13 q1). A tag combo per line: `dev obsidian` needs both, `books -fiction` leaves fiction out. Not used by checks yet ([plan](../plans/tags.md)) |
+| `follow_tags` | string or list | Plugin only, for now (spec §13 q1). A tag combo per line: `dev obsidian` needs both, `books -fiction` leaves fiction out. Matched at each check ([tags.md](tags.md#followed-tags)) |
 | `folder` | string | Plugin only. Mirror folder under `communityFolder`. Absent: the remote name |
 | `list_mirrors` / `list_forks` | boolean | Plugin only. Overrides `listMirrors` / `listForks` for this note |
 

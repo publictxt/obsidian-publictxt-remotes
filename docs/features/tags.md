@@ -1,7 +1,7 @@
 # Tags
 
-Finding a source's pages by tag, though they aren't in the vault. Followed tags are
-[planned](../plans/tags.md).
+Finding a source's pages by tag, though they aren't in the vault, and following a source's tags.
+The rest of followed tags is [planned](../plans/tags.md).
 
 ## What is a tag
 
@@ -41,7 +41,7 @@ what is set and stops applying it.
 ## Tag index
 
 Tags are in file contents, and clones don't hold contents up front ([git.md](git.md)). They are
-fetched at the first tag use for a source, never by a check alone. What was read is kept:
+fetched at the first tag use for a source, never by a check alone, unless it has followed tags. What was read is kept:
 
 ```
 <clonesFolder>/<host>/<owner>/<repo>.git/publictxt/tags-<commit>.json
@@ -77,8 +77,26 @@ and filtering never waits for it. Only head's and `seenCommit`'s files are kept.
 
 At 10,000 notes, building from nothing takes about 3 s and loading the file about 20 ms.
 
+## Followed tags
+
+A follow note's `follow_tags` ([sources.md](sources.md)) holds tag combos: `dev obsidian` needs
+both, `books -fiction` leaves fiction out, and a page matches when any line does. Compared by
+`match`, nested as in the filter.
+
+At each check of a source with followed tags, each change is matched (`SourceCheck.followed`):
+
+- By its version at head or the one at `seenCommit`, so a page that loses a tag, or is removed,
+  still matches. A rename's old version is at its old path.
+- When every file is listed (first check, history rewritten), only the version at head counts.
+- A page that couldn't be read matches; a file that isn't a page never does.
+- Only the changed pages are read, from the tag index of head and of `seenCommit`; the filter
+  reads the rest when it is opened.
+
+Mirrors and forks changed upstream are listed whatever their tags.
+
 ## Code
 
 Pure: `src/tags/tags.ts` (text → tags), `filter.ts`, `tag-index.ts` (the file), `tag-indexes.ts`
-(getting and saving), `src/remote/clone-files.ts`, `cat-file.ts`. Vault: `src/tags/run.ts`. UI:
+(getting and saving), `follow.ts` (matching changes), `combo.ts` (`follow_tags` lines),
+`src/remote/clone-files.ts`, `cat-file.ts`. Vault: `src/tags/run.ts`. UI:
 `src/ui/tag-filter.ts`, `keep-focus.ts`.

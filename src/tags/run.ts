@@ -7,7 +7,9 @@ import type { SourceCheck } from '../check/check.ts';
 import { isCopyable } from '../copy/copy.ts';
 import { cloneIndexFiles } from '../remote/git-process.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
+import type { TagCombo } from './combo.ts';
 import { matchTags, type PageTags } from './filter.ts';
+import { followedChanges, pagesToRead } from './follow.ts';
 import type { TagIndex } from './tag-index.ts';
 import { TagIndexes } from './tag-indexes.ts';
 
@@ -82,6 +84,20 @@ export class SourceTags {
 		} catch (e) {
 			set({ state: 'error', message: errorText(e) });
 		}
+	}
+
+	/**
+	 * The paths of `c`'s changes that match `combos`, reading the tags of the changed pages only:
+	 * at head, and at `seen`. What can't be read matches, so this never fails.
+	 */
+	async followed(c: SourceCheck, combos: readonly TagCombo[], seen: string | null): Promise<ReadonlySet<string>> {
+		if (!c.changes.length) return new Set();
+		const listsAll = c.reason !== null || seen === null;
+		const want = pagesToRead(c.changes, listsAll);
+		const none = (): TagIndex => new Map();
+		const head = await this.indexes.get({ repo: c.url, commit: c.head.commit, paths: want.head, keep: seen }).catch(none);
+		const old = listsAll || seen === null ? none() : await this.indexes.get({ repo: c.url, commit: seen, paths: want.seen, keep: c.head.commit }).catch(none);
+		return followedChanges(c.changes, combos, head, old, listsAll);
 	}
 
 	private readonly saveSoon = debounce(

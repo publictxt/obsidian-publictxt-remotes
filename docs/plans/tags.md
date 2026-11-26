@@ -1,7 +1,7 @@
 # Plan: followed tags
 
 Status: step 1, the tag filter and the tag index, is built: [tags.md](../features/tags.md). Step 2,
-here, is under way (Order 1 is built); this plan goes when it is built.
+here, is under way (Order 1 and 2 are built); this plan goes when it is built.
 
 ## Followed tags
 
