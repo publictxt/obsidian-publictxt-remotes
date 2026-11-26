@@ -26,16 +26,22 @@ re-set before each fetch (`remote set-url`), so a moved folder is followed. No f
 |---|---|
 | (first use) | `clone --bare --filter=blob:none`; `remote.origin.fetch = +refs/heads/*:refs/heads/*` |
 | `head` | No `branch`: `ls-remote --symref origin HEAD` for the default. `fetch --prune` unless the commit is already here; `rev-parse` commit and tree |
-| `tree` | `ls-tree -r -z`, blobs only (submodules skipped) |
+| `tree` | `ls-tree -r -z` of a tree or a commit, blobs only (submodules skipped). Never fetches: one the clone lacks is an error |
 | `changes` | `null` if `base` is unknown or not an ancestor (`cat-file -e`, `merge-base --is-ancestor`); else `diff --name-status -z -M` |
 | `blob` | `cat-file blob`, fetched on demand |
+| `blobs` | `cat-file --batch` of what is here, then one `fetch` (200 blobs at a time) and another `cat-file` for the rest. What can't be got is left out |
 | `prefetch` | Several blobs in one `fetch` before a multi-file fork; failure is ignored |
 | `diffStat` | `diff --numstat <from> <to>`; `null` if git fails or the diff is binary |
 
 `RemoteError` kinds: `no-git` (git won't start), `git` (a command failed), `not-found` (branch
 or folder missing), `bad-input` (not a canonical URL or SHA; snapshot refusals).
 
+**Not on demand.** `tree` and `blobs` run with `GIT_NO_LAZY_FETCH=1`: otherwise a partial clone asks
+the remote for each missing object, one at a time.
+
+**The plugin's own files** are in each clone's `publictxt/` ([tags.md](tags.md)).
+
 ## Code
 
-Pure: `src/remote/host.ts`, `git.ts`, `fetch-from.ts`. Node: `src/remote/git-process.ts`. Wiring:
+Pure: `src/remote/host.ts`, `git.ts`, `cat-file.ts`, `clone-files.ts`, `fetch-from.ts`. Node: `src/remote/git-process.ts`. Wiring:
 `src/remote/vault-host.ts`.

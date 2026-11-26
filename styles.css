@@ -9,6 +9,7 @@
 .publictxt-check .publictxt-check-bar {
 	display: flex;
 	align-items: center;
+	flex-wrap: wrap;
 	gap: var(--size-4-2);
 	margin-bottom: var(--size-4-3);
 }
@@ -95,6 +96,7 @@
 .publictxt-check .publictxt-actions,
 .publictxt-upstream .publictxt-actions {
 	display: flex;
+	flex-wrap: wrap;
 	gap: var(--size-4-2);
 	margin: var(--size-4-2) 0;
 }
@@ -123,11 +125,71 @@
 	color: var(--text-muted);
 }
 
-.publictxt-upstream .publictxt-actions {
-	flex-wrap: wrap;
-}
-
 .publictxt-upstream .publictxt-upstream-body pre {
 	white-space: pre-wrap;
 	user-select: text;
+}
+
+.publictxt-check .publictxt-tag-filter .publictxt-actions {
+	align-items: center;
+}
+
+.publictxt-check .publictxt-tag-filter input[type='search'] {
+	flex: 1 1 8em;
+	min-width: 0;
+}
+
+.publictxt-check .publictxt-chips {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-4-1);
+	margin-bottom: var(--size-4-2);
+}
+
+/* A chip: one pill around its tag and its ✕. */
+.publictxt-check .publictxt-chip {
+	display: inline-flex;
+	align-items: center;
+	border-radius: var(--tag-radius, var(--radius-l));
+	background: var(--background-modifier-hover);
+	font-size: var(--font-ui-smaller);
+}
+
+.publictxt-check .publictxt-chip button,
+.publictxt-check .publictxt-chip-more {
+	height: auto;
+	padding: var(--size-2-1) var(--size-4-2);
+	border-radius: inherit;
+	background: none;
+	box-shadow: none;
+	color: inherit;
+	font-size: var(--font-ui-smaller);
+}
+
+.publictxt-check .publictxt-chip button + button {
+	padding-left: 0;
+	color: var(--text-faint);
+}
+
+.publictxt-check .publictxt-chip.is-empty {
+	opacity: 0.5;
+}
+
+.publictxt-check .publictxt-chip.is-include {
+	background: var(--interactive-accent);
+	color: var(--text-on-accent);
+}
+
+.publictxt-check .publictxt-chip.is-include button + button,
+.publictxt-check .publictxt-chip.is-include .publictxt-quiet {
+	color: inherit;
+}
+
+.publictxt-check .publictxt-chip.is-exclude button:first-child {
+	color: var(--text-error);
+	text-decoration: line-through;
+}
+
+.publictxt-check .publictxt-chip-more {
+	color: var(--text-muted);
 }

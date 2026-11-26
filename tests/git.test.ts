@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { setTimeout as wait } from 'node:timers/promises';
 import { CACHE_GITIGNORE, GitHost, cachePath, parseLsTree, parseNameStatus, parseNumstat } from '../src/remote/git.ts';
+import { parseBatch } from '../src/remote/cat-file.ts';
 import { gitRunner, pathExists, writeIfMissing } from '../src/remote/git-process.ts';
 import { RemoteError } from '../src/remote/host.ts';
 import { fileUrl } from '../src/sources/repo-url.ts';
@@ -115,6 +116,10 @@ test('clone, head, tree, changes, blob, then a force-push', async () => {
 	assert.equal((await h.head(REPO, null)).commit, c3);
 	assert.equal(await h.changes(REPO, c2, c3), null);
 	assert.equal(await h.changes(REPO, 'f'.repeat(40), c3), null);
+
+	// A commit is as good as its tree, a rewritten one too; one that isn't here is an error.
+	assert.deepEqual([...(await h.tree(REPO, c2)).files.keys()].sort(), ['notes/m.md', 'wiki/a.md', 'wiki/new.md']);
+	await assert.rejects(h.tree(REPO, 'f'.repeat(40)), RemoteError);
 });
 
 test('a local source: fetched from the folder the mapping gives, which can move', async () => {
@@ -280,4 +285,46 @@ test('head of the default branch: no fetch when the clone is already there, one 
 	ran.length = 0;
 	assert.equal((await h.head(key, null)).commit, next);
 	assert.ok(ran.includes('fetch'));
+});
+
+test('parseBatch: sizes are bytes; an empty blob; missing and cut short ones left out', () => {
+	const [a, b, c, d] = ['a', 'b', 'c', 'd'].map((x) => x.repeat(40));
+	const binary = (s: string) => Buffer.from(s, 'utf8').toString('latin1');
+	const out = binary(`${a} blob 8\n✓ é\nx\n${b} missing\n${c} blob 0\n\n${d} blob 99\nhalf`);
+	assert.deepEqual([...parseBatch(out)], [[a, '✓ é\nx'], [c, '']]);
+	assert.equal(parseBatch('').size, 0);
+});
+
+test('blobs: many at once, fetched only when missing, and one that can\'t be got is left out', async () => {
+	const key = 'https://example.com/a/many';
+	const up3 = join(root, 'up3');
+	mkdirSync(up3);
+	const g3 = (...args: string[]) => execFileSync('git', args, { cwd: up3, encoding: 'utf8' }).trim();
+	g3('init', '-q', '-b', 'main');
+	g3('config', 'uploadpack.allowFilter', 'true');
+	// More than one batch, multi-byte text and an empty file among them.
+	for (let i = 0; i < 250; i++) writeFileSync(join(up3, `${i}.md`), `✓ ${i}\n`);
+	writeFileSync(join(up3, 'empty.md'), '');
+	g3('add', '-A');
+	g3('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'one');
+
+	const ran: string[] = [];
+	const real = gitRunner();
+	const h = new GitHost({ run: (args, cwd, o) => (ran.push(args.find((a) => /^[a-z-]+$/.test(a) && !a.startsWith('-')) ?? ''), real(args, cwd, o)), cacheDir: join(root, 'remotes'), join, exists: pathExists, remote: () => fileUrl(up3) });
+	const { files } = await h.tree(key, (await h.head(key, null)).tree);
+	const gone = 'f'.repeat(40);
+	// Some first, so the next read has both.
+	const ten = [...files.values()].slice(0, 10);
+	assert.equal((await h.blobs(key, ten)).size, 10);
+	const all = await h.blobs(key, [...files.values(), ...files.values()]);
+	assert.equal(all.size, 251);
+	assert.equal(all.get(files.get('7.md') ?? ''), '✓ 7\n');
+	assert.equal(all.get(files.get('empty.md') ?? ''), '');
+
+	ran.length = 0;
+	assert.equal((await h.blobs(key, [...files.values()])).size, 251);
+	assert.deepEqual(ran, ['cat-file']);
+	assert.deepEqual([...(await h.blobs(key, [gone, ten[0] ?? ''])).keys()], [ten[0]]);
+	assert.equal((await h.blobs(key, [])).size, 0);
+	await assert.rejects(h.blobs(key, ['abc']), (e) => e instanceof RemoteError && e.kind === 'bad-input');
 });

@@ -1,22 +1,24 @@
 // The check view: the last check, source by source (docs/features/check.md). It owns the
 // clicks; check-source.ts draws each source.
 
-import { ItemView, Notice, type WorkspaceLeaf } from 'obsidian';
+import { ItemView, type WorkspaceLeaf } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
-import type { ForkChange, SourceCheck } from '../check/check.ts';
+import type { SourceCheck } from '../check/check.ts';
 import type { SourceResult } from '../check/run.ts';
 import { FOLLOWS_FOLDER } from '../sources/follow-note.ts';
 import { forkableUnder, selectedPaths, toggleAll, type FileList } from '../check/selection.ts';
 import type { CopySource } from '../copy/copy.ts';
-import { compareChange } from '../fork/compare-run.ts';
 import { startFork } from '../fork/run.ts';
-import { detach, keepGone } from '../fork/update-run.ts';
 import { mirrorFiles, stopMirroring } from '../mirror/run.ts';
 import { updateMirror, updateMirrors } from '../mirror/update-run.ts';
-import { errorText } from '../remote/vault-host.ts';
+import { UNREAD } from '../tags/run.ts';
 import { checkFromOf } from '../remote/fetch-from.ts';
-import { ConfirmModal } from './confirm-modal.ts';
-import { actionAttrs, checkAction, folderOpen, newSourceUi, renderSource, sourceOpen, type CheckAction, type SourceUi } from './check-source.ts';
+import { actionAttrs, checkAction, type CheckAction } from './check-actions.ts';
+import { renderSource } from './check-source.ts';
+import { actOnForkChange } from './fork-change.ts';
+import { keepFocus } from './keep-focus.ts';
+import { folderOpen, newSourceUi, sourceOpen, type SourceUi } from './source-ui.ts';
+import { filterAction, narrowed, redrawChips } from './tag-filter.ts';
 
 export const VIEW_TYPE_CHECK = 'publictxt-check';
 
@@ -45,6 +47,7 @@ export class CheckView extends ItemView {
 	async onOpen(): Promise<void> {
 		this.contentEl.addClass('publictxt-check');
 		this.registerDomEvent(this.contentEl, 'click', (e) => this.onClick(e));
+		this.registerDomEvent(this.contentEl, 'input', (e) => this.onInput(e));
 		this.render();
 	}
 
@@ -53,6 +56,7 @@ export class CheckView extends ItemView {
 		const el = this.contentEl;
 		// Drawing again (a row opened, a check's progress) must not jump back to the top.
 		const scrolled = el.scrollTop;
+		const refocus = keepFocus(el);
 		el.empty();
 		const { lastRun, checking } = this.plugin;
 
@@ -69,9 +73,14 @@ export class CheckView extends ItemView {
 		}
 		const { data } = this.plugin;
 		for (const r of lastRun.results) {
-			renderSource(el, r, this.uiOf(r.follow.url), { from: checkFromOf(data, r.follow.name, r.follow.url), busy: checking !== null });
+			const ui = this.uiOf(r.follow.url);
+			// The filter is in use: the first time, and after a check that found another head.
+			if (r.check && ui.tags.open && sourceOpen(r, ui)) this.plugin.tags.read(r.check);
+			const tags = r.check ? this.plugin.tags.state(r.check) : UNREAD;
+			renderSource(el, r, ui, { from: checkFromOf(data, r.follow.name, r.follow.url), busy: checking !== null }, tags);
 		}
 		el.scrollTop = scrolled;
+		refocus();
 	}
 
 	/** The one click handler: `data-open` opens a note, `data-action` runs one. */
@@ -96,7 +105,19 @@ export class CheckView extends ItemView {
 		if (url) this.act(action, url, path);
 	}
 
-	/** Runs `action` on the source `url`; `path` is the file it is about, if any. */
+	/** Typing in a tag filter: only its chips are drawn again, so the field stays as it is. */
+	private onInput(e: Event): void {
+		const input = e.target instanceof HTMLInputElement && e.target.dataset.find === 'tag' ? e.target : null;
+		const url = input?.closest<HTMLElement>('[data-source]')?.dataset.source;
+		const c = url === undefined ? null : this.result(url)?.check;
+		const el = input?.closest('.publictxt-tag-filter')?.querySelector<HTMLElement>('.publictxt-chips');
+		if (!input || url === undefined || !c || !el) return;
+		const ui = this.uiOf(url).tags;
+		ui.typed = input.value;
+		redrawChips(el, ui, this.plugin.tags.state(c));
+	}
+
+	/** Runs `action` on the source `url`; `path` is the file, folder or tag it is about, if any. */
 	private act(action: Exclude<CheckAction, 'check'>, url: string, path: string | undefined): void {
 		switch (action) {
 			case 'from-local':
@@ -156,6 +177,18 @@ export class CheckView extends ItemView {
 			case 'keep-gone':
 				if (path) this.forkChanged(action, url, path);
 				break;
+			case 'tag-filter':
+			case 'tag-include':
+			case 'tag-exclude':
+			case 'tag-mode':
+			case 'tag-more':
+			case 'tag-clear':
+				filterAction(this.uiOf(url).tags, action, path);
+				this.render();
+				break;
+			case 'tag-retry':
+				this.retryTags(url);
+				break;
 			default:
 				// A new action without a case here doesn't compile.
 				action satisfies never;
@@ -177,7 +210,7 @@ export class CheckView extends ItemView {
 	}
 
 	private toggleFolder(url: string, path: string, list: FileList = 'new'): void {
-		const c = this.result(url)?.check;
+		const c = this.listedCheck(url);
 		if (!c) return;
 		const ui = this.uiOf(url);
 		(list === 'all' ? ui.allFolders : ui.folders).set(path, !folderOpen(c, ui, path, list));
@@ -196,6 +229,20 @@ export class CheckView extends ItemView {
 		return this.plugin.lastRun?.results.find((r) => r.follow.url === url);
 	}
 
+	/** The check the lists show: what the tag filter leaves of it. */
+	private listedCheck(url: string): SourceCheck | null {
+		const c = this.result(url)?.check ?? null;
+		return c && narrowed(c, this.uiOf(url).tags, this.plugin.tags.state(c));
+	}
+
+	/** Reads what a source's tag filter couldn't. */
+	private retryTags(url: string): void {
+		const c = this.result(url)?.check;
+		if (!c) return;
+		this.plugin.tags.read(c, true);
+		this.render();
+	}
+
 	/** Ticks `paths`, or clears them when all were ticked. */
 	private select(url: string, paths: readonly string[]): void {
 		toggleAll(this.uiOf(url).selected, paths);
@@ -203,7 +250,7 @@ export class CheckView extends ItemView {
 	}
 
 	private selectFolder(url: string, folder: string, list: FileList = 'new'): void {
-		const c = this.result(url)?.check;
+		const c = this.listedCheck(url);
 		if (c) this.select(url, forkableUnder(c, folder, list));
 	}
 
@@ -269,18 +316,6 @@ export class CheckView extends ItemView {
 	private forkChanged(action: 'compare' | 'detach' | 'keep-gone', url: string, path: string): void {
 		const c = this.result(url)?.check;
 		const change = c?.forks.find((f) => f.path === path);
-		if (!c || !change) return;
-		const { app, plugin } = this;
-		const told = (job: Promise<void>) => job.catch((e: unknown) => void new Notice(errorText(e)));
-		if (action === 'compare') void told(compareChange(app, url, c.head, change));
-		else if (action === 'keep-gone') void told(keepGone(plugin, url, change));
-		else new ConfirmModal(app, 'Detach from upstream?', detachQuestion(change), 'Detach', () => told(detach(plugin, url, change))).open();
+		if (c && change) actOnForkChange(this.plugin, action, c, change);
 	}
-}
-
-/** What detaching does, before it is done. */
-function detachQuestion(change: ForkChange): string {
-	const notes = change.copies.map((f) => f.path).join(', ');
-	const stay = change.copies.length === 1 ? 'The note stays, as an ordinary note.' : 'The notes stay, as ordinary notes.';
-	return `${change.path} is gone upstream. Detaching removes the fork_* keys from ${notes}. ${stay}`;
 }

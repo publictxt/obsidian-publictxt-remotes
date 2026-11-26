@@ -2,10 +2,11 @@
 // Node: the plugin is desktop-only (docs/intent.md).
 
 import { execFile } from 'child_process';
-import { access, mkdir, stat, writeFile } from 'fs/promises';
+import { access, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'fs/promises';
 import { dirname, join } from 'path';
 import { RemoteError } from './host.ts';
 import { GitHost, type GitResult, type RunGit } from './git.ts';
+import { indexFiles, type CloneFs, type IndexFiles } from './clone-files.ts';
 import type { LocalFs } from './local-repo.ts';
 
 /** How long one git command may run. A stalled fetch would otherwise hold its clone's queue, and a check, for good. */
@@ -16,18 +17,18 @@ const queues = new Map<string, Promise<unknown>>();
 
 /** A runner for the git at `gitPath` (`git`: whatever is on PATH); a command is killed after `timeoutMs`. */
 export function gitRunner(gitPath = 'git', timeoutMs = GIT_TIMEOUT_MS): RunGit {
-	return (args, cwd) =>
+	return (args, cwd, { input, binary = false, lazyFetch = true } = {}) =>
 		new Promise<GitResult>((resolve, reject) => {
-			execFile(
+			const child = execFile(
 				gitPath,
 				args,
 				{
 					cwd: cwd ?? undefined,
-					encoding: 'utf8',
-					maxBuffer: 64 * 1024 * 1024,
+					encoding: binary ? 'latin1' : 'utf8',
+					maxBuffer: (binary ? 512 : 64) * 1024 * 1024,
 					timeout: timeoutMs,
 					// Never wait on a terminal prompt for credentials.
-					env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
+					env: { ...process.env, GIT_TERMINAL_PROMPT: '0', ...(lazyFetch ? {} : { GIT_NO_LAZY_FETCH: '1' }) },
 				},
 				(err, stdout, stderr) => {
 					const e = err as (Error & { code?: unknown; killed?: boolean }) | null;
@@ -48,6 +49,10 @@ export function gitRunner(gitPath = 'git', timeoutMs = GIT_TIMEOUT_MS): RunGit {
 					resolve({ code: e ? (e.code as number) : 0, stdout, stderr });
 				},
 			);
+			if (input === undefined) return;
+			// git may end without reading it all; how it ended is what counts.
+			child.stdin?.on('error', () => undefined);
+			child.stdin?.end(input);
 		});
 }
 
@@ -80,11 +85,54 @@ export const localFs: LocalFs = {
 			await writeFile(path, text, { encoding: 'utf8', flag: 'wx' });
 			return true;
 		} catch (e) {
-			if ((e as { code?: unknown }).code === 'EEXIST') return false;
+			if (codeOf(e) === 'EEXIST') return false;
 			throw e;
 		}
 	},
 };
+
+/** What went wrong with a file, by Node's name for it. */
+function codeOf(e: unknown): unknown {
+	return (e as { code?: unknown }).code;
+}
+
+/** What `job` gives, or `otherwise` when the file or folder it is about isn't there. */
+async function ifThere<T>(job: Promise<T>, otherwise: T): Promise<T> {
+	try {
+		return await job;
+	} catch (e) {
+		if (codeOf(e) === 'ENOENT') return otherwise;
+		throw e;
+	}
+}
+
+/** The real file system for the plugin's files in a clone. */
+export const cloneFs: CloneFs = {
+	join,
+	readText: (path) => ifThere(readFile(path, 'utf8'), null),
+	makeFolder: async (path) => {
+		try {
+			await mkdir(path);
+			return true;
+		} catch (e) {
+			if (codeOf(e) === 'EEXIST') return true;
+			if (codeOf(e) === 'ENOENT') return false;
+			throw e;
+		}
+	},
+	replace: async (path, text) => {
+		const temp = `${path}.tmp`;
+		await writeFile(temp, text, 'utf8');
+		await rename(temp, path);
+	},
+	list: (path) => ifThere(readdir(path), []),
+	remove: (path) => rm(path, { force: true }),
+};
+
+/** The plugin's index files, in the clones `gitHost` makes. */
+export function cloneIndexFiles(vaultBase: string, clonesFolder: string): IndexFiles {
+	return indexFiles(cloneFs, join(vaultBase, clonesFolder));
+}
 
 /** Writes `text` to `path` unless there is a file there, making its folder first. */
 export async function writeIfMissing(path: string, text: string): Promise<void> {

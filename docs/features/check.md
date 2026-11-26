@@ -42,6 +42,7 @@ Under an open header, the error or "nothing new", then actions:
 
 - **Mark as seen**, when there is something to acknowledge.
 - **Browse all files** / **Hide all files**, always.
+- **Filter by tag** / **Hide tag filter**, when there are files ([tags.md](tags.md)).
 - **Update mirrors (n)**, when mirrors changed.
 - **Mirror selected (n)** / **Fork selected (n)**, when files are ticked.
 
@@ -75,4 +76,5 @@ lists, persist like open folders, and don't count files a later check doesn't li
 ## Code
 
 Pure: `src/check/check.ts`, `file-tree.ts`, `selection.ts`. Vault: `src/check/run.ts`. UI:
-`src/ui/check-view.ts`, `check-source.ts`, `tree.ts`.
+`src/ui/check-view.ts`, `check-source.ts`, `file-rows.ts`, `source-ui.ts`, `check-actions.ts`,
+`fork-change.ts`, `tree.ts`.
