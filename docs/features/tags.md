@@ -20,29 +20,20 @@ Obsidian's metadata cache isn't used: it knows only the vault.
 
 ## Filter
 
-In a source of the [check view](check.md), **Filter by tag**, beside **Mark as seen**, shows the
-filter, above **What's new** and **All files**; it narrows both. Selecting it is the first tag
-use: it shows "Reading 120 pages…", then a chip per tag.
+In a source of the [check view](check.md), **Filter by tag** shows the filter above **What's
+new** and **All files**, and narrows both. Its first use reads the source's tags ("Reading 120
+pages…").
 
-- **Chips** as in publictxt-facets: off, included or excluded. A chip includes its tag or clears
-  it; its **✕** excludes it or clears it. **All** / **Any** of the included (**All** at first),
-  offered once two are; excluded always wins. **Clear** clears all.
-- **Counts** are of pages at head that pass, in All files whether it is shown or not; for **Any**, where including more adds pages, of those the
-  included tags don't narrow. Order is by use over all pages, so chips stay put.
-- The first 20 chips show, and any that are set; **+n more** shows the rest. **Find a tag**
-  narrows them.
-- **The lists** show only pages that pass: **What's new (3 of 12)**, **All files (41 of 209)**.
-  Files that aren't Markdown have no tags and are left out while a filter is set. Folders in All
-  files start closed; their counts show where the pages are.
-- **What's new** lets news through when in doubt: removed pages always show (they have no tags
-  at head), and so do pages that couldn't be read. Mirrors and forks changed upstream aren't
-  filtered.
-- **Mark all 12 as seen**: while a filter is set, **Mark as seen** says it acknowledges the
-  hidden changes too.
-- **Ticks**: a folder's tick box covers the files shown. Files ticked earlier stay ticked, and the
-  buttons say so: **Mirror selected (5, 2 hidden)**.
-- **Unread pages**: "12 pages couldn't be read.", and **Try again**. They match nothing in All
-  files.
+- **Chips** as in publictxt-facets: a chip includes or clears its tag, its **✕** excludes or
+  clears it. **All** / **Any** of the included, once two are; excluded always wins.
+- **Counts** are of pages at head that would pass. Chips are ordered by use, so they stay put;
+  the first 20 show, **+n more** the rest, and **Find a tag** narrows them.
+- **The lists** show only pages that pass, with "n of m" counts. Non-Markdown files are left out.
+- **What's new** lets news through when in doubt: removed pages, and pages that couldn't be
+  read. Mirrors and forks changed upstream aren't filtered.
+- **Hidden but still counted**: **Mark as seen** acknowledges hidden changes too, and says so;
+  files ticked earlier stay ticked, and the buttons count them.
+- **Unread pages** are reported, with **Try again**.
 
 Per source; kept across checks as ticks are, and gone with the view. **Hide tag filter** keeps
 what is set and stops applying it.
@@ -78,29 +69,13 @@ alone.
 | Nothing usable | Every Markdown file within `include` | Yes |
 | Some contents can't be read (offline) | What can be; the rest at the next use | Yes, without them |
 
-Another commit's index is reused by blob: its file gives path → tags, `ls-tree` of its commit
-path → blob, so together blob → tags. Only head's blobs not among them are read. So an edit, a
-rename, a branch change, **Local** / **Remote** and rewritten history all need only contents not
-seen before. If that commit is gone, everything is read. The file
-holds no blobs: the commit already fixes them.
+Another commit's index is reused by blob (its paths, through `ls-tree` of that commit), so only
+contents not seen before are read. If that commit is gone, everything is read.
 
-**Saving.** Memory is the working copy. The file is written three seconds after indexing settles,
-at an idle moment, and only if something was read. Filtering never writes, nor waits for a write.
+**Saving.** Memory is the working copy; the file is written later, only if something was read,
+and filtering never waits for it. Only head's and `seenCommit`'s files are kept.
 
-- Written to a temporary name, then renamed.
-- A save makes `publictxt/`, not the clone's folder: a clone deleted meanwhile stays deleted.
-- After a save only head's and `seenCommit`'s files stay; memory keeps the same two.
-- Unload drops a pending save: at worst the index is built again.
-
-**Cost**, with a real repo's notes copied up to size, contents already in the clone:
-
-| Notes | Build from nothing | Load the file | File |
-|---|---|---|---|
-| 199 | 70 ms | 2 ms | 10 KB |
-| 2,000 | 0.5 s | 5 ms | 0.1 MB |
-| 10,000 | 3 s | 20 ms | 0.5 MB |
-
-Downloading the 199 notes took under a second, once.
+At 10,000 notes, building from nothing takes about 3 s and loading the file about 20 ms.
 
 ## Code
 
