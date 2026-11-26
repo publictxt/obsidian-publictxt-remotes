@@ -24,7 +24,8 @@ export type TagsState =
 	/** `unread`: how many pages couldn't be read. */
 	| { state: 'ready'; pages: PageTags; unread: number };
 
-const UNREAD: TagsState = { state: 'unread' };
+/** Nothing read yet; also what a source that failed has. */
+export const UNREAD: TagsState = { state: 'unread' };
 
 export class SourceTags {
 	private readonly indexes: TagIndexes;

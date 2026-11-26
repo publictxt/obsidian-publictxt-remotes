@@ -11,7 +11,7 @@ import type { CopySource } from '../copy/copy.ts';
 import { startFork } from '../fork/run.ts';
 import { mirrorFiles, stopMirroring } from '../mirror/run.ts';
 import { updateMirror, updateMirrors } from '../mirror/update-run.ts';
-import type { TagsState } from '../tags/run.ts';
+import { UNREAD } from '../tags/run.ts';
 import { checkFromOf } from '../remote/fetch-from.ts';
 import { actionAttrs, checkAction, type CheckAction } from './check-actions.ts';
 import { renderSource } from './check-source.ts';
@@ -21,9 +21,6 @@ import { folderOpen, newSourceUi, sourceOpen, type SourceUi } from './source-ui.
 import { filterAction, narrowed, redrawChips } from './tag-filter.ts';
 
 export const VIEW_TYPE_CHECK = 'publictxt-check';
-
-/** A source that failed has no tags to show. */
-const UNREAD: TagsState = { state: 'unread' };
 
 export class CheckView extends ItemView {
 	private readonly plugin: PublicTxtPlugin;
