@@ -16,7 +16,7 @@ records where it came from in its front matter.
   folders. [Sources](docs/features/sources.md)
 - **Check** what's new, which mirrors are behind, and which forks changed upstream.
   [Check](docs/features/check.md)
-- **Filter by tag**: find a source's pages by a combination of tags, before mirroring any.
+- **Filter by tag**: narrow a source's news and pages by a combination of tags, before mirroring any.
   [Tags](docs/features/tags.md)
 - **Mirror** a page: upstream's copy under the **community folder**, to read, search and link
   to. Updates overwrite it. [Mirror](docs/features/mirror.md)

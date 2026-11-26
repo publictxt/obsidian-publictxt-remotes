@@ -78,7 +78,7 @@ export class CheckView extends ItemView {
 		for (const r of lastRun.results) {
 			const ui = this.uiOf(r.follow.url);
 			// The filter is in use: the first time, and after a check that found another head.
-			if (r.check && ui.browse && ui.tags.open && sourceOpen(r, ui)) this.plugin.tags.read(r.check);
+			if (r.check && ui.tags.open && sourceOpen(r, ui)) this.plugin.tags.read(r.check);
 			const tags = r.check ? this.plugin.tags.state(r.check) : UNREAD;
 			renderSource(el, r, ui, { from: checkFromOf(data, r.follow.name, r.follow.url), busy: checking !== null }, tags);
 		}
@@ -213,7 +213,7 @@ export class CheckView extends ItemView {
 	}
 
 	private toggleFolder(url: string, path: string, list: FileList = 'new'): void {
-		const c = this.listedCheck(url, list);
+		const c = this.listedCheck(url);
 		if (!c) return;
 		const ui = this.uiOf(url);
 		(list === 'all' ? ui.allFolders : ui.folders).set(path, !folderOpen(c, ui, path, list));
@@ -232,10 +232,10 @@ export class CheckView extends ItemView {
 		return this.plugin.lastRun?.results.find((r) => r.follow.url === url);
 	}
 
-	/** The check whose files `list` shows: for all files, what the tag filter leaves of it. */
-	private listedCheck(url: string, list: FileList): SourceCheck | null {
+	/** The check the lists show: what the tag filter leaves of it. */
+	private listedCheck(url: string): SourceCheck | null {
 		const c = this.result(url)?.check ?? null;
-		return c && list === 'all' ? narrowed(c, this.uiOf(url).tags, this.plugin.tags.state(c)) : c;
+		return c && narrowed(c, this.uiOf(url).tags, this.plugin.tags.state(c));
 	}
 
 	/** Reads what a source's tag filter couldn't. */
@@ -253,7 +253,7 @@ export class CheckView extends ItemView {
 	}
 
 	private selectFolder(url: string, folder: string, list: FileList = 'new'): void {
-		const c = this.listedCheck(url, list);
+		const c = this.listedCheck(url);
 		if (c) this.select(url, forkableUnder(c, folder, list));
 	}
 

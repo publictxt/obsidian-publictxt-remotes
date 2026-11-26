@@ -55,6 +55,7 @@ test('the same answer, not a new one, until the check, the tags or the filter ch
 
 test('while tags are being read, a set filter shows no files', () => {
 	assert.deepEqual(narrowed(check, on('dev'), { state: 'reading', done: 0, total: 1 }).files, []);
+	assert.deepEqual(narrowed(check, on('dev'), { state: 'reading', done: 0, total: 1 }).changes, []);
 	assert.deepEqual(narrowed(check, on('dev'), { state: 'error', message: 'x' }).files, []);
 });
 
@@ -64,8 +65,25 @@ test('a folder\'s tick box covers the files shown; hidden ticks stay', () => {
 	assert.deepEqual([...forkableByFolder(shown, 'all').keys()].sort(), ['n', 'w']);
 	const ticks = new Set(['w/a.md', 'n/d.md', 'w/b.md']);
 	assert.deepEqual(selectedPaths(check, ticks).sort(), ['n/d.md', 'w/a.md', 'w/b.md']);
-	// What's new still lists w/b.md, so it isn't hidden.
-	assert.deepEqual(selectedPaths(shown, ticks).sort(), ['w/a.md', 'w/b.md']);
+	// w/b.md is hidden in what's new as well.
+	assert.deepEqual(selectedPaths(shown, ticks).sort(), ['w/a.md']);
+});
+
+test('what\'s new keeps removals and pages it couldn\'t read; other files go', () => {
+	const news: SourceCheck = {
+		...check,
+		changes: [
+			{ path: 'w/a.md', status: 'modified', from: null },
+			{ path: 'w/b.md', status: 'added', from: null },
+			{ path: 'n/c.md', status: 'renamed', from: 'n/old.md' },
+			{ path: 'w/gone.md', status: 'removed', from: null },
+			{ path: 'w/unread.md', status: 'added', from: null },
+			{ path: 'pic.png', status: 'added', from: null },
+		],
+	};
+	assert.deepEqual(narrowed(news, on('dev'), ready).changes.map((ch) => ch.path), ['w/a.md', 'n/c.md', 'w/gone.md', 'w/unread.md']);
+	// Not read yet: only removals.
+	assert.deepEqual(narrowed(news, on('dev'), { state: 'reading', done: 0, total: 1 }).changes.map((ch) => ch.path), ['w/gone.md']);
 });
 
 test('folders in all files start closed, filter or not, until the user opens them', () => {

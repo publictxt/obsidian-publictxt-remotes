@@ -1,8 +1,10 @@
-// The tag filter over all files in the check view (docs/features/tags.md): what it leaves of a
-// check, what a click in it does, and drawing it.
+// The tag filter over a source's lists in the check view (docs/features/tags.md): what it leaves
+// of a check, what a click in it does, and drawing it.
 
 import type { SourceCheck } from '../check/check.ts';
-import { chips, isSet, NO_FILTER, passing, press, shownChips, type Chip, type PageTags, type TagFilter } from '../tags/filter.ts';
+import { isCopyable } from '../copy/copy.ts';
+import type { Change } from '../remote/host.ts';
+import { chips, isSet, NO_FILTER, passes, passing, press, shownChips, type Chip, type PageTags, type TagFilter } from '../tags/filter.ts';
 import type { TagsState } from '../tags/run.ts';
 import { actionAttrs, type CheckAction } from './check-actions.ts';
 
@@ -30,18 +32,31 @@ export function filtering(ui: FilterUi): boolean {
 const last = new WeakMap<FilterUi, { c: SourceCheck; pages: PageTags; filter: TagFilter; out: SourceCheck }>();
 
 /**
- * `c` with only the files the filter lets through: what all files lists, and its tick boxes are
- * of. No files while a filter is set and the tags aren't known.
+ * `c` with only the changes and files the filter lets through: what the lists show, and their
+ * tick boxes are of. While a filter is set and the tags aren't known, no files and only removals.
  */
 export function narrowed(c: SourceCheck, ui: FilterUi, tags: TagsState): SourceCheck {
 	if (!filtering(ui)) return c;
-	if (tags.state !== 'ready') return { ...c, files: [] };
+	if (tags.state !== 'ready') return { ...c, changes: c.changes.filter((ch) => ch.status === 'removed'), files: [] };
 	const { filter } = ui;
 	const was = last.get(ui);
 	if (was && was.c === c && was.pages === tags.pages && was.filter === filter) return was.out;
-	const out = { ...c, files: passing(c.files, tags.pages, filter) };
+	const out = { ...c, changes: news(c.changes, tags.pages, filter), files: passing(c.files, tags.pages, filter) };
 	last.set(ui, { c, pages: tags.pages, filter, out });
 	return out;
+}
+
+/**
+ * The changes the filter lets through. News is let through when in doubt: a removed page has no
+ * tags at head, and one that couldn't be read might match. Other files have no tags.
+ */
+function news(changes: readonly Change[], pages: PageTags, filter: TagFilter): Change[] {
+	return changes.filter((ch) => {
+		if (ch.status === 'removed') return true;
+		if (!isCopyable(ch.path)) return false;
+		const tags = pages.get(ch.path);
+		return tags === undefined || passes(filter, tags);
+	});
 }
 
 export type FilterAction = Extract<CheckAction, `tag-${string}`>;
@@ -71,11 +86,16 @@ export function filterAction(ui: FilterUi, action: Exclude<FilterAction, 'tag-re
 	}
 }
 
+/** The button that shows or hides the filter, in the source's `actions` row. */
+export function tagFilterButton(actions: HTMLElement, ui: FilterUi): void {
+	actions.createEl('button', { text: ui.open ? 'Hide tag filter' : 'Filter by tag', attr: { ...actionAttrs('tag-filter'), 'aria-expanded': String(ui.open), 'aria-label': 'Show only pages with the tags you choose, in what\'s new and all files' } });
+}
+
+/** The filter itself, when shown. */
 export function renderTagFilter(parent: HTMLElement, ui: FilterUi, tags: TagsState): void {
+	if (!ui.open) return;
 	const el = parent.createDiv({ cls: 'publictxt-tag-filter' });
 	const row = el.createDiv({ cls: 'publictxt-actions' });
-	row.createEl('button', { text: ui.open ? 'Hide tag filter' : 'Filter by tag', attr: { ...actionAttrs('tag-filter'), 'aria-expanded': String(ui.open) } });
-	if (!ui.open) return;
 	if (tags.state === 'error') {
 		el.createEl('p', { cls: 'publictxt-error', text: tags.message });
 		retry(el);

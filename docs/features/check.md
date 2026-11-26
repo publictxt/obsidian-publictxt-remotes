@@ -40,8 +40,11 @@ once the user opens or closes it, it stays that way until the view closes. In th
 
 Under an open header, the error or "nothing new", then actions:
 
-- **Mark as seen**, when there is something to acknowledge.
+- **Mark as seen**, when there is something to acknowledge; **Mark all n as seen** while a tag
+  filter is set.
 - **Browse all files** / **Hide all files**, always.
+- **Filter by tag** / **Hide tag filter**, when there are files: the filter shows under the
+  actions and narrows What's new and All files ([tags.md](tags.md)).
 - **Update mirrors (n)**, when mirrors changed.
 - **Mirror selected (n)** / **Fork selected (n)**, when files are ticked.
 
@@ -57,7 +60,7 @@ Then lists:
   **Keep**.
 - **All files (n)**, while browsing: every file at head within `include`, seen or not: the way
   back after **Mark as seen**. Folders start closed. Browsing changes no state and stays on
-  across checks. **Filter by tag** narrows it ([tags.md](tags.md)).
+  across checks.
 
 **File rows** in What's new and All files. Markdown files not removed have a tick box and:
 

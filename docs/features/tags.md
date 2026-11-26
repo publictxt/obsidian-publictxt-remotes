@@ -20,21 +20,29 @@ Obsidian's metadata cache isn't used: it knows only the vault.
 
 ## Filter
 
-In **All files** of the [check view](check.md), **Filter by tag** shows the filter. Selecting it
-is the first tag use: it shows "Reading 120 pages…", then a chip per tag.
+In a source of the [check view](check.md), **Filter by tag**, beside **Mark as seen**, shows the
+filter, above **What's new** and **All files**; it narrows both. Selecting it is the first tag
+use: it shows "Reading 120 pages…", then a chip per tag.
 
 - **Chips** as in publictxt-facets: off, included or excluded. A chip includes its tag or clears
   it; its **✕** excludes it or clears it. **All** / **Any** of the included (**All** at first),
   offered once two are; excluded always wins. **Clear** clears all.
-- **Counts** are of pages that pass; for **Any**, where including more adds pages, of those the
+- **Counts** are of pages at head that pass, in All files whether it is shown or not; for **Any**, where including more adds pages, of those the
   included tags don't narrow. Order is by use over all pages, so chips stay put.
 - The first 20 chips show, and any that are set; **+n more** shows the rest. **Find a tag**
   narrows them.
-- **The tree** shows only pages that pass; files that aren't Markdown have no tags and are left
-  out while a filter is set. Folders start closed; their counts show where the pages are.
+- **The lists** show only pages that pass: **What's new (3 of 12)**, **All files (41 of 209)**.
+  Files that aren't Markdown have no tags and are left out while a filter is set. Folders in All
+  files start closed; their counts show where the pages are.
+- **What's new** lets news through when in doubt: removed pages always show (they have no tags
+  at head), and so do pages that couldn't be read. Mirrors and forks changed upstream aren't
+  filtered.
+- **Mark all 12 as seen**: while a filter is set, **Mark as seen** says it acknowledges the
+  hidden changes too.
 - **Ticks**: a folder's tick box covers the files shown. Files ticked earlier stay ticked, and the
   buttons say so: **Mirror selected (5, 2 hidden)**.
-- **Unread pages**: "12 pages couldn't be read.", and **Try again**. They match nothing.
+- **Unread pages**: "12 pages couldn't be read.", and **Try again**. They match nothing in All
+  files.
 
 Per source; kept across checks as ticks are, and gone with the view. **Hide tag filter** keeps
 what is set and stops applying it.
