@@ -15,6 +15,7 @@ import { UNREAD } from '../tags/run.ts';
 import { checkFromOf } from '../remote/fetch-from.ts';
 import { actionAttrs, checkAction, type CheckAction } from './check-actions.ts';
 import { renderSource } from './check-source.ts';
+import { folderList } from './file-rows.ts';
 import { actOnForkChange } from './fork-change.ts';
 import { keepFocus } from './keep-focus.ts';
 import { folderOpen, newSourceUi, sourceOpen, type SourceUi } from './source-ui.ts';
@@ -152,22 +153,24 @@ export class CheckView extends ItemView {
 				this.toggleSource(url);
 				break;
 			case 'toggle-folder':
-				if (path) this.toggleFolder(url, path);
+			case 'toggle-other-folder':
+			case 'toggle-all-folder':
+				if (path) this.toggleFolder(url, path, folderList(action));
 				break;
 			case 'select':
 				if (path) this.select(url, [path]);
 				break;
 			case 'select-folder':
-				if (path) this.selectFolder(url, path);
+			case 'select-other-folder':
+			case 'select-all-folder':
+				if (path) this.selectFolder(url, path, folderList(action));
+				break;
+			case 'toggle-others':
+				this.uiOf(url).others = !this.uiOf(url).others;
+				this.render();
 				break;
 			case 'browse':
 				this.toggleBrowse(url);
-				break;
-			case 'toggle-all-folder':
-				if (path) this.toggleFolder(url, path, 'all');
-				break;
-			case 'select-all-folder':
-				if (path) this.selectFolder(url, path, 'all');
 				break;
 			case 'fork-selected':
 				this.forkSelected(url);
@@ -213,7 +216,7 @@ export class CheckView extends ItemView {
 		const c = this.listedCheck(url);
 		if (!c) return;
 		const ui = this.uiOf(url);
-		(list === 'all' ? ui.allFolders : ui.folders).set(path, !folderOpen(c, ui, path, list));
+		ui.folders[list].set(path, !folderOpen(c, ui, path, list));
 		this.render();
 	}
 

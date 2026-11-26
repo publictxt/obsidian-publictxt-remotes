@@ -92,7 +92,8 @@ At each check of a source with followed tags, each change is matched (`SourceChe
 - Only the changed pages are read, from the tag index of head and of `seenCommit`; the filter
   reads the rest when it is opened.
 
-Mirrors and forks changed upstream are listed whatever their tags.
+**What's new** lists the changes that match, and folds the rest under **Other changes**
+([check.md](check.md)). Mirrors and forks changed upstream are listed whatever their tags.
 
 ## Code
 

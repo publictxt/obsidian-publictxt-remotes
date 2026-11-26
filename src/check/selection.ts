@@ -1,10 +1,21 @@
 // Which of a check's files are ticked, to mirror or fork, in the check view. Pure.
 
 import { isCopyable } from '../copy/copy.ts';
+import type { Change } from '../remote/host.ts';
 import type { SourceCheck } from './check.ts';
 
-/** Which folder tree in the check view: what's new, or every file at head. */
-export type FileList = 'new' | 'all';
+/**
+ * Which folder tree in the check view: what's new; the other changes, which don't match the
+ * followed tags; or every file at head.
+ */
+export type FileList = 'new' | 'other' | 'all';
+
+/** The changes in what's new, or in other changes: with no followed tags, every change is new. */
+export function changesIn(c: SourceCheck, list: Exclude<FileList, 'all'>): Change[] {
+	const { followed } = c;
+	if (followed === null) return list === 'new' ? [...c.changes] : [];
+	return c.changes.filter((ch) => followed.has(ch.path) === (list === 'new'));
+}
 
 /** Whether a file a check lists can be mirrored or forked: Markdown, and still at head. */
 export function canFork(file: { path: string; status: string }): boolean {
@@ -13,7 +24,7 @@ export function canFork(file: { path: string; status: string }): boolean {
 
 /** The files in `list` that can be forked. */
 function forkableIn(c: SourceCheck, list: FileList): string[] {
-	return list === 'new' ? c.changes.filter(canFork).map((ch) => ch.path) : c.files.filter(isCopyable);
+	return list === 'all' ? c.files.filter(isCopyable) : changesIn(c, list).filter(canFork).map((ch) => ch.path);
 }
 
 /** The files a check lists that can be forked: what's new, then all files, each once. */
