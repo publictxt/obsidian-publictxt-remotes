@@ -15,7 +15,7 @@ test('add: canonical URL, name suggested, lines split and cleaned, blanks → nu
 	const r = ok(checkAdd([], form({ url: 'git@github.com:a/b.git', include: ' wiki \n\n/notes/\n', folder: '/forks/' })));
 	assert.equal(r.name, 'a-b');
 	assert.equal(r.localPath, null);
-	assert.deepEqual(r.source, { url: 'https://github.com/a/b', branch: null, include: ['wiki/', 'notes/'], folder: 'forks', listMirrors: null, listForks: null });
+	assert.deepEqual(r.source, { url: 'https://github.com/a/b', branch: null, include: ['wiki/', 'notes/'], followTags: [], folder: 'forks', listMirrors: null, listForks: null });
 });
 
 test('add: a folder is a local source, keyed by its name; the folder stays out of the source', () => {
@@ -92,4 +92,11 @@ test('add: at least one of URL and path, each in its own field', () => {
 	assert.match(error({ path: 'notes' }), /^Local path: enter a folder/);
 	assert.equal(ok(checkAdd([], form({ url: 'https://github.com/a/b', path: '/home/me/notes' }))).name, 'a-b');
 	assert.equal(ok(checkAdd([], form({ url: ' ', path: '/home/me/notes' }))).source.url, 'local:notes');
+});
+
+test('followed tags: a combo per line, and back', () => {
+	const r = ok(checkAdd([], form({ url: 'https://github.com/a/b', followTags: ' dev  obsidian \n\n#books -fiction\nDEV Obsidian\n' })));
+	assert.deepEqual(r.source.followTags, [{ tags: ['dev', 'obsidian'], not: [] }, { tags: ['books'], not: ['fiction'] }]);
+	const follow: Follow = { ...r.source, path: 'follows/a-b.md', name: 'a-b' };
+	assert.equal(sourceToForm(follow, null).followTags, 'dev obsidian\nbooks -fiction');
 });

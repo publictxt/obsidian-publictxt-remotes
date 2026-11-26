@@ -3,6 +3,7 @@
 
 import { normalizeSource, type Source } from './schema.ts';
 import { isLocalRepo } from './repo-url.ts';
+import { comboText } from '../tags/combo.ts';
 
 /** Where follow notes live. Fixed by the spec, not a setting. */
 export const FOLLOWS_FOLDER = 'follows';
@@ -49,6 +50,7 @@ export function followProps(s: Source): Record<string, string | string[] | boole
 		local: local ? true : undefined,
 		branch: s.branch ?? undefined,
 		include: s.include.length ? s.include : undefined,
+		follow_tags: s.followTags.length ? s.followTags.map(comboText) : undefined,
 		folder: s.folder ?? undefined,
 		list_mirrors: s.listMirrors ?? undefined,
 		list_forks: s.listForks ?? undefined,

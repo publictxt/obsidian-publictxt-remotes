@@ -43,6 +43,7 @@ mirrors and forks record. It can't start with `.` or a space or contain
 | `local` | `true` | Plugin only. A local source: no `url`; folder in `localPaths` |
 | `branch` | string | Branch to track. Absent/blank: the remote's default |
 | `include` | string or list | Repo-relative folder prefixes ending in `/`. Empty: whole repo. Narrows "what's new" only |
+| `follow_tags` | string or list | Plugin only, for now (spec §13 q1). A tag combo per line: `dev obsidian` needs both, `books -fiction` leaves fiction out. Not used by checks yet ([plan](../plans/tags.md)) |
 | `folder` | string | Plugin only. Mirror folder under `communityFolder`. Absent: the remote name |
 | `list_mirrors` / `list_forks` | boolean | Plugin only. Overrides `listMirrors` / `listForks` for this note |
 
@@ -53,7 +54,7 @@ other readers, and public with the note.
 `local:<name>`.
 
 **Reading** (`readFollow`): `local: true` makes a local source whatever its `url`; otherwise no
-valid `url`, not a source. Paths: trailing `/` added to `include`, leading `/` stripped, `.`/`..`
+valid `url`, not a source. `follow_tags`: words split on spaces, a leading `#` dropped, `-` excludes; each tag once by its match form (spec §7.3), lines without a tag and repeated lines (any order or case) dropped. Paths: trailing `/` added to `include`, leading `/` stripped, `.`/`..`
 segments dropped, lists deduped, a single string read as a list. Two notes with one URL or name:
 the first by path (byte order) wins, the others show as duplicates.
 
@@ -69,7 +70,7 @@ Lists each source (name; URL, or local folder or "none here"; branch, include,
 `mirrors to: community/txt`, list switches when set; note path), duplicate and invalid notes,
 and **Add source**. Redraws when a note in `follows/` changes. Folder fields (**Community
 folder**, **Fork folder**, the form's **Mirror folder**) suggest vault folders. In the form,
-lists are one path per line; **Mirror list** / **Fork list** are Default, On, Off.
+lists are one path per line, **Followed tags** one combo per line; **Mirror list** / **Fork list** are Default, On, Off.
 
 - **Add**: **Name**, **Repo URL**, **Local path**; at least one of the last two. A URL makes a
   hosted source, and with a path too, the path is its local copy. A path alone (absolute, or a
