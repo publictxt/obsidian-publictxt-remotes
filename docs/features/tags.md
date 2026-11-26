@@ -31,7 +31,7 @@ is the first tag use: it shows "Reading 120 pages…", then a chip per tag.
 - The first 20 chips show, and any that are set; **+n more** shows the rest. **Find a tag**
   narrows them.
 - **The tree** shows only pages that pass; files that aren't Markdown have no tags and are left
-  out while a filter is set. Folders start open when 200 or fewer are left.
+  out while a filter is set. Folders start closed; their counts show where the pages are.
 - **Ticks**: a folder's tick box covers the files shown. Files ticked earlier stay ticked, and the
   buttons say so: **Mirror selected (5, 2 hidden)**.
 - **Unread pages**: "12 pages couldn't be read.", and **Try again**. They match nothing.
