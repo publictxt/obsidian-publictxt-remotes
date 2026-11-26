@@ -69,7 +69,7 @@ export class SourceModal extends Modal {
 		new Setting(contentEl)
 			.setName('Followed tags')
 			.setDesc('Tags to follow, one combination per line: a page needs every tag on a line, and none with -, as in books -fiction. Empty: every page.')
-			.addTextArea((t) => t.setValue(this.form.followTags).setPlaceholder('dev obsidian').onChange((v) => (this.form.followTags = v)));
+			.addTextArea((t) => t.setValue(this.form.followTags).onChange((v) => (this.form.followTags = v)));
 		new Setting(contentEl)
 			.setName('Mirror folder')
 			.setDesc('Folder for this source\'s mirrors, under the community folder. Empty: the source\'s name.')
