@@ -48,9 +48,10 @@ make some my own; see when those change upstream.
   copies and show twice on a site.
 - **Updating a fork is a compare, not a merge.** Overwrite, write alongside as a new copy, or
   keep mine. `fork_seen` records what was dealt with, so `fork_blob` stays the merge base.
-- **A fork's links change form, not target.** They are written as the vault writes links, paths
-  kept; where they go is the wiki way. Pointing broken ones at notes of the vault is asked for.
-  Neither is an edit. The plugin never changes a mirror's links: it is upstream's text.
+- **A note's links are written as the vault writes links**: Markdown links by a relative path,
+  which publictxt-pages needs for now; wikilinks by the shortest. Which note a link is to is
+  Obsidian's call. Pointing broken ones at notes of the vault is asked for. Neither is an edit. A
+  mirror's links change only when asked, and its next update puts back upstream's text.
 - **The community folder is named for readers**: it's a section of the published site, and
   publictxt-pages uses "community" for where pages came from.
 

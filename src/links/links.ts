@@ -1,4 +1,4 @@
-// A fork's links (docs/features/fork-links.md): written as the vault writes links, pointed at
+// A note's links (docs/features/links.md): written as the vault writes links, pointed at
 // another note. Pure.
 
 import { baseName, decoded, linkShows, splitLink, WIKI } from '../copy/link-text.ts';
@@ -37,6 +37,15 @@ export function notePath(ref: Pick<LinkRef, 'original' | 'link'>): string | null
 /** What Obsidian matches a link to a note by: the note's name, without its folder, `.md` or case. */
 export function nameOf(path: string): string {
 	return baseName(path).replace(/\.md$/i, '').toLowerCase();
+}
+
+/** The path from the note at `from` to the file at `to`, both from the vault's root: `../cs/b.md`. */
+export function relativePath(from: string, to: string): string {
+	const dir = from.split('/').slice(0, -1);
+	const target = to.split('/');
+	let same = 0;
+	while (same < dir.length && same < target.length - 1 && dir[same] === target[same]) same++;
+	return [...dir.slice(same).map(() => '..'), ...target.slice(same)].join('/');
 }
 
 /** What a path in a link can't hold. */

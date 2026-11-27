@@ -16,7 +16,7 @@ import type { Follow } from '../sources/follow-note.ts';
 import { scanFollows } from '../sources/follows.ts';
 import { leafShowing } from './compare-run.ts';
 import { newForkMeta } from './fork.ts';
-import { linkNew } from './links-run.ts';
+import { linkNew } from '../links/run.ts';
 import { writeFork } from './run.ts';
 import { alongsidePath, updatedMeta, type Compare } from './update.ts';
 

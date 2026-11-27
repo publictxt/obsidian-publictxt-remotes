@@ -4,7 +4,7 @@
 
 import { App, Modal, Setting, type ButtonComponent, type TextComponent } from 'obsidian';
 import { canMatch, noteName, remoteFolder, resolveForks, type Destination, type Layout, type PlannedFork, type Resolved, type VaultLook } from '../fork/destination.ts';
-import type { LinkWork } from '../fork/links-run.ts';
+import type { LinkWork } from '../links/run.ts';
 import { suggestFolders } from './folder-suggest.ts';
 import { renderForkPreview } from './fork-preview.ts';
 
@@ -158,7 +158,7 @@ export class ForkModal extends Modal {
 	private linkFields(): void {
 		new Setting(this.contentEl)
 			.setName('Convert links')
-			.setDesc('Write links as this vault does: Markdown links or wikilinks. Their paths stay.')
+			.setDesc('Write links as this vault does: Markdown links by a relative path, or wikilinks by the shortest.')
 			.addToggle((t) => t.setValue(this.work.convert).onChange((on) => (this.work.convert = on)));
 		new Setting(this.contentEl)
 			.setName('Match links to existing pages')

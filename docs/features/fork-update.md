@@ -42,7 +42,7 @@ copies aren't written.
   `<name> (up-01)`, `(up-02)`, … (an existing ` (up-nn)` dropped first). Opens where the copy
   was; now the latest copy.
 
-After either, the note's links are converted ([fork-links.md](fork-links.md)).
+After either, the note's links are converted ([links.md](links.md)).
 
 **Gone upstream**: **Detach** removes `fork_*` from every copy after asking; **Keep** sets
 `fork_seen: gone` (not listed until the file is back and differs).

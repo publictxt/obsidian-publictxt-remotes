@@ -60,7 +60,7 @@ with a note saying so. It follows the destination until typed in; then it must b
 `/` or `\` is an error. Earlier forks of the file are named.
 
 **Convert links** and **Match links to existing pages**, applied once the forks are written:
-[fork-links.md](fork-links.md).
+[links.md](links.md).
 
 **Preview**, redrawn on change: "Goes to `<path>`", or a row per file (`source → vault`, "Name
 taken." when numbered (case-insensitive), "Forked before.", "Its mirror moves."), plus folders
