@@ -9,8 +9,8 @@ import { copiesOf, isFrom } from '../copy/copy.ts';
 import { isEdited, type NoteParts } from '../copy/edited.ts';
 import { noteParts as parts, overwriteWithProvenance } from '../copy/run.ts';
 import { scanForks } from '../sources/forks.ts';
-import type { DiffStat } from '../remote/host.ts';
-import { vaultHost } from '../remote/vault-host.ts';
+import type { DiffStat, Head } from '../remote/host.ts';
+import { errorText, vaultHost } from '../remote/vault-host.ts';
 import { clearForkMeta, readForkMeta, SEEN_GONE, setForkSeen, writeForkMeta, type ForkMeta } from '../sources/fork-meta.ts';
 import type { Follow } from '../sources/follow-note.ts';
 import { scanFollows } from '../sources/follows.ts';
@@ -18,7 +18,7 @@ import { leafShowing } from './compare-run.ts';
 import { newForkMeta } from './fork.ts';
 import { linkNew } from '../links/run.ts';
 import { writeFork } from './run.ts';
-import { alongsidePath, updatedMeta, type Compare } from './update.ts';
+import { alongsidePath, forksSettled, forksUpdatedText, noForksUpdated, updatedMeta, type Compare, type ForksUpdated } from './update.ts';
 
 /** What the Upstream view shows for a compare. */
 export interface CompareInfo {
@@ -129,4 +129,75 @@ export async function detach(plugin: PublicTxtPlugin, url: string, change: ForkC
 	}
 	plugin.forkSettled(url, change.path);
 	new Notice(change.copies.length === 1 ? `${change.copies[0]?.path} is no longer a fork.` : `${change.copies.length} notes are no longer forks.`);
+}
+
+/**
+ * Overwrites each copy of the forked files `changes` that isn't edited with upstream's version at
+ * `head`; those edited, or that may be, are left, and named. Settled copies aren't written. A file
+ * leaves the last check once all its copies are settled. Gives the files that did.
+ */
+export async function updateForks(plugin: PublicTxtPlugin, source: Follow, head: Head, changes: readonly ForkChange[]): Promise<string[]> {
+	const { app, data } = plugin;
+	const total = noForksUpdated();
+	const settled: string[] = [];
+	const written: TFile[] = [];
+	try {
+		const todo = changes.filter((c): c is ForkChange & { blob: string } => c.blob !== null);
+		// Head's versions and those forked from, in one go; one that can't be read is left out.
+		const wanted = todo.flatMap((c) => [c.blob, ...c.copies.map((f) => f.meta.blob)]);
+		const texts = await vaultHost(app, data).blobs(source.url, [...new Set(wanted)]);
+		for (const change of todo) {
+			const r = await updateCopies(app, source, head, change, texts, written);
+			if (forksSettled(r)) {
+				plugin.forkSettled(source.url, change.path);
+				settled.push(change.path);
+			}
+			total.updated.push(...r.updated);
+			total.edited.push(...r.edited);
+			total.unknown.push(...r.unknown);
+			total.failed.push(...r.failed);
+		}
+	} catch (e) {
+		total.failed.push(errorText(e));
+	}
+	const { text, left } = forksUpdatedText(source.name, total);
+	// With anything left over it stays until dismissed: it is the only record of it.
+	new Notice(text, left ? 0 : undefined);
+	if (written.length) void linkNew(app, written, { convert: true, match: false });
+	return settled;
+}
+
+/** Updates the copies of one file, each judged against the version it was forked from. Adds those overwritten to `written`. */
+async function updateCopies(app: App, source: Follow, head: Head, change: ForkChange & { blob: string }, texts: ReadonlyMap<string, string>, written: TFile[]): Promise<ForksUpdated> {
+	const out = noForksUpdated();
+	// The check's copies, and any found now: the metadata cache may lag a write.
+	const notes = new Set([...change.copies, ...copiesOf(scanForks(app), source, change.path)].map((f) => f.path));
+	for (const note of notes) {
+		try {
+			const file = app.vault.getFileByPath(note);
+			if (!file) continue;
+			// From the file, not the metadata cache, which may lag a write.
+			const before = await app.vault.read(file);
+			const meta = readForkMeta(parts(before).front);
+			// Moved, or no longer a fork of this file: the scan has it, or it isn't one to update.
+			if (!meta || meta.path !== change.path || !isFrom(meta, source) || isSettled(meta, change.blob)) continue;
+			const upstream = texts.get(change.blob);
+			if (upstream === undefined) throw new Error('upstream\'s version can\'t be read.');
+			const forked = texts.get(meta.blob) ?? null;
+			if (forked === null) {
+				out.unknown.push(note);
+				continue;
+			}
+			if (isEdited(parts(before), parts(forked))) {
+				out.edited.push(note);
+				continue;
+			}
+			await overwriteWithProvenance(app, file, before, upstream, (front) => writeForkMeta(front, updatedMeta(meta, head, change.blob, new Date())));
+			out.updated.push(note);
+			written.push(file);
+		} catch (e) {
+			out.failed.push(`${note}: ${errorText(e)}`);
+		}
+	}
+	return out;
 }

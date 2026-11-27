@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { SourceCheck } from '../src/check/check.ts';
-import { canFork, changesIn, forkableByFolder, forkablePaths, forkableUnder, selectedPaths, ticked, toggleAll } from '../src/check/selection.ts';
+import type { ForkChange, SourceCheck } from '../src/check/check.ts';
+import { canFork, changesIn, forkableByFolder, forkablePaths, forkableUnder, selectedForks, selectedPaths, ticked, toggleAll } from '../src/check/selection.ts';
 import type { Change } from '../src/remote/host.ts';
 
 const change = (path: string, status: Change['status'] = 'modified'): Change => ({ path, status, from: null });
@@ -89,4 +89,13 @@ test('changesIn: with followed tags, what\'s new matches them and other changes 
 	assert.deepEqual(forkableByFolder(f, 'other'), new Map([['wiki', ['wiki/cs/b.md']], ['wiki/cs', ['wiki/cs/b.md']], ['wikis', ['wikis/c.md']]]));
 	// Ticks are of files, whichever list shows them.
 	assert.deepEqual(selectedPaths(f, new Set(['wiki/cs/b.md'])), ['wiki/cs/b.md']);
+});
+
+test('selectedForks: ticked, listed, and still at head', () => {
+	const fork = (path: string, blob: string | null): ForkChange => ({ path, status: blob ? 'modified' : 'removed', blob, copies: [] });
+	const c: SourceCheck = { ...C, forks: [fork('wiki/a.md', 'b1'), fork('out/w.md', 'b2'), fork('wikis/c.md', 'b3'), fork('old.md', 'b4'), fork('wiki/gone.md', null)] };
+	// Not ticked (wikis/c.md), not listed (old.md), gone upstream (wiki/gone.md): left out.
+	const ticks = new Set(['wiki/a.md', 'out/w.md', 'old.md', 'wiki/gone.md']);
+	assert.deepEqual(selectedForks(c, ticks).map((f) => f.path), ['wiki/a.md', 'out/w.md']);
+	assert.deepEqual(selectedForks(c, new Set()), []);
 });
