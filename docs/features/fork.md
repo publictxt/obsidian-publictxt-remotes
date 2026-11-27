@@ -27,7 +27,7 @@ fork of a fork never keeps upstream's provenance. A fork (or mirror) belongs to 
 
 **Fork** on a file in What's new, All files, or a mirror gone upstream (at the check's head);
 **Fork selected**; **Fork a file from a source**; **Fork this mirror** (active note, no fetch).
-Markdown only.
+Markdown only. Attachments aren't copied: a forked mirror's stay in the mirror folder.
 
 **A mirrored file is moved, not fetched**: `renameFile` (Obsidian updates links to it; mirrors and
 the moved note get their text back, `moveMirror()`), keys `mirror_*` → `fork_*`, `fork_date` now,

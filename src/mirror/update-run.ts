@@ -4,7 +4,8 @@
 import { App, Notice, type TFile } from 'obsidian';
 import type PublicTxtPlugin from '../main.ts';
 import type { MirrorChange } from '../check/check.ts';
-import { copiesOf, isFrom, type Remote } from '../copy/copy.ts';
+import { attachmentsText, noAttachments, troubled, type AttachmentsCopied } from '../copy/attachments.ts';
+import { copiesOf, isFrom } from '../copy/copy.ts';
 import type { NoteParts } from '../copy/edited.ts';
 import { noteParts, overwriteWithProvenance } from '../copy/run.ts';
 import type { Head, RemoteHost } from '../remote/host.ts';
@@ -12,15 +13,30 @@ import { errorText, vaultHost } from '../remote/vault-host.ts';
 import { readMirrorMeta, writeMirrorMeta, type MirrorMeta } from '../sources/fork-meta.ts';
 import { scanMirrors } from '../sources/forks.ts';
 import { ConfirmModal } from '../ui/confirm-modal.ts';
-import { updatedMirrorMeta } from './mirror.ts';
+import { copyAttachments } from './attachments-run.ts';
+import { mirrorFolderOf, updatedMirrorMeta } from './mirror.ts';
+import type { MirrorSource } from './run.ts';
 import { addUpdated, allUpdatedText, leftOf, mirrorState, noneUpdated, oneUpdatedText, overwriteQuestion, updateOutcome, type MirrorsUpdated } from './update.ts';
 
 /** What mirrors are updated from: a source at the head its last check saw. */
 interface Upstream {
 	app: App;
 	host: RemoteHost;
-	source: Remote;
+	source: MirrorSource;
 	head: Head;
+	/** The source's mirror folder, where attachments go. */
+	folder: string;
+}
+
+/** The upstream files `notes` (by upstream path, with the text written) use, copied to the mirror folder. */
+async function attachmentsOfUpdated(up: Upstream, notes: readonly { path: string; text: string }[]): Promise<AttachmentsCopied> {
+	if (!notes.length) return noAttachments();
+	try {
+		const { files } = await up.host.tree(up.source.url, up.head.tree);
+		return await copyAttachments(up.app, up.host, up.source.url, files, up.folder, notes);
+	} catch (e) {
+		return { ...noAttachments(), failed: [errorText(e)] };
+	}
 }
 
 /** A change there is a new version for: not one gone upstream. */
@@ -61,9 +77,10 @@ async function heldVersion(up: Upstream, blob: string): Promise<NoteParts | null
 
 /**
  * Overwrites the mirrors of `change` with upstream's version. One that was edited, or may have
- * been, is left unless `agreed` has it: the notes the user said to overwrite.
+ * been, is left unless `agreed` has it: the notes the user said to overwrite. Once any is
+ * overwritten, `written` gets the upstream file and its text, for its attachments.
  */
-async function updateNotes(up: Upstream, change: NewVersion, agreed: ReadonlySet<string>): Promise<MirrorsUpdated> {
+async function updateNotes(up: Upstream, change: NewVersion, agreed: ReadonlySet<string>, written: { path: string; text: string }[]): Promise<MirrorsUpdated> {
 	const out = noneUpdated();
 	let text: string | null = null;
 	for (const path of notesOf(up, change)) {
@@ -88,11 +105,18 @@ async function updateNotes(up: Upstream, change: NewVersion, agreed: ReadonlySet
 			out.failed.push(`${path}: ${errorText(e)}`);
 		}
 	}
+	if (out.updated.length && text !== null) written.push({ path: change.path, text });
 	return out;
 }
 
+/** What `source`'s mirrors are updated from: its head, as the last check saw it. */
+function upstream(plugin: PublicTxtPlugin, source: MirrorSource, head: Head): Upstream {
+	const { app, data } = plugin;
+	return { app, host: vaultHost(app, data), source, head, folder: mirrorFolderOf(data.communityFolder, source.folder, source.name) };
+}
+
 /** Brings the last check in line with what updating each upstream file came to. Gives those not mirrored any more. */
-function settle(plugin: PublicTxtPlugin, source: Remote, results: readonly (readonly [path: string, r: MirrorsUpdated])[]): string[] {
+function settle(plugin: PublicTxtPlugin, source: MirrorSource, results: readonly (readonly [path: string, r: MirrorsUpdated])[]): string[] {
 	const paths = (outcome: ReturnType<typeof updateOutcome>) => results.filter(([, r]) => updateOutcome(r) === outcome).map(([path]) => path);
 	const gone = paths('gone');
 	plugin.mirrorsNow(source.url, { settled: paths('settled'), drop: gone });
@@ -100,15 +124,18 @@ function settle(plugin: PublicTxtPlugin, source: Remote, results: readonly (read
 }
 
 /** Updates one upstream file's mirrors from the last check's head. One that was edited, or may have been, is overwritten only after asking. */
-export async function updateMirror(plugin: PublicTxtPlugin, source: Remote, head: Head, change: MirrorChange): Promise<void> {
-	const { app, data } = plugin;
+export async function updateMirror(plugin: PublicTxtPlugin, source: MirrorSource, head: Head, change: MirrorChange): Promise<void> {
+	const { app } = plugin;
 	if (!isNewVersion(change)) return;
 	const update = async (agreed: ReadonlySet<string>): Promise<void> => {
 		try {
-			const r = await updateNotes({ app, host: vaultHost(app, data), source, head }, change, agreed);
+			const up = upstream(plugin, source, head);
+			const written: { path: string; text: string }[] = [];
+			const r = await updateNotes(up, change, agreed, written);
 			settle(plugin, source, [[change.path, r]]);
-			const told = oneUpdatedText(change.path, r);
-			if (told !== null) new Notice(told, r.failed.length ? 0 : undefined);
+			const att = await attachmentsOfUpdated(up, written);
+			const told = [oneUpdatedText(change.path, r), ...attachmentsText(att)].filter((l) => l !== null);
+			if (told.length) new Notice(told.join('\n'), r.failed.length || troubled(att) ? 0 : undefined);
 			const left = leftOf(r);
 			if (!left.length) return;
 			const { title, message } = overwriteQuestion(r);
@@ -121,22 +148,23 @@ export async function updateMirror(plugin: PublicTxtPlugin, source: Remote, head
 }
 
 /** Updates every mirror the last check found changed upstream. Those edited, or that may have been, are left, and named. */
-export async function updateMirrors(plugin: PublicTxtPlugin, source: Remote, head: Head, changes: readonly MirrorChange[]): Promise<void> {
-	const { app, data } = plugin;
+export async function updateMirrors(plugin: PublicTxtPlugin, source: MirrorSource, head: Head, changes: readonly MirrorChange[]): Promise<void> {
 	try {
-		const up: Upstream = { app, host: vaultHost(app, data), source, head };
+		const up = upstream(plugin, source, head);
+		const written: { path: string; text: string }[] = [];
 		const todo = changes.filter(isNewVersion);
 		if (todo.length > 1) await up.host.prefetch?.(source.url, todo.map((c) => c.blob));
 		const results: [string, MirrorsUpdated][] = [];
 		const total = noneUpdated();
 		for (const change of todo) {
-			const r = await updateNotes(up, change, new Set());
+			const r = await updateNotes(up, change, new Set(), written);
 			results.push([change.path, r]);
 			addUpdated(total, r);
 		}
 		const { text, left } = allUpdatedText(source.name, total, settle(plugin, source, results));
+		const att = await attachmentsOfUpdated(up, written);
 		// With anything left over it stays until dismissed: it is the only record of it.
-		new Notice(text, left ? 0 : undefined);
+		new Notice([text, ...attachmentsText(att)].join('\n'), left || troubled(att) ? 0 : undefined);
 	} catch (e) {
 		new Notice(errorText(e));
 	}

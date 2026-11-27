@@ -24,6 +24,7 @@
 | snapshot / make a repo | Commit a local folder's changes / `git init` it with a `.gitignore`, then snapshot |
 | clone | A source's bare partial clone under `clonesFolder`. Never a page copy |
 | mirror | Upstream's copy of a page under the community folder, with `mirror_*` keys; overwritten by updates. Also the action |
+| attachment | A file that isn't Markdown a mirror links or embeds: copied with it, its blob SHA its provenance |
 | fork | The user's own note made from a source file, with `fork_*` keys |
 | copy | A fork or mirror; for forks, one of the notes from one upstream file |
 | latest | The copy with the newest `fork_date`: the one compared |

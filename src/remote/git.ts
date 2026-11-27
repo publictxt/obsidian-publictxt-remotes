@@ -134,6 +134,23 @@ export function parseLsTree(out: string): Map<string, string> {
 	return files;
 }
 
+/** Parses `git cat-file --batch-check` output: the blobs it found. */
+export function parseBatchCheck(out: string): Set<string> {
+	const found = new Set<string>();
+	for (const line of out.split('\n')) {
+		const [id, type] = line.split(' ');
+		if (type === 'blob' && id && isSha(id)) found.add(id);
+	}
+	return found;
+}
+
+/** Binary text (a character per byte) as its bytes. */
+export function latin1Bytes(text: string): Uint8Array {
+	const bytes = new Uint8Array(text.length);
+	for (let i = 0; i < text.length; i++) bytes[i] = text.charCodeAt(i);
+	return bytes;
+}
+
 /** Parses `git diff --numstat` output for one pair of blobs; `null` for a binary one. No output: no difference. */
 export function parseNumstat(out: string): DiffStat | null {
 	const line = out.trim();
@@ -249,6 +266,24 @@ export class GitHost implements RemoteHost {
 		return this.serial(repo, async () => {
 			// Partial clone: the blob is fetched on demand.
 			return (await this.git(['cat-file', 'blob', sha(blob, 'blob')], this.dir(repo))).stdout;
+		});
+	}
+
+	bytes(repo: string, blob: string): Promise<Uint8Array> {
+		return this.serial(repo, async () => {
+			const r = await this.run(['cat-file', 'blob', sha(blob, 'blob')], this.dir(repo), { binary: true });
+			if (r.code !== 0) throw new RemoteError('git', `git cat-file failed: ${r.stderr.trim() || `exit ${r.code}`}`);
+			return latin1Bytes(r.stdout);
+		});
+	}
+
+	has(repo: string, blobs: readonly string[]): Promise<Set<string>> {
+		return this.serial(repo, async () => {
+			const ids = [...new Set(blobs.map((b) => sha(b, 'blob')))];
+			if (!ids.length) return new Set();
+			const r = await this.run(['cat-file', '--batch-check'], this.dir(repo), { input: ids.map((id) => `${id}\n`).join(''), lazyFetch: false });
+			if (r.code !== 0) throw new RemoteError('git', `git cat-file failed: ${r.stderr.trim() || `exit ${r.code}`}`);
+			return parseBatchCheck(r.stdout);
 		});
 	}
 

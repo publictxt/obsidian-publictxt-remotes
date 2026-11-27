@@ -11,6 +11,7 @@ import { parseBatch } from '../src/remote/cat-file.ts';
 import { gitRunner, pathExists, writeIfMissing } from '../src/remote/git-process.ts';
 import { RemoteError } from '../src/remote/host.ts';
 import { fileUrl } from '../src/sources/repo-url.ts';
+import { gitBlobSha } from '../src/copy/attachments.ts';
 
 const REPO = 'https://example.com/a/b';
 let root = '';
@@ -327,4 +328,29 @@ test('blobs: many at once, fetched only when missing, and one that can\'t be got
 	assert.deepEqual([...(await h.blobs(key, [gone, ten[0] ?? ''])).keys()], [ten[0]]);
 	assert.equal((await h.blobs(key, [])).size, 0);
 	await assert.rejects(h.blobs(key, ['abc']), (e) => e instanceof RemoteError && e.kind === 'bad-input');
+});
+
+test('bytes: a binary blob as it is; has: the blobs the clone holds, never fetched', async () => {
+	const key = 'https://example.com/a/bin';
+	const up4 = join(root, 'up4');
+	mkdirSync(join(up4, 'img'), { recursive: true });
+	const g4 = (...args: string[]) => execFileSync('git', args, { cwd: up4, encoding: 'utf8' }).trim();
+	g4('init', '-q', '-b', 'main');
+	g4('config', 'uploadpack.allowFilter', 'true');
+	const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0xff, 0xc3, 0x28]);
+	writeFileSync(join(up4, 'img', 'p.png'), png);
+	writeFileSync(join(up4, 'img', 'other.png'), 'not fetched');
+	g4('add', '-A');
+	g4('-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'bin');
+
+	const h = new GitHost({ run: gitRunner(), cacheDir: join(root, 'remotes'), join, exists: pathExists, remote: () => fileUrl(up4) });
+	const head = await h.head(key, null);
+	const { files } = await h.tree(key, head.tree);
+	const p = files.get('img/p.png') ?? '';
+	const other = files.get('img/other.png') ?? '';
+	assert.equal(await gitBlobSha(png, p), p);
+	assert.deepEqual(await h.has(key, [p, other]), new Set());
+	assert.deepEqual([...(await h.bytes(key, p))], [...png]);
+	assert.deepEqual(await h.has(key, [p, other, 'f'.repeat(40)]), new Set([p]));
+	assert.deepEqual(await h.has(key, []), new Set());
 });

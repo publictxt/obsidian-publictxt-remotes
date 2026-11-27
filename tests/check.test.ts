@@ -18,6 +18,8 @@ function fakeHost(files: Record<string, string>, changes: Change[] | null = []):
 		tree: async () => (calls.push('tree'), { files: new Map(Object.entries(files)) }),
 		changes: async () => (calls.push('changes'), changes),
 		blob: async () => '',
+		bytes: async () => new Uint8Array(),
+		has: async () => new Set(),
 		blobs: async () => new Map(),
 		diffStat: async () => null,
 	};

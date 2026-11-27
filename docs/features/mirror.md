@@ -23,9 +23,11 @@ one.
 
 From the check view (**Mirror** on a file, or **Mirror selected**, which clears ticks) at the
 head the check saw, or **Mirror a file from a source** (pick source, skipped if one; fetch head;
-pick file). Markdown only. Per file (`planMirrors()`):
+pick file). Markdown only; its attachments come with it ([Attachments](#attachments)). Per file
+(`planMirrors()`):
 
-- Already mirrored anywhere: left alone.
+- Already mirrored anywhere: left alone, but gets any attachments it lacks, from the version it
+  holds. So mirroring again brings a mirror's attachments.
 - Its place taken by something else: skipped, reported.
 - Otherwise: blob fetched, note created, `mirror_*` keys added. Upstream front matter that isn't
   valid YAML is refused before writing.
@@ -43,10 +45,31 @@ The link commands work on a mirror ([links.md](links.md)). Links rewritten showi
 same words aren't an edit ([fork-update.md](fork-update.md)), so an update overwrites the mirror
 unasked, in upstream's form again.
 
+## Attachments
+
+The files that aren't Markdown a mirror links or embeds (images, PDFs, audio): copied into the
+mirror folder at their upstream paths, so the note's links find them unchanged. Copied when the
+note is mirrored, mirrored again, or updated; nothing else checks them, so one changed upstream
+under an unchanged note waits for the note's next update.
+
+**Which** (`linkRefs()`, `resolveRef()`): wikilinks, Markdown links and HTML `src`, front matter
+too, not in code; not web links. Each is looked up in the tree at the head being mirrored, as
+Obsidian would find it: by its path from the note or from the root, else by the end of its path,
+the note's folder first, then the shortest. Not found upstream: left.
+
+**No front matter, so no keys.** An attachment's content is its provenance: its git blob SHA
+(`gitBlobSha()`). One already there (`attachmentState()`):
+
+- the same as upstream's: left;
+- a blob the clone holds (`RemoteHost.has`), so once upstream's: an earlier version, overwritten;
+- anything else (edited, or never upstream's): left, and named.
+
+A notice line says how many were copied and updated; one left or failed makes it sticky.
+
 ## Update
 
 **Update** on a file, or **Update mirrors (n)**, overwrites with upstream at the head the check
-saw and rewrites `mirror_*`. No compare. Its mirrors are looked up again, so one moved by hand
+saw and rewrites `mirror_*`, then copies its attachments. No compare. Its mirrors are looked up again, so one moved by hand
 since the check is updated where it is.
 
 A mirror isn't overwritten unasked (`mirrorState()`) when it is edited
@@ -59,10 +82,12 @@ leaves the list.
 
 **Stop** on a mirrored file, **Remove** on one gone upstream, or **Stop mirroring this note**:
 after confirming, the mirror is trashed, with any edits made to it: the question says so, and
-suggests forking. A page mirrored twice stops with both notes, which it names. A gone mirror stays
+suggests forking. Its attachments in the mirror folder go too, but those another note links to
+(`unusedAttachments()`, by Obsidian's resolved links); the question names them. A page mirrored twice stops with both notes, which it names. A gone mirror stays
 listed until removed or forked.
 
 ## Code
 
-Pure: `src/mirror/mirror.ts`, `update.ts`, `src/copy/copy.ts`, `edited.ts`,
-`src/sources/fork-meta.ts`. Vault: `src/mirror/run.ts`, `update-run.ts`, `src/copy/run.ts`, `src/sources/forks.ts`.
+Pure: `src/mirror/mirror.ts`, `update.ts`, `src/copy/copy.ts`, `edited.ts`, `attachments.ts`,
+`src/sources/fork-meta.ts`. Vault: `src/mirror/run.ts`, `update-run.ts`, `attachments-run.ts`,
+`src/copy/run.ts`, `src/sources/forks.ts`.
