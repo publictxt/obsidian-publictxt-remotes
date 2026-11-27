@@ -1,10 +1,15 @@
-# Fork links
+# Links
 
-A fork's links were written for upstream. Two things can be done about them, apart:
+Links copied from a source were written for upstream, and any note's may not be as the vault
+writes them. Two things can be done about them, apart or together (**Fix**):
 
 - **Converting** writes them as the vault writes links: wikilinks or Markdown links (**Use
-  [[Wikilinks]]**). Their paths stay, so where they go is Obsidian's business: the wiki way.
+  [[Wikilinks]]**). Markdown links get a relative path to the note, which publictxt-pages needs
+  for now; wikilinks the shortest.
 - **Matching** points the broken ones at notes of the vault.
+
+Which note a link is to is Obsidian's call (`getFirstLinkpathDest`): the plugin never picks
+between notes of the same name.
 
 Neither looks at the source. Built for forks, but the commands work on any note, mirrors too:
 neither is an edit, so the mirror's next update overwrites it unasked, in upstream's form
@@ -16,24 +21,30 @@ links, links within the note, other files, or Markdown links without `.md` (perh
 
 ## Converting
 
-`reformat()`: `[[../cs/b|see]]` ↔ `[see](../cs/b.md)`. The path, the shown words,
-`#heading`/`#^block` and `!` are kept; a wikilink gets an alias only when it would show something
-else, its `|` escaped in a table. Not followed: **New link format** (shortest, relative, absolute).
+Each link is written to the note Obsidian finds by it, by the path `rewriterFor()` gives:
 
-Left: one in that form already; one the other form can't hold (a title, words that can't be an
-alias or a link's text); a Markdown link with a bare `)` in its path; a path with `| # ^ [ ]`; an
-alias with `]`.
+- **To Markdown links**: the path relative to the note (`relativePath()`): `[[Obsidian]]` →
+  `[Obsidian](../x/Obsidian.md)`.
+- **To wikilinks**: the shortest, as `fileToLinktext` gives it: the name when only one note has
+  it, else the path from the vault's root.
 
-Paths hold up when forks keep the source's folders. Into one folder, links by name work and most
-others don't.
+A link already in the vault's form is rewritten too when its path isn't that one. **New link
+format** isn't followed.
+
+A link to no note keeps its path and changes form only (`reformat()`): `[[../cs/b|see]]` ↔
+`[see](../cs/b.md)`. Either way the shown words, `#heading`/`#^block` and `!` are kept; a
+wikilink gets an alias only when it would show something else, its `|` escaped in a table.
+
+Left: one in that form already, by that path; one the other form can't hold (a title, words that
+can't be an alias or a link's text); a Markdown link with a bare `)` in its path; a path with
+`| # ^ [ ]`; an alias with `]`.
 
 ## Matching
 
-A link is broken when Obsidian finds nothing by it (`getFirstLinkpathDest`). One note in the vault
-of its file name, without folder, `.md` or case (`nameOf()`): the link is pointed at it
-(`relink()`), by the path the vault's settings give (`fileToLinktext`), in its form. None or
-several: left. A link that works is never touched, even if it goes to another page than upstream
-meant. A match by name may not be the page upstream meant either.
+A link is broken when Obsidian finds no note by it. It is pointed at the note Obsidian finds by its file name
+alone, without folder or `.md` (`relink()`), by the path converting gives, in the vault's form.
+None: left. Of several notes of that name, Obsidian's pick, which may not be the page upstream
+meant. A link that works is never touched.
 
 ## When
 
@@ -51,8 +62,8 @@ meant. A match by name may not be the page upstream meant either.
   | Both | **Fix links in this note (convert and match)** (`fix-links`) | **Fix link under cursor (convert and match)** (`fix-link-at-cursor`) |
 
   Converting goes either way, as **Use [[Wikilinks]]** says, and the notice names which. Matching
-  says how many were matched, have several matches, or have none. Fixing matches the broken links
-  and converts the rest.
+  says how many were matched, and how many have no note of their name. Fixing matches the broken
+  links and converts the rest.
 
 A note is written once (`vault.process`), only if a link changed, and not at all if a cached link
 position no longer matches the text. The link under the cursor is rewritten in the editor, so it
@@ -62,4 +73,5 @@ don't count as edits ([fork-update.md](fork-update.md)).
 
 ## Code
 
-Pure: `src/fork/links.ts`, `src/copy/link-text.ts`. Vault: `src/fork/links-run.ts`, `src/fork/link-cursor-run.ts`.
+Pure: `src/links/links.ts`, `src/copy/link-text.ts`. Vault: `src/links/rewrite-run.ts` (what a link becomes),
+`src/links/run.ts` (the note, after a fork), `src/links/cursor-run.ts` (the link under the cursor).

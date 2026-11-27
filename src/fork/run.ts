@@ -14,8 +14,8 @@ import { ForkModal } from '../ui/fork-modal.ts';
 import { ensureFolder } from '../util/vault.ts';
 import { initialDestination, type PlannedFork, type VaultLook } from './destination.ts';
 import { newForkMeta } from './fork.ts';
-import { nameOf } from './links.ts';
-import { linkNew, type LinkWork } from './links-run.ts';
+import { nameOf } from '../links/links.ts';
+import { linkNew, type LinkWork } from '../links/run.ts';
 
 /**
  * Forks `paths` from a source: asks where they go (`ForkModal`), then writes them. A file the

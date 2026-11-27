@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { matchesExceptLinks } from '../src/copy/link-text.ts';
-import { isWikilink, nameOf, notePath, reformat, relink, rewriteLinks, type LinkRef } from '../src/fork/links.ts';
+import { isWikilink, relativePath, nameOf, notePath, reformat, relink, rewriteLinks, type LinkRef } from '../src/links/links.ts';
 
 test('isWikilink: embedded or not', () => {
 	assert.ok(isWikilink('[[a]]'));
@@ -141,4 +141,14 @@ test('relink: a second time changes nothing, and neither is an edit', () => {
 			assert.ok(matchesExceptLinks(once, original), `${original} ${once}`);
 		}
 	}
+});
+
+test('relativePath: from a note to a file, by folders', () => {
+	assert.equal(relativePath('a.md', 'b.md'), 'b.md');
+	assert.equal(relativePath('wiki/a.md', 'wiki/b.md'), 'b.md');
+	assert.equal(relativePath('wiki/cs/a.md', 'wiki/b.md'), '../b.md');
+	assert.equal(relativePath('wiki/a.md', 'wiki/cs/b.md'), 'cs/b.md');
+	assert.equal(relativePath('x/y/a.md', 'z/b.md'), '../../z/b.md');
+	assert.equal(relativePath('a.md', 'z/b.md'), 'z/b.md');
+	assert.equal(relativePath('ab/a.md', 'a/b.md'), '../a/b.md');
 });

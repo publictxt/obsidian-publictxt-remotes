@@ -24,7 +24,7 @@ records where it came from in its front matter.
 - **Compare** a fork with its new upstream version, then overwrite, write alongside or keep
   yours. Nothing is merged. [Fork update](docs/features/fork-update.md)
 - **Links** in a fork are written as your vault writes links, and broken ones can be matched to
-  your notes. [Fork links](docs/features/fork-links.md)
+  your notes. [Links](docs/features/links.md)
 - **Local sources**: follow a git repo on your computer, such as another vault, and snapshot it;
   or give a hosted source a local copy to check from. [Local](docs/features/local.md)
 - Optional **Mirrored pages** / **Forked pages** lists in follow notes.

@@ -1,29 +1,22 @@
-// A fork's links (docs/features/fork-links.md): the Obsidian side of links.ts. Converting writes
+// A note's links (docs/features/links.md): the Obsidian side of links.ts. Converting writes
 // them as the vault writes links; matching points the broken ones at notes of the vault.
 
 import { App, getFrontMatterInfo, Notice, parseYaml, type CachedMetadata, type EventRef, type TFile } from 'obsidian';
-import { splitLink } from '../copy/link-text.ts';
 import { errorText } from '../remote/vault-host.ts';
 import { readForkMeta } from '../sources/fork-meta.ts';
 import { isRecord } from '../util/validate.ts';
-import { nameOf, notePath, reformat, relink, rewriteLinks, type LinkRef } from './links.ts';
+import { rewriteLinks, type LinkRef } from './links.ts';
+import { rewriterFor, writesWikilinks, type LinkWork } from './rewrite-run.ts';
+
+export type { LinkWork } from './rewrite-run.ts';
 
 /** How long to wait for Obsidian to read a note just written. */
 const CACHE_WAIT_MS = 10_000;
 
-/** What to do with a note's links. */
-export interface LinkWork {
-	/** Write them as the vault writes links, to the same paths. */
-	convert: boolean;
-	/** Point those Obsidian finds no note by at the one note of that name. */
-	match: boolean;
-}
-
-/** What came of it: links changed, and of the broken ones, how many were matched, or why not. */
+/** What came of it: links changed, and of the broken ones, how many were matched, and how many not. */
 interface LinkTally {
 	changed: number;
 	matched: number;
-	several: number;
 	none: number;
 }
 
@@ -40,19 +33,18 @@ export async function linkNew(app: App, written: readonly TFile[], work: LinkWor
 		if (await whenCached(app, file, CACHE_WAIT_MS)) ready.push(file);
 		else failed.push(`${file.path}: ${NOT_READ}`);
 	}
-	const total: LinkTally = { changed: 0, matched: 0, several: 0, none: 0 };
+	const total: LinkTally = { changed: 0, matched: 0, none: 0 };
 	for (const file of ready) {
 		try {
 			const t = await workOn(app, file, work);
 			total.changed += t.changed;
 			total.matched += t.matched;
-			total.several += t.several;
 			total.none += t.none;
 		} catch (e) {
 			failed.push(`${file.path}: ${errorText(e)}`);
 		}
 	}
-	if (total.matched + total.several + total.none > 0) new Notice(matchText(total));
+	if (total.matched + total.none > 0) new Notice(matchText(total));
 	// Stays until dismissed: it is the only record of it.
 	if (failed.length) new Notice(['Links left as upstream wrote them in:', ...failed].join('\n'), 0);
 }
@@ -103,11 +95,6 @@ function activeNote(app: App): TFile | null {
 	return null;
 }
 
-/** Whether the vault writes wikilinks. Obsidian's setting isn't public API: ask it for a link and see which kind comes back. */
-export function writesWikilinks(app: App, file: TFile): boolean {
-	return app.fileManager.generateMarkdownLink(file, file.path).startsWith('[[');
-}
-
 export function formName(wiki: boolean): string {
 	return wiki ? 'wikilinks' : 'Markdown links';
 }
@@ -118,58 +105,41 @@ function plural(n: number, word: string): string {
 
 /** The broken links matching left, as a sentence; empty when none. */
 function leftText(t: LinkTally): string {
-	const left: string[] = [];
-	if (t.several) left.push(`${t.several} ${t.several === 1 ? 'has' : 'have'} several matches`);
-	if (t.none) left.push(`${t.none} ${t.none === 1 ? 'has' : 'have'} none`);
-	return left.length ? ` ${left.join(', ')}.` : '';
+	return t.none ? ` ${t.none} ${t.none === 1 ? 'has' : 'have'} no note of its name.` : '';
 }
 
 /** What matching did, as a notice. */
 function matchText(t: LinkTally): string {
-	if (t.matched + t.several + t.none === 0) return 'No broken links.';
+	if (t.matched + t.none === 0) return 'No broken links.';
 	return `Matched ${t.matched} ${plural(t.matched, 'link')}.${leftText(t)}`;
 }
 
 /** What converting and matching did, as a notice. */
 function fixText(t: LinkTally): string {
-	if (t.changed + t.several + t.none === 0) return 'No links to fix.';
+	if (t.changed + t.none === 0) return 'No links to fix.';
 	const matched = t.matched ? `, ${t.matched} by matching` : '';
 	return `Fixed ${t.changed} ${plural(t.changed, 'link')}${matched}.${leftText(t)}`;
 }
 
 const NOT_READ = 'Obsidian has not read the note yet.';
 
-/** What `work` makes of a link of a note, from its line: the link (`null`: left), and the note it was matched to. */
-export type Rewrite = (ref: LinkRef, line: string) => { link: string | null; to: TFile | null };
-
-/** How `work` rewrites the links `refs` of `file`, how the vault writes links, and how many broken ones have several matches or none. */
-export function rewriterFor(app: App, file: TFile, refs: readonly LinkRef[], work: LinkWork): { rewrite: Rewrite; wiki: boolean; several: number; none: number } {
-	const { matches, several, none } = work.match ? matchesFor(app, file, refs) : { matches: new Map<LinkRef, TFile>(), several: 0, none: 0 };
-	const wiki = writesWikilinks(app, file);
-	const rewrite: Rewrite = (ref, line) => {
-		const to = matches.get(ref);
-		const link = to ? relink(ref, app.metadataCache.fileToLinktext(to, file.path, true), wiki, line) : null;
-		if (to && link !== null) return { link, to };
-		return { link: work.convert ? reformat(ref, wiki, line) : null, to: null };
-	};
-	return { rewrite, wiki, several, none };
-}
-
 /** Does `work` on the links of `file`, in one write. Throws why it couldn't. */
 async function workOn(app: App, file: TFile, work: LinkWork): Promise<LinkTally> {
 	if (!(await whenCached(app, file, CACHE_WAIT_MS))) throw new Error(NOT_READ);
 	const refs = refsOf(app.metadataCache.getFileCache(file));
-	const { rewrite: one, several, none } = rewriterFor(app, file, refs, work);
-	let matched = 0;
+	const { rewrite: one } = rewriterFor(app, file, work);
+	const tally = { matched: 0, none: 0 };
 	const rewrite = (text: string) => {
-		matched = 0;
+		tally.matched = 0;
+		tally.none = 0;
 		return rewriteLinks(text, refs, (ref, line) => {
-			const { link, to } = one(ref, line);
-			if (to) matched++;
-			return link;
+			const r = one(ref, line);
+			if (r.matched) tally.matched++;
+			else if (work.match && r.broken) tally.none++;
+			return r.link;
 		});
 	};
-	if (rewrite(await app.vault.cachedRead(file))?.changed === 0) return { changed: 0, matched, several, none };
+	if (rewrite(await app.vault.cachedRead(file))?.changed === 0) return { changed: 0, ...tally };
 	// `process` reads the file itself: the offsets are checked again against what it reads.
 	let changed: number | null = null;
 	await app.vault.process(file, (text) => {
@@ -178,26 +148,7 @@ async function workOn(app: App, file: TFile, work: LinkWork): Promise<LinkTally>
 		return now?.text ?? text;
 	});
 	if (changed === null) throw new Error('The note changed meanwhile.');
-	return { changed, matched, several, none };
-}
-
-/** The links of `file` Obsidian finds no note by: the one note of the name each has, and how many have several or none. */
-function matchesFor(app: App, file: TFile, refs: readonly LinkRef[]): { matches: Map<LinkRef, TFile>; several: number; none: number } {
-	const byName = new Map<string, TFile[]>();
-	for (const f of app.vault.getMarkdownFiles()) byName.set(nameOf(f.path), [...(byName.get(nameOf(f.path)) ?? []), f]);
-	const matches = new Map<LinkRef, TFile>();
-	let several = 0;
-	let none = 0;
-	for (const ref of refs) {
-		const path = notePath(ref);
-		if (path === null || app.metadataCache.getFirstLinkpathDest(splitLink(ref.link).path, file.path)) continue;
-		const named = byName.get(nameOf(path)) ?? [];
-		const [only] = named;
-		if (!only) none++;
-		else if (named.length > 1) several++;
-		else matches.set(ref, only);
-	}
-	return { matches, several, none };
+	return { changed, ...tally };
 }
 
 /** The links and embeds Obsidian found in a note's body, in the form `rewriteLinks` takes. */

@@ -32,7 +32,7 @@
 | community folder | Holds each source's **mirror folder** (`communityFolder`; the source's `folder`, else its remote name) |
 | fork folder | Default fork destination (`forkFolder`) |
 | mirror list / fork list | The "Mirrored pages" / "Forked pages" sections in a follow note |
-| convert links | Write a note's links in the vault's form (wikilinks or Markdown), paths kept |
+| convert links | Write a note's links in the vault's form: Markdown by a relative path, wikilinks by the shortest |
 | match links | Point broken links at the one note of that name |
 | fix links | Convert and match: broken links matched, the rest converted |
 | check | One pass over the sources: what's new, mirrors, forks |
@@ -55,7 +55,8 @@ Each feature file in [features/](features/) names its modules. Tests are in
 | `src/check/` | A check and its vault run; file tree; ticks |
 | `src/copy/` | What forks and mirrors share. Imports neither; `fork/` may import `mirror/`, never the reverse |
 | `src/mirror/` | Mirroring, update, stop |
-| `src/fork/` | Fork destination and writing, fork update, lists, fork links |
+| `src/fork/` | Fork destination and writing, fork update, lists |
+| `src/links/` | A note's links: convert, match, fix; the note or the link under the cursor |
 | `src/tags/` | Tags from text, the tag filter, the tag index, tag combos |
 | `src/snapshot/` | Snapshot and make-a-repo from the vault |
 | `src/ui/` | Views, modals, tree rows |

@@ -1,5 +1,5 @@
 // Reading a link's text: its parts, what it shows, and whether two texts differ only in how their
-// links are written (docs/features/fork-links.md). Pure.
+// links are written (docs/features/links.md). Pure.
 
 /** `link` cut at its first `#`: the path, and the subpath with its `#` (`''`: none). */
 export function splitLink(link: string): { path: string; subpath: string } {
