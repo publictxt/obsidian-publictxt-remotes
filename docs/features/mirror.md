@@ -64,6 +64,8 @@ the note's folder first, then the shortest. Not found upstream: left.
 - a blob the clone holds (`RemoteHost.has`), so once upstream's: an earlier version, overwritten;
 - anything else (edited, or never upstream's): left, and named.
 
+Forking a mirror copies the attachments beside it to beside the fork ([fork.md](fork.md#attachments)).
+
 A notice line says how many were copied and updated; one left or failed makes it sticky.
 
 ## Update
