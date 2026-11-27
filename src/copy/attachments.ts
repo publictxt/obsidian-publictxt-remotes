@@ -117,18 +117,38 @@ export function attachmentState(held: string, blob: string, upstreamHas: boolean
 export interface AttachmentsCopied {
 	written: string[];
 	updated: string[];
-	/** Edited in the vault, or never upstream's: left as they are. */
+	/** A different file is there: edited, or never upstream's. Left as it is. */
 	left: string[];
+	/** Of a fork: upstream paths not beside their note (`isBeside()`), so not copied. */
+	outside: string[];
 	failed: string[];
 }
 
 export function noAttachments(): AttachmentsCopied {
-	return { written: [], updated: [], left: [], failed: [] };
+	return { written: [], updated: [], left: [], outside: [], failed: [] };
 }
 
-/** Whether copying attachments left or failed any: a notice saying so stays until dismissed. */
+/** Whether copying attachments left out or failed any: a notice saying so stays until dismissed. */
 export function troubled(r: AttachmentsCopied): boolean {
-	return r.left.length > 0 || r.failed.length > 0;
+	return r.left.length > 0 || r.outside.length > 0 || r.failed.length > 0;
+}
+
+/** Whether the upstream file `path` is beside the note at `notePath`: in its folder, or below it. */
+export function isBeside(notePath: string, path: string): boolean {
+	const here = folderOf(notePath);
+	return here === '' || path.startsWith(`${here}/`);
+}
+
+/**
+ * Where an attachment beside a note goes when the note is forked to `forkPath`: where it is from
+ * the note upstream, from the fork. `wiki/cs/git.md`, `wiki/cs/img/a.png`, `notes/git.md` →
+ * `notes/img/a.png`.
+ */
+export function besidePath(notePath: string, path: string, forkPath: string): string {
+	const here = folderOf(notePath);
+	const rel = here === '' ? path : path.slice(here.length + 1);
+	const there = folderOf(forkPath);
+	return there === '' ? rel : `${there}/${rel}`;
 }
 
 /** How copying attachments went, as lines for a notice; none when nothing was copied or left. */
@@ -137,7 +157,8 @@ export function attachmentsText(r: AttachmentsCopied): string[] {
 	const lines: string[] = [];
 	const done = [r.written.length ? `${files(r.written.length)} copied` : '', r.updated.length ? `${files(r.updated.length)} updated` : ''].filter(Boolean);
 	if (done.length) lines.push(`${done.join(', ')}.`.replace(/^./, (c) => c.toUpperCase()));
-	if (r.left.length) lines.push('Left, as they differ from upstream:', ...r.left);
+	if (r.left.length) lines.push('Left, as a different file is there:', ...r.left);
+	if (r.outside.length) lines.push('Not copied, as they aren\'t in their note\'s folder:', ...r.outside);
 	if (r.failed.length) lines.push('Attachments not copied:', ...r.failed);
 	return lines;
 }

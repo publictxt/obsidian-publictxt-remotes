@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { attachmentState, attachmentsOf, attachmentsText, gitBlobSha, isAttachment, linkRefs, noAttachments, resolveRef, unusedAttachments } from '../src/copy/attachments.ts';
+import { attachmentState, besidePath, isBeside, attachmentsOf, attachmentsText, gitBlobSha, isAttachment, linkRefs, noAttachments, resolveRef, unusedAttachments } from '../src/copy/attachments.ts';
 
 test('linkRefs: wikilinks, Markdown links and HTML sources, not in code; web links left out', () => {
 	const text = [
@@ -82,10 +82,12 @@ test('attachmentState: the same; an earlier upstream version; anything else is l
 test('attachmentsText: what was copied, updated, left and failed', () => {
 	assert.deepEqual(attachmentsText(noAttachments()), []);
 	assert.deepEqual(attachmentsText({ ...noAttachments(), written: ['a.png'] }), ['1 attachment copied.']);
-	assert.deepEqual(attachmentsText({ written: ['a', 'b'], updated: ['c'], left: ['d.png'], failed: ['e.png: no'] }), [
+	assert.deepEqual(attachmentsText({ written: ['a', 'b'], updated: ['c'], left: ['d.png'], outside: ['f.png'], failed: ['e.png: no'] }), [
 		'2 attachments copied, 1 attachment updated.',
-		'Left, as they differ from upstream:',
+		'Left, as a different file is there:',
 		'd.png',
+		'Not copied, as they aren\'t in their note\'s folder:',
+		'f.png',
 		'Attachments not copied:',
 		'e.png: no',
 	]);
@@ -102,4 +104,15 @@ test('unusedAttachments: in the mirror folder, linked by the notes going and by 
 	assert.deepEqual(unusedAttachments(['community/t/a.md', 'community/t/b.md'], 'community/t', links), ['community/t/shared.png']);
 	assert.deepEqual(unusedAttachments(['community/t/a.md', 'community/t/c.md'], 'community/t', links), ['community/t/a.png', 'community/t/c.png']);
 	assert.deepEqual(unusedAttachments(['gone.md'], 'community/t', links), []);
+});
+
+test('isBeside: in the note\'s folder or below; besidePath: as far from the fork', () => {
+	assert.ok(isBeside('wiki/cs/git.md', 'wiki/cs/a.png'));
+	assert.ok(isBeside('wiki/cs/git.md', 'wiki/cs/img/a.png'));
+	assert.ok(!isBeside('wiki/cs/git.md', 'wiki/a.png'));
+	assert.ok(!isBeside('wiki/cs/git.md', 'wiki/csx/a.png'));
+	assert.ok(isBeside('top.md', 'assets/a.png'));
+	assert.equal(besidePath('wiki/cs/git.md', 'wiki/cs/img/a.png', 'notes/git.md'), 'notes/img/a.png');
+	assert.equal(besidePath('wiki/cs/git.md', 'wiki/cs/a.png', 'git.md'), 'a.png');
+	assert.equal(besidePath('top.md', 'assets/a.png', 'n/x/top.md'), 'n/x/assets/a.png');
 });

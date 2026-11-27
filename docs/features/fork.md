@@ -27,7 +27,7 @@ fork of a fork never keeps upstream's provenance. A fork (or mirror) belongs to 
 
 **Fork** on a file in What's new, All files, or a mirror gone upstream (at the check's head);
 **Fork selected**; **Fork a file from a source**; **Fork this mirror** (active note, no fetch).
-Markdown only. Attachments aren't copied: a forked mirror's stay in the mirror folder.
+Markdown only; its attachments come with it ([Attachments](#attachments)).
 
 **A mirrored file is moved, not fetched**: `renameFile` (Obsidian updates links to it; mirrors and
 the moved note get their text back, `moveMirror()`), keys `mirror_*` → `fork_*`, `fork_date` now,
@@ -76,8 +76,26 @@ YAML is refused before writing.
 - Several: each in turn, continuing past failures; one notice (sticky if any failed); nothing
   opened. Ticks are cleared.
 
+## Attachments
+
+The files that aren't Markdown a fork links or embeds, found as a mirror's are
+([mirror.md](mirror.md#attachments)), when they are **beside the note** upstream: in its folder or
+below (`isBeside()`). They go as far from the fork (`besidePath()`): `wiki/cs/git.md` with
+`wiki/cs/img/a.png`, forked to `notes/git.md` → `notes/img/a.png`. So the fork's links find them
+unchanged, and nothing is written outside the fork's folder.
+
+- **Not beside** (`../assets/a.png`, a shared folder, a name found elsewhere): not copied; the
+  notice names them, and their links stay broken.
+- **A file already there**: left. The same bytes need nothing (two forks in one folder share an
+  image); different ones are the user's, and the notice names them.
+- **A forked mirror**: its attachments are copied from the mirror folder, not moved: other mirrors
+  may use them. Not fetched.
+
+Copied after the notes are written, before one is opened, so its images show. Then they are the
+user's: Compare, overwrite and write alongside don't touch them, and nothing tracks them.
+
 ## Code
 
-Pure: `src/fork/destination.ts`, `fork.ts`, `src/copy/copy.ts`, `src/sources/fork-meta.ts`,
-`src/check/selection.ts`. Vault: `src/fork/run.ts`, `command.ts`, `src/copy/run.ts`,
+Pure: `src/fork/destination.ts`, `fork.ts`, `src/copy/copy.ts`, `attachments.ts`, `src/sources/fork-meta.ts`,
+`src/check/selection.ts`. Vault: `src/fork/run.ts`, `attachments-run.ts`, `command.ts`, `src/copy/run.ts`,
 `src/sources/forks.ts`. UI: `src/ui/fork-modal.ts`, `fork-preview.ts`, `folder-suggest.ts`.

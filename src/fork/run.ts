@@ -1,27 +1,29 @@
 // Forking source files into the vault (docs/features/fork.md): the Obsidian side of fork.ts.
 
 import { App, normalizePath, Notice, TFile } from 'obsidian';
+import { attachmentsText, noAttachments, troubled, type AttachmentsCopied } from '../copy/attachments.ts';
 import { copiesOf, firstByPath, inPathOrder, isCopyable, type CopySource } from '../copy/copy.ts';
 import { splitLink } from '../copy/link-text.ts';
 import { noteParts, writeWithProvenance } from '../copy/run.ts';
 import type PublicTxtPlugin from '../main.ts';
-import { forkedMeta } from '../mirror/mirror.ts';
+import { forkedMeta, mirrorFolderOf } from '../mirror/mirror.ts';
 import { scanForks, scanMirrors } from '../sources/forks.ts';
 import type { RemoteHost, Tree } from '../remote/host.ts';
 import { errorText, vaultHost } from '../remote/vault-host.ts';
 import { readMirrorMeta, writeForkMeta, type ForkMeta, type Mirror } from '../sources/fork-meta.ts';
 import { ForkModal } from '../ui/fork-modal.ts';
 import { ensureFolder } from '../util/vault.ts';
+import { copyForkAttachments, type ForkedNote } from './attachments-run.ts';
 import { initialDestination, type PlannedFork, type VaultLook } from './destination.ts';
 import { newForkMeta } from './fork.ts';
 import { nameOf } from '../links/links.ts';
 import { linkNew, type LinkWork } from '../links/run.ts';
 
 /**
- * Forks `paths` from a source: asks where they go (`ForkModal`), then writes them. A file the
- * vault mirrors isn't fetched: its mirror moves there and becomes the fork. One file ends with
- * its note open, and a failure shows in the modal. Several are each tried, and one notice says
- * how it went. `done` runs once anything may have been written; not when the user cancels.
+ * Forks `paths` from a source: asks where they go (`ForkModal`), then writes them, with the
+ * attachments beside each upstream. A file the vault mirrors isn't fetched: its mirror moves
+ * there and becomes the fork. One file ends with its note open, and a failure shows in the modal.
+ * Several are each tried, and one notice says how it went. `done` runs once anything may have been written; not when the user cancels.
  * `chosen`: the mirror to fork, for a file mirrored more than once; else the first by path.
  */
 export async function startFork(plugin: PublicTxtPlugin, from: CopySource, paths: readonly string[], { done, chosen }: { done?: () => void; chosen?: Mirror } = {}): Promise<void> {
@@ -52,19 +54,25 @@ export async function startFork(plugin: PublicTxtPlugin, from: CopySource, paths
 		const mirrored = new Map([...mirrors].map(([p, m]) => [p, m.path]));
 
 		const moved: string[] = [];
+		const forked: ForkedNote[] = [];
 		const one = async (fork: PlannedFork): Promise<TFile> => {
 			const mirror = mirrors.get(fork.path);
-			if (!mirror) return forkTo(app, host, from, files, fork);
-			const file = await forkMirror(app, mirror, normalizePath(fork.to));
-			moved.push(fork.path);
+			const { file, text } = mirror ? await forkMirror(app, mirror, normalizePath(fork.to)) : await forkTo(app, host, from, files, fork);
+			if (mirror) moved.push(fork.path);
+			forked.push({ path: fork.path, text, to: file.path, mirrored: mirror !== undefined });
 			return file;
 		};
 		const submit = async (plan: readonly PlannedFork[], work: LinkWork): Promise<string | null> => {
 			const [single] = plan;
 			let written: TFile[];
+			let told: { text: string; sticky: boolean };
 			try {
-				if (plan.length === 1 && single) written = [await forkOne(app, single, mirrored.get(single.path), one)];
-				else written = await forkSeveral(host, from, files, plan, one);
+				if (plan.length === 1 && single) {
+					const file = await one(single);
+					const mirror = mirrored.get(single.path);
+					written = [file];
+					told = { text: mirror === undefined || mirror === file.path ? `Forked ${single.path} to ${file.path}.` : `Forked ${single.path}: its mirror moved to ${file.path}.`, sticky: false };
+				} else ({ written, told } = await forkSeveral(host, from, files, plan, one));
 			} catch (e) {
 				// A mirror may have moved before its keys failed to change: it is where it is now.
 				return errorText(e);
@@ -72,6 +80,10 @@ export async function startFork(plugin: PublicTxtPlugin, from: CopySource, paths
 			// The mirrors forked are mirrors no more: off the last check's lists.
 			plugin.mirrorsNow(from.url, { drop: moved });
 			done?.();
+			const att = await forkAttachments(app, host, from, files, mirrorFolderOf(data.communityFolder, from.folder, from.name), forked);
+			new Notice([told.text, ...attachmentsText(att)].join('\n'), told.sticky || troubled(att) ? 0 : undefined);
+			// Opened once its attachments are there, so they show.
+			if (plan.length === 1 && written[0]) await app.workspace.getLeaf(false).openFile(written[0]);
 			void linkNew(app, written, work);
 			return null;
 		};
@@ -81,16 +93,17 @@ export async function startFork(plugin: PublicTxtPlugin, from: CopySource, paths
 	}
 }
 
-/** Forks one file and opens its note. Throws what went wrong, for the modal to show. */
-async function forkOne(app: App, fork: PlannedFork, mirror: string | undefined, one: (fork: PlannedFork) => Promise<TFile>): Promise<TFile> {
-	const file = await one(fork);
-	new Notice(mirror === undefined || mirror === file.path ? `Forked ${fork.path} to ${file.path}.` : `Forked ${fork.path}: its mirror moved to ${file.path}.`);
-	await app.workspace.getLeaf(false).openFile(file);
-	return file;
+/** Copies the forks' attachments; a failure to is one of them. */
+async function forkAttachments(app: App, host: RemoteHost, from: CopySource, files: Tree['files'], mirrorFolder: string, forked: readonly ForkedNote[]): Promise<AttachmentsCopied> {
+	try {
+		return await copyForkAttachments(app, host, from.url, files, mirrorFolder, forked);
+	} catch (e) {
+		return { ...noAttachments(), failed: [errorText(e)] };
+	}
 }
 
-/** Forks each file in turn, going on past one that fails; one notice says how it went. Returns the notes written. */
-async function forkSeveral(host: RemoteHost, from: CopySource, files: Tree['files'], plan: readonly PlannedFork[], one: (fork: PlannedFork) => Promise<TFile>): Promise<TFile[]> {
+/** Forks each file in turn, going on past one that fails. Returns the notes written, and how it went. */
+async function forkSeveral(host: RemoteHost, from: CopySource, files: Tree['files'], plan: readonly PlannedFork[], one: (fork: PlannedFork) => Promise<TFile>): Promise<{ written: TFile[]; told: { text: string; sticky: boolean } }> {
 	const failed: string[] = [];
 	const written: TFile[] = [];
 	// One fetch for them all, not one each. A mirrored file has no blob to fetch: it isn't read from the source.
@@ -104,18 +117,17 @@ async function forkSeveral(host: RemoteHost, from: CopySource, files: Tree['file
 		}
 	}
 	const forked = plan.length - failed.length;
-	if (failed.length === 0) new Notice(`Forked ${forked} files from ${from.name}.`);
+	if (failed.length === 0) return { written, told: { text: `Forked ${forked} files from ${from.name}.`, sticky: false } };
 	// Stays until dismissed: it is the only record of what didn't fork.
-	else new Notice([`Forked ${forked} of ${plan.length} files from ${from.name}. Not forked:`, ...failed].join('\n'), 0);
-	return written;
+	return { written, told: { text: [`Forked ${forked} of ${plan.length} files from ${from.name}. Not forked:`, ...failed].join('\n'), sticky: true } };
 }
 
-/** Fetches the file at the source's head and writes it to its planned vault path as a fork. */
-async function forkTo(app: App, host: RemoteHost, from: CopySource, files: Tree['files'], fork: PlannedFork): Promise<TFile> {
+/** Fetches the file at the source's head and writes it to its planned vault path as a fork. Gives the note and upstream's text. */
+async function forkTo(app: App, host: RemoteHost, from: CopySource, files: Tree['files'], fork: PlannedFork): Promise<{ file: TFile; text: string }> {
 	const blob = files.get(fork.path);
 	if (!from.head || !blob) throw new Error(`Not in ${from.head?.branch ?? from.name} any more.`);
 	const text = await host.blob(from.url, blob);
-	return writeFork(app, normalizePath(fork.to), text, newForkMeta(from, fork.path, from.head, blob, new Date()));
+	return { file: await writeFork(app, normalizePath(fork.to), text, newForkMeta(from, fork.path, from.head, blob, new Date())), text };
 }
 
 /**
@@ -123,11 +135,12 @@ async function forkTo(app: App, host: RemoteHost, from: CopySource, files: Tree[
  * mirrors' aside) and renames its `mirror_*` keys to `fork_*`. Its text stays as it is: the version it mirrors, and
  * anything edited in it. Moved, never copied: two notes of one name would split every link by name.
  */
-async function forkMirror(app: App, mirror: Mirror, to: string): Promise<TFile> {
+async function forkMirror(app: App, mirror: Mirror, to: string): Promise<{ file: TFile; text: string }> {
 	const file = app.vault.getFileByPath(mirror.path);
 	if (!file) throw new Error(`${mirror.path} is gone.`);
 	// From the file, not the metadata cache, which may lag.
-	const meta = readMirrorMeta(noteParts(await app.vault.read(file)).front);
+	const text = await app.vault.read(file);
+	const meta = readMirrorMeta(noteParts(text).front);
 	if (!meta || meta.path !== mirror.meta.path) throw new Error(`${mirror.path} is no longer a mirror of ${mirror.meta.path}.`);
 	if (to !== file.path) {
 		if (app.vault.getAbstractFileByPath(to)) throw new Error(`${to} already exists.`);
@@ -138,7 +151,7 @@ async function forkMirror(app: App, mirror: Mirror, to: string): Promise<TFile> 
 	await app.fileManager.processFrontMatter(file, (front: Record<string, unknown>) => {
 		writeForkMeta(front, forkedMeta(meta, new Date()));
 	});
-	return file;
+	return { file, text };
 }
 
 /**
