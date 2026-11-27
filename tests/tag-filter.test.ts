@@ -1,13 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CHIP_LIMIT, NO_FILTER, chips, isSet, matchTags, passing, press, shownChips, type PageTags, type TagFilter } from '../src/tags/filter.ts';
+import { CHIP_LIMIT, NO_FILTER, chips, isSet, matchTags, passes, press, shownChips, type PageTags, type TagFilter } from '../src/tags/filter.ts';
 
 const PAGES: PageTags = new Map(
 	Object.entries({ 'a.md': ['dev/app', 'Obsidian'], 'b.md': ['dev'], 'c.md': ['books', 'dev'], 'd.md': ['books/fiction'], 'e.md': [] }).map(([p, t]) => [p, matchTags(t)]),
 );
 const ALL = ['a.md', 'b.md', 'c.md', 'd.md', 'e.md', 'x.png'];
 const filter = (include: string[], exclude: string[] = [], mode: TagFilter['mode'] = 'all'): TagFilter => ({ include: new Set(include), exclude: new Set(exclude), mode });
-const found = (f: TagFilter) => passing(ALL, PAGES, f).map((p) => p[0]).join('');
+// A path not in PAGES has no tags to go by, and never passes.
+const found = (f: TagFilter) => ALL.filter((p) => { const t = PAGES.get(p); return t !== undefined && passes(f, t); }).map((p) => p[0]).join('');
 
 test('matchTags: compared form, with the tags it is nested in', () => {
 	assert.deepEqual([...matchTags(['Dev/App/x', 'dev', '/', 'a//b/'])], ['dev', 'dev/app', 'dev/app/x', 'a', 'a/b']);

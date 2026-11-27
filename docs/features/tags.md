@@ -19,9 +19,8 @@ Obsidian's metadata cache isn't used: it knows only the vault.
 
 ## Filter
 
-In a source of the [check view](check.md), **Filter by tag** shows the filter above **What's
-new** and **All files**, and narrows both. Its first use reads the source's tags ("Reading 120
-pages…").
+The tag part of the check view's [filter](check.md#filter), which narrows **What's new** and
+**All files**. Its first use reads the source's tags ("Reading 120 pages…").
 
 - **Chips** as in publictxt-facets: a chip includes or clears its tag, its **✕** excludes or
   clears it. **All** / **Any** of the included, once two are; excluded always wins.
@@ -29,9 +28,7 @@ pages…").
   the first 20 show, **+n more** the rest, and **Find a tag** narrows them.
 - **The lists** show only pages that pass, with "n of m" counts. Non-Markdown files are left out.
 - **What's new** lets news through when in doubt: removed pages, and pages that couldn't be
-  read. Mirrors and forks changed upstream aren't filtered.
-- **Hidden but still counted**: **Mark as seen** acknowledges hidden changes too, and says so;
-  files ticked earlier stay ticked, and the buttons count them.
+  read.
 - **Unread pages** are reported, with **Try again**.
 - **Followed:** the source's followed tags, above the chips; selecting one sets the filter to it,
   and again clears it.
@@ -39,8 +36,7 @@ pages…").
   follow note: one line for **All**, one per included tag for **Any**, each with the exclusions.
   Lines already there aren't repeated. The last check is matched again at once.
 
-Per source; kept across checks as ticks are, and gone with the view. **Hide tag filter** keeps
-what is set and stops applying it.
+Kept as the rest of the filter is ([check.md](check.md#filter)).
 
 ## Tag index
 
@@ -136,4 +132,4 @@ Not planned. What the design leaves open:
 Pure: `src/tags/tags.ts` (text → tags), `filter.ts`, `tag-index.ts` (the file), `tag-indexes.ts`
 (getting and saving), `follow.ts` (matching changes), `combo.ts` (`follow_tags` lines),
 `src/remote/clone-files.ts`, `cat-file.ts`. Vault: `src/tags/run.ts`. UI:
-`src/ui/tag-filter.ts`, `keep-focus.ts`.
+`src/ui/filter-panel.ts`, `keep-focus.ts`.

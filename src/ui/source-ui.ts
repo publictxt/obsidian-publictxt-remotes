@@ -3,7 +3,7 @@
 import { hasNews, type SourceCheck } from '../check/check.ts';
 import type { SourceResult } from '../check/run.ts';
 import type { FileList } from '../check/selection.ts';
-import { newFilterUi, type FilterUi } from './tag-filter.ts';
+import { newFilterUi, type FilterUi } from './filter-panel.ts';
 
 /** What the user did to a source in the view. The view keeps it, so it outlasts a check. */
 export interface SourceUi {
@@ -17,12 +17,12 @@ export interface SourceUi {
 	selected: Set<string>;
 	/** Whether all files are shown. */
 	browse: boolean;
-	/** The tag filter on all files. */
-	tags: FilterUi;
+	/** The filter on what's new and all files. */
+	filter: FilterUi;
 }
 
 export function newSourceUi(): SourceUi {
-	return { open: null, folders: { new: new Map(), other: new Map(), all: new Map() }, others: false, selected: new Set(), browse: false, tags: newFilterUi() };
+	return { open: null, folders: { new: new Map(), other: new Map(), all: new Map() }, others: false, selected: new Set(), browse: false, filter: newFilterUi() };
 }
 
 /** Whether a source shows what's under its header: as the user left it, else when it has an error or news. */

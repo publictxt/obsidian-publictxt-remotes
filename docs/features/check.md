@@ -42,7 +42,7 @@ Under an open header, the error or "nothing new", then actions:
 
 - **Mark as seen**, when there is something to acknowledge.
 - **Browse all files** / **Hide all files**, always.
-- **Filter by tag** / **Hide tag filter**, when there are files ([tags.md](tags.md)).
+- **Filter** / **Hide filter**, when there are files ([Filter](#filter)).
 - **Update mirrors (n)**, when mirrors changed.
 - **Mirror selected (n)** / **Fork selected (n)**, when files are ticked.
 
@@ -72,12 +72,27 @@ Then lists:
 | Forked, unsettled | Also **Compare** |
 | Forked, settled | Also "forked" |
 
+## Filter
+
+**Filter** shows the filter above **What's new** and **All files**, and narrows both. Mirrors and
+forks changed upstream aren't filtered. Two parts, both applied:
+
+- **By copies**: **All**, **Mirrored**, **Forked** or **Neither** (files you have no copy of).
+  Shown when the source has mirrors or forks, or while set.
+- **By tag**: the chips ([tags.md](tags.md#filter)). Opening the filter reads the source's tags.
+
+Each part is a test a file passes or not (`Keep`). Lists show "n of m" once the filter has an
+answer; copies need none, tags wait for theirs. **Mark as seen** acknowledges hidden changes too,
+and says so; files ticked earlier stay ticked, and the buttons count them. Per source, kept
+across checks as ticks are, and gone with the view. **Hide filter** keeps what is set and stops
+applying it.
+
 **Ticks.** A folder's tick box is ticked, half or clear; selecting it ticks all or clears all. It
 leaves out forked files, so ticking a folder never re-forks. Ticks are per file across the
 lists, persist like open folders, and don't count files a later check doesn't list.
 
 ## Code
 
-Pure: `src/check/check.ts`, `file-tree.ts`, `selection.ts`. Vault: `src/check/run.ts`. UI:
+Pure: `src/check/check.ts`, `file-tree.ts`, `selection.ts`, `filter.ts`. Vault: `src/check/run.ts`. UI:
 `src/ui/check-view.ts`, `check-source.ts`, `file-rows.ts`, `source-ui.ts`, `check-actions.ts`,
-`fork-change.ts`, `tree.ts`.
+`fork-change.ts`, `tree.ts`, `filter-panel.ts`.

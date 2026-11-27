@@ -1,4 +1,4 @@
-// The tag filter over a check: what it leaves, and the ticks.
+// The check view's filter over a check: what it leaves, and the ticks.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { SourceCheck } from '../src/check/check.ts';
@@ -6,7 +6,7 @@ import { forkableByFolder, forkableUnder, selectedPaths } from '../src/check/sel
 import { matchTags } from '../src/tags/filter.ts';
 import type { TagsState } from '../src/tags/run.ts';
 import { folderOpen, newSourceUi } from '../src/ui/source-ui.ts';
-import { filterAction, filtering, narrowed, newFilterUi } from '../src/ui/tag-filter.ts';
+import { answered, filterAction, filtering, narrowed, newFilterUi } from '../src/ui/filter-panel.ts';
 
 const PAGES = { 'w/a.md': ['dev'], 'w/b.md': ['books'], 'n/c.md': ['dev', 'books'], 'n/d.md': [] };
 const check: SourceCheck = {
@@ -24,7 +24,7 @@ const check: SourceCheck = {
 const ready: TagsState = { state: 'ready', unread: 0, pages: new Map(Object.entries(PAGES).map(([p, t]) => [p, matchTags(t)])) };
 const on = (tag: string) => {
 	const ui = newFilterUi();
-	filterAction(ui, 'tag-filter', undefined);
+	filterAction(ui, 'filter', undefined);
 	filterAction(ui, 'tag-include', tag);
 	return ui;
 };
@@ -32,13 +32,13 @@ const on = (tag: string) => {
 test('nothing is left out until a tag is set, or while the filter is hidden', () => {
 	const ui = newFilterUi();
 	assert.equal(narrowed(check, ui, ready), check);
-	filterAction(ui, 'tag-filter', undefined);
+	filterAction(ui, 'filter', undefined);
 	assert.equal(narrowed(check, ui, ready), check);
 	filterAction(ui, 'tag-include', 'dev');
 	assert.deepEqual(narrowed(check, ui, ready).files, ['n/c.md', 'w/a.md']);
-	filterAction(ui, 'tag-filter', undefined);
+	filterAction(ui, 'filter', undefined);
 	assert.equal(narrowed(check, ui, ready), check);
-	filterAction(ui, 'tag-filter', undefined);
+	filterAction(ui, 'filter', undefined);
 	assert.ok(filtering(ui));
 	filterAction(ui, 'tag-clear', undefined);
 	assert.equal(narrowed(check, ui, ready), check);
@@ -90,10 +90,10 @@ test('what\'s new keeps removals and pages it couldn\'t read; other files go', (
 test('folders in all files start closed, filter or not, until the user opens them', () => {
 	const ui = newSourceUi();
 	assert.equal(folderOpen(check, ui, 'w', 'all'), false);
-	ui.tags = on('dev');
-	assert.equal(folderOpen(narrowed(check, ui.tags, ready), ui, 'w', 'all'), false);
+	ui.filter = on('dev');
+	assert.equal(folderOpen(narrowed(check, ui.filter, ready), ui, 'w', 'all'), false);
 	ui.folders.all.set('w', true);
-	assert.equal(folderOpen(narrowed(check, ui.tags, ready), ui, 'w', 'all'), true);
+	assert.equal(folderOpen(narrowed(check, ui.filter, ready), ui, 'w', 'all'), true);
 });
 
 test('folders are kept per list: one in what\'s new and other changes opens and closes apart', () => {
@@ -109,7 +109,32 @@ test('folders are kept per list: one in what\'s new and other changes opens and 
 test('a followed combo sets the filter to it, and selected again clears it', () => {
 	const ui = newFilterUi();
 	filterAction(ui, 'tag-combo', 'Dev -old');
-	assert.deepEqual([[...ui.filter.include], [...ui.filter.exclude], ui.filter.mode], [['dev'], ['old'], 'all']);
+	assert.deepEqual([[...ui.tags.include], [...ui.tags.exclude], ui.tags.mode], [['dev'], ['old'], 'all']);
 	filterAction(ui, 'tag-combo', 'dev -old');
 	assert.equal(filtering({ ...ui, open: true }), false);
+});
+
+const copied: SourceCheck = { ...check, mirrored: new Map([['w/a.md', 'm/a.md']]), forked: new Set(['n/c.md', 'w/b.md']) };
+const showing = (copies: string, tag?: string) => {
+	const ui = tag === undefined ? newFilterUi() : on(tag);
+	if (tag === undefined) filterAction(ui, 'filter', undefined);
+	filterAction(ui, 'filter-copies', copies);
+	return ui;
+};
+
+test('copies: mirrored, forked or neither, in what\'s new and all files; all leaves nothing out', () => {
+	assert.deepEqual(narrowed(copied, showing('mirrored'), ready).files, ['w/a.md']);
+	assert.deepEqual(narrowed(copied, showing('forked'), ready).files, ['n/c.md', 'w/b.md']);
+	assert.deepEqual(narrowed(copied, showing('forked'), ready).changes.map((ch) => ch.path), ['w/b.md']);
+	assert.deepEqual(narrowed(copied, showing('neither'), ready).files, ['n/d.md', 'pic.png']);
+	assert.equal(narrowed(copied, showing('all'), ready), copied);
+	assert.equal(showing('nonsense').copies, 'all');
+});
+
+test('copies don\'t wait for tags; with a tag set, both narrow', () => {
+	const reading: TagsState = { state: 'reading', done: 0, total: 1 };
+	assert.deepEqual(narrowed(copied, showing('forked'), reading).files, ['n/c.md', 'w/b.md']);
+	assert.ok(answered(showing('forked'), reading));
+	assert.ok(!answered(showing('forked', 'dev'), reading));
+	assert.deepEqual(narrowed(copied, showing('forked', 'dev'), ready).files, ['n/c.md']);
 });

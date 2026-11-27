@@ -19,7 +19,7 @@ import { folderList } from './file-rows.ts';
 import { actOnForkChange } from './fork-change.ts';
 import { keepFocus } from './keep-focus.ts';
 import { folderOpen, newSourceUi, sourceOpen, type SourceUi } from './source-ui.ts';
-import { filterAction, narrowed, redrawChips } from './tag-filter.ts';
+import { filterAction, narrowed, redrawChips } from './filter-panel.ts';
 import { errorText } from '../remote/vault-host.ts';
 import { filterCombos } from '../tags/follow.ts';
 
@@ -78,7 +78,7 @@ export class CheckView extends ItemView {
 		for (const r of lastRun.results) {
 			const ui = this.uiOf(r.follow.url);
 			// The filter is in use: the first time, and after a check that found another head.
-			if (r.check && ui.tags.open && sourceOpen(r, ui)) this.plugin.tags.read(r.check);
+			if (r.check && ui.filter.open && sourceOpen(r, ui)) this.plugin.tags.read(r.check);
 			const tags = r.check ? this.plugin.tags.state(r.check) : UNREAD;
 			renderSource(el, r, ui, { from: checkFromOf(data, r.follow.name, r.follow.url), busy: checking !== null }, tags);
 		}
@@ -115,7 +115,7 @@ export class CheckView extends ItemView {
 		const c = url === undefined ? null : this.result(url)?.check;
 		const el = input?.closest('.publictxt-tag-filter')?.querySelector<HTMLElement>('.publictxt-chips');
 		if (!input || url === undefined || !c || !el) return;
-		const ui = this.uiOf(url).tags;
+		const ui = this.uiOf(url).filter;
 		ui.typed = input.value;
 		redrawChips(el, ui, this.plugin.tags.state(c));
 	}
@@ -182,21 +182,22 @@ export class CheckView extends ItemView {
 			case 'keep-gone':
 				if (path) this.forkChanged(action, url, path);
 				break;
-			case 'tag-filter':
+			case 'filter':
+			case 'filter-copies':
 			case 'tag-include':
 			case 'tag-exclude':
 			case 'tag-mode':
 			case 'tag-more':
 			case 'tag-clear':
 			case 'tag-combo':
-				filterAction(this.uiOf(url).tags, action, path);
+				filterAction(this.uiOf(url).filter, action, path);
 				this.render();
 				break;
 			case 'tag-retry':
 				this.retryTags(url);
 				break;
 			case 'tag-follow':
-				this.plugin.followTags(url, filterCombos(this.uiOf(url).tags.filter)).catch((e: unknown) => void new Notice(errorText(e)));
+				this.plugin.followTags(url, filterCombos(this.uiOf(url).filter.tags)).catch((e: unknown) => void new Notice(errorText(e)));
 				break;
 			default:
 				// A new action without a case here doesn't compile.
@@ -238,10 +239,10 @@ export class CheckView extends ItemView {
 		return this.plugin.lastRun?.results.find((r) => r.follow.url === url);
 	}
 
-	/** The check the lists show: what the tag filter leaves of it. */
+	/** The check the lists show: what the filter leaves of it. */
 	private listedCheck(url: string): SourceCheck | null {
 		const c = this.result(url)?.check ?? null;
-		return c && narrowed(c, this.uiOf(url).tags, this.plugin.tags.state(c));
+		return c && narrowed(c, this.uiOf(url).filter, this.plugin.tags.state(c));
 	}
 
 	/** Reads what a source's tag filter couldn't. */
