@@ -54,6 +54,10 @@ export interface RemoteHost {
 	prefetch?(repo: string, blobs: readonly string[]): Promise<void>;
 	/** A blob's content as UTF-8 text. */
 	blob(repo: string, sha: string): Promise<string>;
+	/** A blob's content as it is: an image, say. */
+	bytes(repo: string, sha: string): Promise<Uint8Array>;
+	/** Those of `blobs` the clone holds: never fetched, so one held was once read from upstream. */
+	has(repo: string, blobs: readonly string[]): Promise<Set<string>>;
 	/**
 	 * The contents of `blobs` as UTF-8 text, by blob, those not here yet fetched together first.
 	 * One that can't be got is left out.

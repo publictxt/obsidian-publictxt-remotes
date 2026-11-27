@@ -72,7 +72,7 @@ make some my own; see when those change upstream.
 - propose changes upstream (converting links back)
 - offer to fork or mirror the notes dangling links name
 - warn when a local copy is ahead of its origin
-- mirror attachments; update mirrors at each check if wanted
+- fork attachments (a mirror's come with it); update mirrors at each check if wanted
 - remote pages in Facets or Pages, from the tag indexes
 - a tag filter across sources
 - tag aliases (spec §7.4)

@@ -29,6 +29,8 @@ re-set before each fetch (`remote set-url`), so a moved folder is followed. No f
 | `tree` | `ls-tree -r -z` of a tree or a commit, blobs only (submodules skipped). Never fetches: one the clone lacks is an error |
 | `changes` | `null` if `base` is unknown or not an ancestor (`cat-file -e`, `merge-base --is-ancestor`); else `diff --name-status -z -M` |
 | `blob` | `cat-file blob`, fetched on demand |
+| `bytes` | `cat-file blob` read as binary, fetched on demand: an attachment |
+| `has` | `cat-file --batch-check`: the blobs the clone holds. Never fetches, so one held was read from upstream once |
 | `blobs` | `cat-file --batch` of what is here, then one `fetch` (200 blobs at a time) and another `cat-file` for the rest. What can't be got is left out |
 | `prefetch` | Several blobs in one `fetch` before a multi-file fork; failure is ignored |
 | `diffStat` | `diff --numstat <from> <to>`; `null` if git fails or the diff is binary |
@@ -36,7 +38,7 @@ re-set before each fetch (`remote set-url`), so a moved folder is followed. No f
 `RemoteError` kinds: `no-git` (git won't start), `git` (a command failed), `not-found` (branch
 or folder missing), `bad-input` (not a canonical URL or SHA; snapshot refusals).
 
-**Not on demand.** `tree` and `blobs` run with `GIT_NO_LAZY_FETCH=1`: otherwise a partial clone asks
+**Not on demand.** `tree`, `blobs` and `has` run with `GIT_NO_LAZY_FETCH=1`: otherwise a partial clone asks
 the remote for each missing object, one at a time.
 
 **The plugin's own files** are in each clone's `publictxt/` ([tags.md](tags.md)).
