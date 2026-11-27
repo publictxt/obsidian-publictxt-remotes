@@ -61,3 +61,35 @@ export function editedText(edited: boolean | null): string {
 	if (edited === null) return 'Can\'t tell whether your copy is edited.';
 	return edited ? 'Your copy is edited.' : 'Your copy is as you forked it.';
 }
+
+/** What updating the selected forks came to: each note's vault path, under what happened to it. */
+export interface ForksUpdated {
+	/** Overwritten with upstream's version. */
+	updated: string[];
+	/** Left: edited since forked. */
+	edited: string[];
+	/** Left: can't tell whether it was edited (the forked version can't be read). */
+	unknown: string[];
+	/** Left: it went wrong. One line each, with the reason. */
+	failed: string[];
+}
+
+export function noForksUpdated(): ForksUpdated {
+	return { updated: [], edited: [], unknown: [], failed: [] };
+}
+
+/** Whether a file's copies are all dealt with after an update: nothing left, nothing failed. */
+export function forksSettled(r: ForksUpdated): boolean {
+	return !r.edited.length && !r.unknown.length && !r.failed.length;
+}
+
+/** How updating the selected forks from the source `from` went, as a notice: its first line, then what is left. */
+export function forksUpdatedText(from: string, r: ForksUpdated): { text: string; left: boolean } {
+	const n = r.updated.length;
+	const lines = [`Updated ${n} ${n === 1 ? 'fork' : 'forks'} from ${from}.`];
+	if (r.edited.length) lines.push('Edited since forked, so left as they are:', ...r.edited);
+	if (r.unknown.length) lines.push('Can\'t tell whether edited, so left as they are:', ...r.unknown);
+	if (r.edited.length || r.unknown.length) lines.push('Compare one to choose what to do with it.');
+	if (r.failed.length) lines.push('Not updated:', ...r.failed);
+	return { text: lines.join('\n'), left: lines.length > 1 };
+}

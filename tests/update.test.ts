@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { alongsidePath, changedText, editedText, readCompare, updatedMeta, type Compare } from '../src/fork/update.ts';
+import { alongsidePath, changedText, editedText, forksSettled, forksUpdatedText, noForksUpdated, readCompare, updatedMeta, type Compare, type ForksUpdated } from '../src/fork/update.ts';
 import type { ForkMeta } from '../src/sources/fork-meta.ts';
 
 const sha = (c: string) => c.repeat(40);
@@ -42,4 +42,23 @@ test('the header\'s sentences', () => {
 	assert.equal(editedText(true), 'Your copy is edited.');
 	assert.equal(editedText(false), 'Your copy is as you forked it.');
 	assert.match(editedText(null), /^Can't tell/);
+});
+
+const forksResult = (over: Partial<ForksUpdated>): ForksUpdated => ({ ...noForksUpdated(), ...over });
+
+test('forksSettled: only when nothing is left or failed', () => {
+	assert.ok(forksSettled(forksResult({ updated: ['a.md'] })));
+	// Every copy was settled already.
+	assert.ok(forksSettled(noForksUpdated()));
+	assert.ok(!forksSettled(forksResult({ updated: ['a.md'], edited: ['b.md'] })));
+	assert.ok(!forksSettled(forksResult({ unknown: ['a.md'] })));
+	assert.ok(!forksSettled(forksResult({ failed: ['a.md: no'] })));
+});
+
+test('forksUpdatedText: the count of forks, then what is left', () => {
+	assert.deepEqual(forksUpdatedText('txt', forksResult({ updated: ['a.md'] })), { text: 'Updated 1 fork from txt.', left: false });
+	assert.deepEqual(forksUpdatedText('txt', forksResult({ updated: ['a.md', 'b.md'] })), { text: 'Updated 2 forks from txt.', left: false });
+	const { text, left } = forksUpdatedText('txt', forksResult({ edited: ['a.md'], unknown: ['b.md'], failed: ['c.md: no'] }));
+	assert.ok(left);
+	assert.equal(text, 'Updated 0 forks from txt.\nEdited since forked, so left as they are:\na.md\nCan\'t tell whether edited, so left as they are:\nb.md\nCompare one to choose what to do with it.\nNot updated:\nc.md: no');
 });

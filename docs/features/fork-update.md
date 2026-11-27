@@ -51,7 +51,21 @@ After either, the note's links are converted ([links.md](links.md)).
 the blob is read from the clone. If the note is gone or no longer that fork, or the source isn't
 followed, it says so and offers nothing.
 
+## Update selected forks
+
+**Update selected forks (n)** in the check view's header: the ticked files with forks changed
+upstream and still at head (`selectedForks()`); n counts those. Gone ones keep **Detach** and
+**Keep**. A folder's tick never ticks a forked file, so each is one the user picked; the
+**Forked** filter narrows the lists to them.
+
+Every copy of each file, the check's and any found now, settled ones aside, is judged against its
+own `fork_blob`: not edited, it is overwritten as **Overwrite** does; edited, or can't tell, it is
+left. Nothing gets `fork_seen`. A file leaves the list, and its tick clears, once all its copies
+are settled; with one left, **Compare** is the way on. The versions are read in one go
+(`blobs()`): those in the clone already, the rest fetched. One notice: the count, then what was
+left and what failed (sticky if any). The updated notes' links are converted.
+
 ## Code
 
-Pure: `src/fork/update.ts`, `src/copy/edited.ts`; `isSettled()`, `latestFirst()` in `src/check/check.ts`. Vault:
+Pure: `src/fork/update.ts`, `src/copy/edited.ts`; `isSettled()`, `latestFirst()` in `src/check/check.ts`; `selectedForks()` in `src/check/selection.ts`. Vault:
 `src/fork/update-run.ts`, `compare-run.ts`. UI: `src/ui/upstream-view.ts`.

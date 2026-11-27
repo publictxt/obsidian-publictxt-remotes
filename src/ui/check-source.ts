@@ -6,7 +6,7 @@
 
 import { hasNews, type NewReason, type SourceCheck } from '../check/check.ts';
 import type { SourceResult } from '../check/run.ts';
-import { changesIn, selectedPaths } from '../check/selection.ts';
+import { changesIn, selectedForks, selectedPaths } from '../check/selection.ts';
 import { isLocalRepo } from '../sources/repo-url.ts';
 import type { CheckFrom } from '../sources/schema.ts';
 import type { TagsState } from '../tags/run.ts';
@@ -70,6 +70,8 @@ function actions(el: HTMLElement, c: SourceCheck, ui: SourceUi, shown: SourceChe
 	// Ticked, and left out by the filter.
 	const hidden = selected - selectedPaths(shown, ui.selected).length;
 	const count = hidden ? `${selected}, ${hidden} hidden` : String(selected);
+	const forks = selectedForks(c, ui.selected).length;
+	const forksHidden = forks - selectedForks(shown, ui.selected).length;
 	const stale = c.mirrors.filter((m) => m.status === 'modified').length;
 	const row = el.createDiv({ cls: 'publictxt-actions' });
 	// Seeing acknowledges every change, the hidden ones too: the button says so.
@@ -80,6 +82,7 @@ function actions(el: HTMLElement, c: SourceCheck, ui: SourceUi, shown: SourceChe
 	if (stale) row.createEl('button', { text: `Update mirrors (${stale})`, attr: { ...actionAttrs('update-mirrors'), 'aria-label': 'Overwrite each mirror with what is upstream now. Edited ones are left.' } });
 	if (selected) row.createEl('button', { text: `Mirror selected (${count})`, cls: 'mod-cta', attr: { ...actionAttrs('mirror-selected'), 'aria-label': 'Copy them into the community folder, as upstream\'s' } });
 	if (selected) row.createEl('button', { text: `Fork selected (${count})`, attr: { ...actionAttrs('fork-selected'), 'aria-label': 'Take them into your notes, as yours' } });
+	if (forks) row.createEl('button', { text: `Update selected forks (${forksHidden ? `${forks}, ${forksHidden} hidden` : forks})`, attr: { ...actionAttrs('update-forks'), 'aria-label': 'Overwrite each ticked fork that changed upstream with what is upstream now. Edited ones are left.' } });
 }
 
 /** The row that opens and closes the source. Returns where its details go, or `null` when closed. */

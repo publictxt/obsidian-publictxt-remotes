@@ -2,7 +2,7 @@
 
 import { isCopyable } from '../copy/copy.ts';
 import type { Change } from '../remote/host.ts';
-import type { SourceCheck } from './check.ts';
+import type { ForkChange, SourceCheck } from './check.ts';
 
 /**
  * Which folder tree in the check view: what's new; the other changes, which don't match the
@@ -60,6 +60,15 @@ export function forkableByFolder(c: SourceCheck, list: FileList = 'new'): Map<st
 /** The ticked files the check still lists; a tick outlives its file when a later check drops it. */
 export function selectedPaths(c: SourceCheck, selected: ReadonlySet<string>): string[] {
 	return forkablePaths(c).filter((p) => selected.has(p));
+}
+
+/**
+ * The ticked files whose forks changed upstream and can be updated: still at head, and listed.
+ * Gone upstream ones are left to Detach and Keep.
+ */
+export function selectedForks(c: SourceCheck, selected: ReadonlySet<string>): ForkChange[] {
+	const listed = new Set(selectedPaths(c, selected));
+	return c.forks.filter((f) => f.blob !== null && listed.has(f.path));
 }
 
 /** How many of some files are ticked. */

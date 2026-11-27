@@ -6,9 +6,10 @@ import type PublicTxtPlugin from '../main.ts';
 import type { SourceCheck } from '../check/check.ts';
 import type { SourceResult } from '../check/run.ts';
 import { FOLLOWS_FOLDER } from '../sources/follow-note.ts';
-import { forkableUnder, selectedPaths, toggleAll, type FileList } from '../check/selection.ts';
+import { forkableUnder, selectedForks, selectedPaths, toggleAll, type FileList } from '../check/selection.ts';
 import type { CopySource } from '../copy/copy.ts';
 import { startFork } from '../fork/run.ts';
+import { updateForks } from '../fork/update-run.ts';
 import { mirrorFiles, stopMirroring } from '../mirror/run.ts';
 import { updateMirror, updateMirrors } from '../mirror/update-run.ts';
 import { UNREAD } from '../tags/run.ts';
@@ -147,6 +148,9 @@ export class CheckView extends ItemView {
 				break;
 			case 'update-mirrors':
 				this.updateMirrors(url);
+				break;
+			case 'update-forks':
+				this.updateForks(url);
 				break;
 			case 'fork':
 				if (path) this.fork(url, path);
@@ -307,6 +311,17 @@ export class CheckView extends ItemView {
 	private updateMirrors(url: string): void {
 		const r = this.result(url);
 		if (r?.check) void updateMirrors(this.plugin, r.follow, r.check.head, r.check.mirrors);
+	}
+
+	/** Updates the ticked files' forks that aren't edited; clears the ticks of the files that are settled. */
+	private updateForks(url: string): void {
+		const r = this.result(url);
+		if (!r?.check) return;
+		const { selected } = this.uiOf(url);
+		void updateForks(this.plugin, r.follow, r.check.head, selectedForks(r.check, selected)).then((settled) => {
+			for (const path of settled) selected.delete(path);
+			this.render();
+		});
 	}
 
 	/** Forks the ticked files, then clears the ticks. */

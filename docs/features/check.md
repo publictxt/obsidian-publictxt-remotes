@@ -45,6 +45,8 @@ Under an open header, the error or "nothing new", then actions:
 - **Filter** / **Hide filter**, when there are files ([Filter](#filter)).
 - **Update mirrors (n)**, when mirrors changed.
 - **Mirror selected (n)** / **Fork selected (n)**, when files are ticked.
+- **Update selected forks (n)**, when ticked files have forks changed upstream
+  ([fork-update.md](fork-update.md#update-selected-forks)).
 
 Then lists:
 
