@@ -71,14 +71,6 @@ function passesInclude(f: TagFilter, tags: ReadonlySet<string>): boolean {
 	return f.mode === 'any' ? included.some((t) => tags.has(t)) : included.every((t) => tags.has(t));
 }
 
-/** Those of `paths` that pass. A path not in `pages` has no tags to go by, and never does. */
-export function passing(paths: readonly string[], pages: PageTags, f: TagFilter): string[] {
-	return paths.filter((p) => {
-		const tags = pages.get(p);
-		return tags !== undefined && passes(f, tags);
-	});
-}
-
 /** A tag offered as a chip. */
 export interface Chip {
 	tag: string;

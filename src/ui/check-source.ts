@@ -1,5 +1,5 @@
 // One source in the check view: a header that opens and closes it, then an error, "nothing
-// new", the tag filter, what's new, mirrors and forks; then all files, when asked for
+// new", the filter, what's new, mirrors and forks; then all files, when asked for
 // (docs/features/check.md). Draws only: clicks are
 // the view's. An element says what a click on it does with `data-open` (a note to open) or
 // `data-action`; the source it belongs to is the nearest `data-source` (the source's key).
@@ -13,7 +13,7 @@ import type { TagsState } from '../tags/run.ts';
 import { actionAttrs, setAction } from './check-actions.ts';
 import { folderRows, listed, rowAction, type Drawing } from './file-rows.ts';
 import { sourceOpen, type SourceUi } from './source-ui.ts';
-import { filtering, narrowed, renderTagFilter, tagFilterButton } from './tag-filter.ts';
+import { filterButton, filtering, answered, narrowed, renderFilter } from './filter-panel.ts';
 import { treeFlair, treeItem } from './tree.ts';
 
 const REASON: Record<NewReason, string> = {
@@ -53,11 +53,10 @@ export function renderSource(parent: HTMLElement, r: SourceResult, ui: SourceUi,
 	const c = r.check;
 	const d: Drawing = { c, ui, unsettled: new Set(c.forks.map((f) => f.path)), reason: reasonText(c.reason, offers.from !== null) };
 	if (!hasNews(c)) el.createEl('p', { cls: 'publictxt-quiet', text: 'Nothing new since you last looked.' });
-	const shown = narrowed(c, ui.tags, tags);
-	// Counts are "3 of 12" once the filter has an answer.
-	const found = filtering(ui.tags) && tags.state === 'ready';
+	const shown = narrowed(c, ui.filter, tags);
+	const found = answered(ui.filter, tags);
 	actions(el, c, ui, shown);
-	if (c.files.length) renderTagFilter(el, ui.tags, tags, r.follow.followTags);
+	if (c.files.length) renderFilter(el, ui.filter, c, tags, r.follow.followTags);
 	changes(el, { ...d, c: shown }, c, found);
 	mirrors(el, c);
 	forks(el, c);
@@ -74,10 +73,10 @@ function actions(el: HTMLElement, c: SourceCheck, ui: SourceUi, shown: SourceChe
 	const stale = c.mirrors.filter((m) => m.status === 'modified').length;
 	const row = el.createDiv({ cls: 'publictxt-actions' });
 	// Seeing acknowledges every change, the hidden ones too: the button says so.
-	const ack = filtering(ui.tags) && c.changes.length ? `Mark all ${c.changes.length} as seen` : 'Mark as seen';
+	const ack = filtering(ui.filter) && c.changes.length ? `Mark all ${c.changes.length} as seen` : 'Mark as seen';
 	if (seeable) row.createEl('button', { text: ack, attr: actionAttrs('ack') });
 	row.createEl('button', { text: ui.browse ? 'Hide all files' : 'Browse all files', attr: { ...actionAttrs('browse'), 'aria-label': 'Every file at head, whatever you have seen' } });
-	if (c.files.length) tagFilterButton(row, ui.tags);
+	if (c.files.length) filterButton(row, ui.filter);
 	if (stale) row.createEl('button', { text: `Update mirrors (${stale})`, attr: { ...actionAttrs('update-mirrors'), 'aria-label': 'Overwrite each mirror with what is upstream now. Edited ones are left.' } });
 	if (selected) row.createEl('button', { text: `Mirror selected (${count})`, cls: 'mod-cta', attr: { ...actionAttrs('mirror-selected'), 'aria-label': 'Copy them into the community folder, as upstream\'s' } });
 	if (selected) row.createEl('button', { text: `Fork selected (${count})`, attr: { ...actionAttrs('fork-selected'), 'aria-label': 'Take them into your notes, as yours' } });
@@ -125,7 +124,7 @@ function summary(r: SourceResult): string {
 	return parts.join(' · ') || 'Nothing new';
 }
 
-/** `n`, or "n of total" once the tag filter has an answer (`found`). */
+/** `n`, or "n of total" once the filter has an answer (`found`). */
 function counted(n: number, total: number, found: boolean): string {
 	return found ? `${n} of ${total}` : String(total);
 }

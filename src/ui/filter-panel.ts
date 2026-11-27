@@ -1,11 +1,10 @@
-// The tag filter over a source's lists in the check view (docs/features/tags.md): what it leaves
-// of a check, what a click in it does, and drawing it.
+// The filter over a source's lists in the check view (docs/features/check.md#filter): by copies
+// and by tag. What it leaves of a check, what a click in it does, and drawing it.
 
 import type { SourceCheck } from '../check/check.ts';
-import { isCopyable } from '../copy/copy.ts';
-import type { Change } from '../remote/host.ts';
+import { byCopy, byTag, COPIES, kept, type Copies, type Keep } from '../check/filter.ts';
 import { comboKey, comboText, parseCombo, type TagCombo } from '../tags/combo.ts';
-import { chips, isSet, NO_FILTER, passes, passing, press, sameFilter, shownChips, type Chip, type PageTags, type TagFilter } from '../tags/filter.ts';
+import { chips, isSet, NO_FILTER, press, sameFilter, shownChips, type Chip, type PageTags, type TagFilter } from '../tags/filter.ts';
 import { comboFilter, filterCombos } from '../tags/follow.ts';
 import type { TagsState } from '../tags/run.ts';
 import { actionAttrs, type CheckAction } from './check-actions.ts';
@@ -14,7 +13,9 @@ import { actionAttrs, type CheckAction } from './check-actions.ts';
 export interface FilterUi {
 	/** Shown. Hidden, it is kept but leaves nothing out. */
 	open: boolean;
-	filter: TagFilter;
+	/** Files by the copies the user has of them. */
+	copies: Copies;
+	tags: TagFilter;
 	/** Typed to find a chip. */
 	typed: string;
 	/** Every chip is shown, not just the first. */
@@ -22,71 +23,64 @@ export interface FilterUi {
 }
 
 export function newFilterUi(): FilterUi {
-	return { open: false, filter: NO_FILTER, typed: '', all: false };
+	return { open: false, copies: 'all', tags: NO_FILTER, typed: '', all: false };
 }
 
 /** Whether the filter leaves files out. */
 export function filtering(ui: FilterUi): boolean {
-	return ui.open && isSet(ui.filter);
+	return ui.open && (ui.copies !== 'all' || isSet(ui.tags));
+}
+
+/** Whether the lists show what the filter leaves: it is set, and doesn't wait for tags. Counts are then "3 of 12". */
+export function answered(ui: FilterUi, tags: TagsState): boolean {
+	return filtering(ui) && (!isSet(ui.tags) || tags.state === 'ready');
 }
 
 /** The last answer of `narrowed`, per filter: the view draws again at every click. */
-const last = new WeakMap<FilterUi, { c: SourceCheck; pages: PageTags; filter: TagFilter; out: SourceCheck }>();
+const last = new WeakMap<FilterUi, { c: SourceCheck; pages: PageTags | null; copies: Copies; tagFilter: TagFilter; out: SourceCheck }>();
 
-/**
- * `c` with only the changes and files the filter lets through: what the lists show, and their
- * tick boxes are of. While a filter is set and the tags aren't known, no files and only removals.
- */
+/** `c` with only the changes and files the filter lets through: what the lists show, and their tick boxes are of. */
 export function narrowed(c: SourceCheck, ui: FilterUi, tags: TagsState): SourceCheck {
 	if (!filtering(ui)) return c;
-	if (tags.state !== 'ready') return { ...c, changes: c.changes.filter((ch) => ch.status === 'removed'), files: [] };
-	const { filter } = ui;
+	const { copies, tags: tagFilter } = ui;
+	const pages = tags.state === 'ready' ? tags.pages : null;
 	const was = last.get(ui);
-	if (was && was.c === c && was.pages === tags.pages && was.filter === filter) return was.out;
-	const out = { ...c, changes: news(c.changes, tags.pages, filter), files: passing(c.files, tags.pages, filter) };
-	last.set(ui, { c, pages: tags.pages, filter, out });
+	if (was && was.c === c && was.pages === pages && was.copies === copies && was.tagFilter === tagFilter) return was.out;
+	const keeps = [byCopy(c, copies), isSet(tagFilter) ? byTag(pages, tagFilter) : null].filter((k): k is Keep => k !== null);
+	const out = kept(c, keeps);
+	last.set(ui, { c, pages, copies, tagFilter, out });
 	return out;
 }
 
-/**
- * The changes the filter lets through. News is let through when in doubt: a removed page has no
- * tags at head, and one that couldn't be read might match. Other files have no tags.
- */
-function news(changes: readonly Change[], pages: PageTags, filter: TagFilter): Change[] {
-	return changes.filter((ch) => {
-		if (ch.status === 'removed') return true;
-		if (!isCopyable(ch.path)) return false;
-		const tags = pages.get(ch.path);
-		return tags === undefined || passes(filter, tags);
-	});
-}
+export type FilterAction = Extract<CheckAction, 'filter' | 'filter-copies' | `tag-${string}`>;
 
-export type FilterAction = Extract<CheckAction, `tag-${string}`>;
-
-/** Does what a click in the filter does to what is set; `tag` is the chip's, or a followed combo's line. */
+/** Does what a click in the filter does to what is set; `tag` is the chip's, a followed combo's line, or which copies. */
 export function filterAction(ui: FilterUi, action: Exclude<FilterAction, 'tag-retry' | 'tag-follow'>, tag: string | undefined): void {
 	switch (action) {
-		case 'tag-filter':
+		case 'filter':
 			ui.open = !ui.open;
+			break;
+		case 'filter-copies':
+			ui.copies = COPIES.find((c) => c === tag) ?? 'all';
 			break;
 		case 'tag-include':
 		case 'tag-exclude':
-			if (tag !== undefined) ui.filter = press(ui.filter, tag, action === 'tag-include' ? 'chip' : 'x');
+			if (tag !== undefined) ui.tags = press(ui.tags, tag, action === 'tag-include' ? 'chip' : 'x');
 			break;
 		case 'tag-mode':
-			ui.filter = { ...ui.filter, mode: ui.filter.mode === 'all' ? 'any' : 'all' };
+			ui.tags = { ...ui.tags, mode: ui.tags.mode === 'all' ? 'any' : 'all' };
 			break;
 		case 'tag-more':
 			ui.all = !ui.all;
 			break;
 		case 'tag-clear':
-			ui.filter = NO_FILTER;
+			ui.tags = NO_FILTER;
 			ui.typed = '';
 			break;
 		case 'tag-combo': {
 			// A followed combo sets the filter to it; selected again, it clears it.
 			const c = tag === undefined ? null : parseCombo(tag);
-			if (c) ui.filter = sameFilter(ui.filter, comboFilter(c)) ? NO_FILTER : comboFilter(c);
+			if (c) ui.tags = sameFilter(ui.tags, comboFilter(c)) ? NO_FILTER : comboFilter(c);
 			break;
 		}
 		default:
@@ -95,14 +89,26 @@ export function filterAction(ui: FilterUi, action: Exclude<FilterAction, 'tag-re
 }
 
 /** The button that shows or hides the filter, in the source's `actions` row. */
-export function tagFilterButton(actions: HTMLElement, ui: FilterUi): void {
-	actions.createEl('button', { text: ui.open ? 'Hide tag filter' : 'Filter by tag', attr: { ...actionAttrs('tag-filter'), 'aria-expanded': String(ui.open), 'aria-label': 'Show only pages with the tags you choose, in what\'s new and all files' } });
+export function filterButton(actions: HTMLElement, ui: FilterUi): void {
+	actions.createEl('button', { text: ui.open ? 'Hide filter' : 'Filter', attr: { ...actionAttrs('filter'), 'aria-expanded': String(ui.open), 'aria-label': 'Show only the pages you choose, in what\'s new and all files: by mirrors and forks, or by tag' } });
 }
 
-/** The filter itself, when shown; `followed`: the source's followed tags. */
-export function renderTagFilter(parent: HTMLElement, ui: FilterUi, tags: TagsState, followed: readonly TagCombo[]): void {
+const COPIES_TEXT: Record<Copies, string> = { all: 'All', mirrored: 'Mirrored', forked: 'Forked', neither: 'Neither' };
+
+/** Which files to show by the copies the user has: offered when the source has any, or while set. */
+function copiesRow(el: HTMLElement, ui: FilterUi, c: SourceCheck): void {
+	if (ui.copies === 'all' && !c.mirrored.size && !c.forked.size) return;
+	const row = el.createDiv({ cls: 'publictxt-actions', attr: { role: 'group', 'aria-label': 'Show files by your copies' } });
+	for (const copies of COPIES) {
+		row.createEl('button', { text: COPIES_TEXT[copies], cls: ui.copies === copies ? 'mod-cta' : '', attr: { ...actionAttrs('filter-copies', copies), 'aria-pressed': String(ui.copies === copies) } });
+	}
+}
+
+/** The filter itself, when shown: copies, then tags; `followed`: the source's followed tags. */
+export function renderFilter(parent: HTMLElement, ui: FilterUi, c: SourceCheck, tags: TagsState, followed: readonly TagCombo[]): void {
 	if (!ui.open) return;
 	const el = parent.createDiv({ cls: 'publictxt-tag-filter' });
+	copiesRow(el, ui, c);
 	const row = el.createDiv({ cls: 'publictxt-actions' });
 	if (tags.state === 'error') {
 		el.createEl('p', { cls: 'publictxt-error', text: tags.message });
@@ -118,20 +124,20 @@ export function renderTagFilter(parent: HTMLElement, ui: FilterUi, tags: TagsSta
 		el.createEl('p', { cls: 'publictxt-warning', text: `${pagesText(tags.unread)} couldn't be read.` });
 		retry(el);
 	}
-	if (followed.length) followedRow(el, ui.filter, followed);
-	const list = chips(tags.pages, ui.filter);
+	if (followed.length) followedRow(el, ui.tags, followed);
+	const list = chips(tags.pages, ui.tags);
 	if (!list.length) {
 		el.createEl('p', { cls: 'publictxt-quiet', text: 'No tags in these files.' });
 		return;
 	}
 	row.createEl('input', { type: 'search', placeholder: 'Find a tag', value: ui.typed, attr: { 'data-find': 'tag', 'aria-label': 'Find a tag' } });
 	// All or any only matters once two are included.
-	if (ui.filter.include.size > 1) {
-		const { mode } = ui.filter;
+	if (ui.tags.include.size > 1) {
+		const { mode } = ui.tags;
 		row.createEl('button', { text: mode === 'all' ? 'All' : 'Any', attr: { ...actionAttrs('tag-mode'), 'aria-label': `Pages with ${mode} of the tags. Select for ${mode === 'all' ? 'any' : 'all'}.` } });
 	}
-	if (isSet(ui.filter)) row.createEl('button', { text: 'Clear', attr: actionAttrs('tag-clear') });
-	if (isNew(ui.filter, followed)) row.createEl('button', { text: 'Follow these tags', attr: { ...actionAttrs('tag-follow'), 'aria-label': 'Add them to the follow note: what\'s new then lists the pages with them, the rest folded' } });
+	if (isSet(ui.tags)) row.createEl('button', { text: 'Clear', attr: actionAttrs('tag-clear') });
+	if (isNew(ui.tags, followed)) row.createEl('button', { text: 'Follow these tags', attr: { ...actionAttrs('tag-follow'), 'aria-label': 'Add them to the follow note: what\'s new then lists the pages with them, the rest folded' } });
 	renderChips(el.createDiv({ cls: 'publictxt-chips' }), ui, list);
 }
 
@@ -163,7 +169,7 @@ function retry(el: HTMLElement): void {
 export function redrawChips(el: HTMLElement, ui: FilterUi, tags: TagsState): void {
 	if (tags.state !== 'ready') return;
 	el.empty();
-	renderChips(el, ui, chips(tags.pages, ui.filter));
+	renderChips(el, ui, chips(tags.pages, ui.tags));
 }
 
 function renderChips(el: HTMLElement, ui: FilterUi, list: readonly Chip[]): void {
