@@ -39,6 +39,10 @@ Left as upstream wrote them; Obsidian resolves them. The folder has upstream's l
 doesn't find it. Any other may land on the user's note, or another source's page, of that name:
 the wiki way, unguarded. A link by path to a page forked away dangles.
 
+The link commands work on a mirror ([fork-links.md](fork-links.md)). Links rewritten showing the
+same words aren't an edit ([fork-update.md](fork-update.md)), so an update overwrites the mirror
+unasked, in upstream's form again.
+
 ## Update
 
 **Update** on a file, or **Update mirrors (n)**, overwrites with upstream at the head the check

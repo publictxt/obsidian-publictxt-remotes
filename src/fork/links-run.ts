@@ -4,7 +4,7 @@
 import { App, getFrontMatterInfo, Notice, parseYaml, type CachedMetadata, type EventRef, type TFile } from 'obsidian';
 import { splitLink } from '../copy/link-text.ts';
 import { errorText } from '../remote/vault-host.ts';
-import { readForkMeta, readMirrorMeta } from '../sources/fork-meta.ts';
+import { readForkMeta } from '../sources/fork-meta.ts';
 import { isRecord } from '../util/validate.ts';
 import { nameOf, notePath, reformat, relink, rewriteLinks, type LinkRef } from './links.ts';
 
@@ -57,32 +57,23 @@ export async function linkNew(app: App, written: readonly TFile[], work: LinkWor
 	if (failed.length) new Notice(['Links left as upstream wrote them in:', ...failed].join('\n'), 0);
 }
 
-/** The "Convert links in this note" command: the active fork. */
+/** The "Convert links in this note to the vault's link format" command. */
 export async function convertActive(app: App): Promise<void> {
-	const file = app.workspace.getActiveFile();
-	if (!file || !readForkMeta(app.metadataCache.getFileCache(file)?.frontmatter)) {
-		new Notice('This note is not a fork.');
-		return;
-	}
+	const file = activeNote(app);
+	if (!file) return;
 	try {
 		const { changed } = await workOn(app, file, { convert: true, match: false });
-		new Notice(changed === 0 ? 'No links to convert.' : `Converted ${changed} ${changed === 1 ? 'link' : 'links'}.`);
+		const form = formName(writesWikilinks(app, file));
+		new Notice(changed === 0 ? `No links to convert to ${form}.` : `Converted ${changed} ${plural(changed, 'link')} to ${form}.`);
 	} catch (e) {
 		new Notice(errorText(e));
 	}
 }
 
-/** The "Match links in this note" command: the active note, unless it is a mirror. */
+/** The "Match links in this note" command. */
 export async function matchActive(app: App): Promise<void> {
-	const file = app.workspace.getActiveFile();
-	if (!file || file.extension !== 'md') {
-		new Notice('No note is open.');
-		return;
-	}
-	if (readMirrorMeta(app.metadataCache.getFileCache(file)?.frontmatter)) {
-		new Notice('This note is a mirror: its links stay as upstream wrote them.');
-		return;
-	}
+	const file = activeNote(app);
+	if (!file) return;
 	try {
 		new Notice(matchText(await workOn(app, file, { convert: false, match: true })));
 	} catch (e) {
@@ -90,32 +81,92 @@ export async function matchActive(app: App): Promise<void> {
 	}
 }
 
-/** What matching did, as a notice. */
-function matchText(t: LinkTally): string {
-	if (t.matched + t.several + t.none === 0) return 'No broken links.';
+/** The "Fix links in this note" command: convert and match. */
+export async function fixActive(app: App): Promise<void> {
+	const file = activeNote(app);
+	if (!file) return;
+	try {
+		new Notice(fixText(await workOn(app, file, { convert: true, match: true })));
+	} catch (e) {
+		new Notice(errorText(e));
+	}
+}
+
+/**
+ * The active note; `null`, with a notice, when none is open. Mirrors too: links changed so, showing
+ * the same words, aren't an edit, so an update still overwrites the mirror unasked.
+ */
+function activeNote(app: App): TFile | null {
+	const file = app.workspace.getActiveFile();
+	if (file?.extension === 'md') return file;
+	new Notice('No note is open.');
+	return null;
+}
+
+/** Whether the vault writes wikilinks. Obsidian's setting isn't public API: ask it for a link and see which kind comes back. */
+export function writesWikilinks(app: App, file: TFile): boolean {
+	return app.fileManager.generateMarkdownLink(file, file.path).startsWith('[[');
+}
+
+export function formName(wiki: boolean): string {
+	return wiki ? 'wikilinks' : 'Markdown links';
+}
+
+function plural(n: number, word: string): string {
+	return n === 1 ? word : `${word}s`;
+}
+
+/** The broken links matching left, as a sentence; empty when none. */
+function leftText(t: LinkTally): string {
 	const left: string[] = [];
 	if (t.several) left.push(`${t.several} ${t.several === 1 ? 'has' : 'have'} several matches`);
 	if (t.none) left.push(`${t.none} ${t.none === 1 ? 'has' : 'have'} none`);
-	return `Matched ${t.matched} ${t.matched === 1 ? 'link' : 'links'}.${left.length ? ` ${left.join(', ')}.` : ''}`;
+	return left.length ? ` ${left.join(', ')}.` : '';
+}
+
+/** What matching did, as a notice. */
+function matchText(t: LinkTally): string {
+	if (t.matched + t.several + t.none === 0) return 'No broken links.';
+	return `Matched ${t.matched} ${plural(t.matched, 'link')}.${leftText(t)}`;
+}
+
+/** What converting and matching did, as a notice. */
+function fixText(t: LinkTally): string {
+	if (t.changed + t.several + t.none === 0) return 'No links to fix.';
+	const matched = t.matched ? `, ${t.matched} by matching` : '';
+	return `Fixed ${t.changed} ${plural(t.changed, 'link')}${matched}.${leftText(t)}`;
 }
 
 const NOT_READ = 'Obsidian has not read the note yet.';
+
+/** What `work` makes of a link of a note, from its line: the link (`null`: left), and the note it was matched to. */
+export type Rewrite = (ref: LinkRef, line: string) => { link: string | null; to: TFile | null };
+
+/** How `work` rewrites the links `refs` of `file`, how the vault writes links, and how many broken ones have several matches or none. */
+export function rewriterFor(app: App, file: TFile, refs: readonly LinkRef[], work: LinkWork): { rewrite: Rewrite; wiki: boolean; several: number; none: number } {
+	const { matches, several, none } = work.match ? matchesFor(app, file, refs) : { matches: new Map<LinkRef, TFile>(), several: 0, none: 0 };
+	const wiki = writesWikilinks(app, file);
+	const rewrite: Rewrite = (ref, line) => {
+		const to = matches.get(ref);
+		const link = to ? relink(ref, app.metadataCache.fileToLinktext(to, file.path, true), wiki, line) : null;
+		if (to && link !== null) return { link, to };
+		return { link: work.convert ? reformat(ref, wiki, line) : null, to: null };
+	};
+	return { rewrite, wiki, several, none };
+}
 
 /** Does `work` on the links of `file`, in one write. Throws why it couldn't. */
 async function workOn(app: App, file: TFile, work: LinkWork): Promise<LinkTally> {
 	if (!(await whenCached(app, file, CACHE_WAIT_MS))) throw new Error(NOT_READ);
 	const refs = refsOf(app.metadataCache.getFileCache(file));
-	const { matches, several, none } = work.match ? matchesFor(app, file, refs) : { matches: new Map<LinkRef, TFile>(), several: 0, none: 0 };
-	// Obsidian's setting isn't public API: ask it for a link and see which kind comes back.
-	const wiki = app.fileManager.generateMarkdownLink(file, file.path).startsWith('[[');
+	const { rewrite: one, several, none } = rewriterFor(app, file, refs, work);
 	let matched = 0;
 	const rewrite = (text: string) => {
 		matched = 0;
 		return rewriteLinks(text, refs, (ref, line) => {
-			const to = matches.get(ref);
-			const link = to ? relink(ref, app.metadataCache.fileToLinktext(to, file.path, true), wiki, line) : null;
-			if (link !== null) matched++;
-			return link ?? (work.convert ? reformat(ref, wiki, line) : null);
+			const { link, to } = one(ref, line);
+			if (to) matched++;
+			return link;
 		});
 	};
 	if (rewrite(await app.vault.cachedRead(file))?.changed === 0) return { changed: 0, matched, several, none };
@@ -150,7 +201,7 @@ function matchesFor(app: App, file: TFile, refs: readonly LinkRef[]): { matches:
 }
 
 /** The links and embeds Obsidian found in a note's body, in the form `rewriteLinks` takes. */
-function refsOf(cache: CachedMetadata | null): LinkRef[] {
+export function refsOf(cache: CachedMetadata | null): LinkRef[] {
 	const refs: LinkRef[] = [];
 	for (const r of [...(cache?.links ?? []), ...(cache?.embeds ?? [])]) {
 		refs.push({ start: r.position.start.offset, end: r.position.end.offset, original: r.original, link: r.link });

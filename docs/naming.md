@@ -7,7 +7,7 @@
 | Repo | `publictxt/obsidian-publictxt-remotes` |
 | Plugin `id` / name | `publictxt-remotes` / PublicTxt Remotes |
 | View types | `publictxt-check`, `publictxt-upstream` |
-| Command ids | `check-sources`, `open-check-view`, `mirror-file`, `stop-mirroring`, `fork-mirror`, `fork-file`, `compare-fork`, `convert-links`, `match-links`, `update-page-lists` |
+| Command ids | `check-sources`, `open-check-view`, `mirror-file`, `stop-mirroring`, `fork-mirror`, `fork-file`, `compare-fork`, `convert-links`, `match-links`, `fix-links`, `convert-link-at-cursor`, `match-link-at-cursor`, `fix-link-at-cursor`, `update-page-lists` |
 
 ## Vocabulary
 
@@ -32,8 +32,9 @@
 | community folder | Holds each source's **mirror folder** (`communityFolder`; the source's `folder`, else its remote name) |
 | fork folder | Default fork destination (`forkFolder`) |
 | mirror list / fork list | The "Mirrored pages" / "Forked pages" sections in a follow note |
-| convert links | Write a fork's links in the vault's form, paths kept |
+| convert links | Write a note's links in the vault's form (wikilinks or Markdown), paths kept |
 | match links | Point broken links at the one note of that name |
+| fix links | Convert and match: broken links matched, the rest converted |
 | check | One pass over the sources: what's new, mirrors, forks |
 | tag filter | Included and excluded tags that narrow what's new and all files |
 | tag index | The tags of a commit's Markdown files, kept in the clone |
